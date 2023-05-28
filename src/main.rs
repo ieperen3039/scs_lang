@@ -1,12 +1,14 @@
 use crate::commandline_parser::ArgumentParser;
 
+pub mod compiler;
+
 mod commandline_parser;
-pub mod lexer;
+mod lexer;
+mod scs_lexer;
+mod parser;
 
 #[cfg(test)]
 mod tests;
-pub mod scs_lexer;
-mod parser;
 
 fn main() {
     let mut arg_parser = ArgumentParser::new();

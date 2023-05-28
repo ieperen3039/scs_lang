@@ -1,53 +1,41 @@
 use simple_error::SimpleError;
 
-use crate::{lexer::{Lexer, Token}, scs_lexer::ScsToken};
+use crate::{lexer::Token, scs_lexer::ScsToken};
 
-pub struct ScsCompiler {
-    lexer : Lexer<ScsToken>
+struct ParseToken<'a> {
+    base: Token<'a, ScsToken>,
 }
 
-struct ParseToken<'a>
-{
-    base : Token<'a, ScsToken>,
-
+enum TreeNode<'a> {
+    Branch(Vec<TreeNode<'a>>),
+    Token(ParseToken<'a>),
 }
 
-struct Parser<'a>
-{
-    tokens : Vec<Token<'a, ScsToken>>
+pub struct Parser<'a> {
+    current_scope: TreeNode<'a>,
 }
 
-impl ScsCompiler {
-    pub fn new() -> ScsCompiler
-    {
-        ScsCompiler { lexer : Lexer::new_scs() }
+impl<'a> Parser<'a> {
+    pub fn new() -> Parser<'a> {
+        todo!()
     }
 
-    pub fn compile(&self, program_string : &str) -> Result<(), SimpleError>
-    {
-        let tokens = self.lexer.read_all(program_string)?;
+    pub fn process(&mut self, tokens: &Vec<Token<'a, ScsToken>>) -> Result<(), SimpleError> {
+        let token = tokens
+            .first()
+            .ok_or(SimpleError::new("Ran out of tokens"))?;
 
-        let mut parser = Parser::new();
+        match token.class {
+            ScsToken::Whitespace | ScsToken::Comment | ScsToken::CommentBlock => Ok(()),
+            ScsToken::BracketOpen
+            | ScsToken::ParenthesisOpen
+            | ScsToken::AngleBracketOpen
+            | ScsToken::SquareBracketOpen => {
+                // TreeNode::Branch(Vec::new());
 
-        for token in tokens {
-            match token.class {
-                ScsToken::Whitespace |
-                ScsToken::Comment |
-                ScsToken::CommentBlock => {}
-                _ => parser.process(token)
+                Ok(())
             }
+            _ => Ok(()),
         }
-
-        Ok(())
-    }
-}
-
-impl <'a> Parser<'a> {
-    fn new() -> Parser<'a> {
-        Parser { tokens : Vec::new() }
-    }
-
-    fn process(&mut self, token: Token<'a, ScsToken>) {
-        
     }
 }
