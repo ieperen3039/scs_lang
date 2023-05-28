@@ -1,7 +1,7 @@
 use crate::lexer::Lexer;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum ScsTokens {
+pub enum ScsToken {
     Whitespace,
     Name,
     NumberLiteral,
@@ -18,34 +18,34 @@ pub enum ScsTokens {
     CommentBlock,
 }
 
-impl Lexer<ScsTokens> {
-    pub fn new_scs() -> Lexer<ScsTokens> {
+impl Lexer<ScsToken> {
+    pub fn new_scs() -> Lexer<ScsToken> {
         Lexer::new(vec![
-            (ScsTokens::Whitespace, r#"[\s\n]+"#),
-            (ScsTokens::Comment, r#"\/\/.*"#),
-            (ScsTokens::CommentBlock, r#"\/\*.*\*\/"#),
-            (ScsTokens::BracketOpen, r#"\{"#),
-            (ScsTokens::BracketClose, r#"\}"#),
-            (ScsTokens::ParenthesisOpen, r#"\("#),
-            (ScsTokens::ParenthesisClose, r#"\)"#),
-            (ScsTokens::SquareBracketOpen, r#"\["#),
-            (ScsTokens::SquareBracketClose, r#"\]"#),
-            (ScsTokens::AngleBracketOpen, r#"<"#),
-            (ScsTokens::AngleBracketClose, r#">"#),
-            (ScsTokens::Name, r#"[a-zA-Z_][a-zA-Z0-9_]*"#),
-            (ScsTokens::StringLiteral, r#""(.*?[^\\]|)\""#),
-            (ScsTokens::NumberLiteral, r#"[\d_]+.?[\d_]*"#),
+            (ScsToken::Whitespace, r#"[\s\n]+"#),
+            (ScsToken::Comment, r#"\/\/.*"#),
+            (ScsToken::CommentBlock, r#"\/\*.*\*\/"#),
+            (ScsToken::BracketOpen, r#"\{"#),
+            (ScsToken::BracketClose, r#"\}"#),
+            (ScsToken::ParenthesisOpen, r#"\("#),
+            (ScsToken::ParenthesisClose, r#"\)"#),
+            (ScsToken::SquareBracketOpen, r#"\["#),
+            (ScsToken::SquareBracketClose, r#"\]"#),
+            (ScsToken::AngleBracketOpen, r#"<"#),
+            (ScsToken::AngleBracketClose, r#">"#),
+            (ScsToken::Name, r#"[a-zA-Z_][a-zA-Z0-9_]*"#),
+            (ScsToken::StringLiteral, r#""(.*?[^\\]|)\""#),
+            (ScsToken::NumberLiteral, r#"[\d_]+.?[\d_]*"#),
         ])
     }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum ProgramTokens {
+pub enum ProgramToken {
     SheBang
 }
 
-pub fn create_program_lexer() -> Lexer<ProgramTokens> {
+pub fn create_program_lexer() -> Lexer<ProgramToken> {
     Lexer::new(vec![
-        (ProgramTokens::SheBang, r#"#!.*"#),
+        (ProgramToken::SheBang, r#"#!.*"#),
     ])
 }

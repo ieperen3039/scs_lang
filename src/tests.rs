@@ -1,4 +1,4 @@
-use crate::{scs_lexer::ScsTokens, lexer::Lexer};
+use crate::{scs_lexer::ScsToken, lexer::Lexer};
 
 #[test]
 fn lexer_small_execute() {
@@ -21,29 +21,29 @@ fn lexer_small_execute() {
     };
 
     let expected = [
-        ScsTokens::Whitespace,
-        ScsTokens::Name, // function
-        ScsTokens::ParenthesisOpen,
-        ScsTokens::Name,
-        ScsTokens::ParenthesisClose,
-        ScsTokens::Whitespace,
-        ScsTokens::Name, // curry_fn1
-        ScsTokens::Whitespace,
-        ScsTokens::Name, // curry_fn2
-        ScsTokens::ParenthesisOpen,
-        ScsTokens::Name, // parameter2
-        ScsTokens::ParenthesisClose,
-        ScsTokens::Whitespace,
-        ScsTokens::AngleBracketClose,
-        ScsTokens::Whitespace, // Type1
-        ScsTokens::Name,
-        ScsTokens::Whitespace,
-        ScsTokens::Name,
-        ScsTokens::Whitespace,
-        ScsTokens::Name,
-        ScsTokens::Whitespace,
-        ScsTokens::Name,
-        ScsTokens::Whitespace,
+        ScsToken::Whitespace,
+        ScsToken::Name, // function
+        ScsToken::ParenthesisOpen,
+        ScsToken::Name,
+        ScsToken::ParenthesisClose,
+        ScsToken::Whitespace,
+        ScsToken::Name, // curry_fn1
+        ScsToken::Whitespace,
+        ScsToken::Name, // curry_fn2
+        ScsToken::ParenthesisOpen,
+        ScsToken::Name, // parameter2
+        ScsToken::ParenthesisClose,
+        ScsToken::Whitespace,
+        ScsToken::AngleBracketClose,
+        ScsToken::Whitespace, // Type1
+        ScsToken::Name,
+        ScsToken::Whitespace,
+        ScsToken::Name,
+        ScsToken::Whitespace,
+        ScsToken::Name,
+        ScsToken::Whitespace,
+        ScsToken::Name,
+        ScsToken::Whitespace,
     ];
 
     for i in 0..expected.len() {

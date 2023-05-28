@@ -1,23 +1,53 @@
 use simple_error::SimpleError;
 
-use crate::{lexer::Lexer, scs_lexer::ScsTokens};
+use crate::{lexer::{Lexer, Token}, scs_lexer::ScsToken};
 
-pub struct ScsParser {
-    lexer : Lexer<ScsTokens>
+pub struct ScsCompiler {
+    lexer : Lexer<ScsToken>
 }
 
-impl ScsParser {
-    pub fn new() -> ScsParser
+struct ParseToken<'a>
+{
+    base : Token<'a, ScsToken>,
+
+}
+
+struct Parser<'a>
+{
+    tokens : Vec<Token<'a, ScsToken>>
+}
+
+impl ScsCompiler {
+    pub fn new() -> ScsCompiler
     {
-        ScsParser { lexer : Lexer::new_scs() }
+        ScsCompiler { lexer : Lexer::new_scs() }
     }
 
-    pub fn parse(&self, program_string : &str) -> Result<(), SimpleError>
+    pub fn compile(&self, program_string : &str) -> Result<(), SimpleError>
     {
         let tokens = self.lexer.read_all(program_string)?;
 
-        // parse...
+        let mut parser = Parser::new();
+
+        for token in tokens {
+            match token.class {
+                ScsToken::Whitespace |
+                ScsToken::Comment |
+                ScsToken::CommentBlock => {}
+                _ => parser.process(token)
+            }
+        }
 
         Ok(())
+    }
+}
+
+impl <'a> Parser<'a> {
+    fn new() -> Parser<'a> {
+        Parser { tokens : Vec::new() }
+    }
+
+    fn process(&mut self, token: Token<'a, ScsToken>) {
+        
     }
 }
