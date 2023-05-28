@@ -1,0 +1,46 @@
+#! /bin/solid_command_sequence
+// if the first line starts with a shebang, we ignore that line
+// also, 'solid_command_sequence.exe' because we verbose
+
+// definitely start with the language version
+// <dialect-word><space><major>.<minor>.<patch>
+// should match (?'dialect')\s(?'major':\d+)\.(?'minor':\d+)\.(?'patch':\d+)
+scs 0.0.1
+
+// include '.scsdef' files
+Include [
+	"std",
+	"visionTest1",
+	"visionTest2",
+]
+
+// type-checked replacements of categories or types or functions
+Alias [
+	fs = std.fs
+]
+
+Execute {
+	fs.directoryOfThis 
+		> AbsoluteFilePath directory
+		
+	directory 
+		append("settings") // if no namespace is given, it is assumed to be a method (this calls `directory.append("settings")`)
+		> AbsoluteFilePath settings
+		
+	directory 
+		getParent // if no arguments are given, parenthesis can be omitted
+		append("copy/settings") 
+		> AbsoluteFilePath settingsCopyPath
+		
+	settings 
+		copyTo(settingsCopyPath)
+		orThrow
+		> AbsoluteFilePath settingsCopy
+		
+	std.parallel([
+        grf.visionTest1(settings),
+		grf.visionTest2(settingsCopy)
+    ])
+		std.all equalTo(0)
+        > return
+}
