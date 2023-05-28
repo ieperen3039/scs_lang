@@ -1,4 +1,4 @@
-use crate::{scs_lexer::{create_scs_lexer, ScsTokens}};
+use crate::{scs_lexer::ScsTokens, lexer::Lexer};
 
 #[test]
 fn lexer_small_execute() {
@@ -12,7 +12,7 @@ fn lexer_small_execute() {
             curry_fn3
             > return
     "#;
-    let lexer = create_scs_lexer();
+    let lexer = Lexer::new_scs();
     let tokens = {
         let tokens = lexer.read_all(program);
 
