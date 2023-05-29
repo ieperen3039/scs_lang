@@ -1,41 +1,69 @@
 use simple_error::SimpleError;
+use crate::ast::*;
 
 use crate::{lexer::Token, scs_lexer::ScsToken};
 
-struct ParseToken<'a> {
-    base: Token<'a, ScsToken>,
+struct ParseResult<'a> {
+    node: ProtoExpression,
+    remaining_tokens: &'a [Token<'a, ScsToken>],
 }
 
-enum TreeNode<'a> {
-    Branch(Vec<TreeNode<'a>>),
-    Token(ParseToken<'a>),
+struct ProtoFunctionBody {
+    statements : Vec<ProtoStatement>
 }
 
-pub struct Parser<'a> {
-    current_scope: TreeNode<'a>,
+struct ProtoStatement {
+    expressions : Vec<ProtoExpression>
 }
 
-impl<'a> Parser<'a> {
-    pub fn new() -> Parser<'a> {
+enum ProtoExpression {
+    VariableName(String),
+    StaticFunctionCall(ProtoFunctionCall),
+    MemberFunctionCall(ProtoFunctionCall),
+    FunctionBlock(ProtoFunctionBody)
+}
+
+struct ProtoFunctionCall {
+    name : String,
+    parameters : Vec<ProtoExpression>,
+}
+
+pub struct Parser {
+    variables: Vec<TypeDefinition>,
+    functions: Vec<FunctionDefinition>,
+}
+
+impl Parser {
+    pub fn new() -> Parser {
         todo!()
     }
 
-    pub fn process(&mut self, tokens: &Vec<Token<'a, ScsToken>>) -> Result<(), SimpleError> {
-        let token = tokens
-            .first()
-            .ok_or(SimpleError::new("Ran out of tokens"))?;
+    pub fn process(&self, tokens: &Vec<Token<ScsToken>>) -> Result<FunctionBody, SimpleError> {
+        todo!()
+    }
 
-        match token.class {
-            ScsToken::Whitespace | ScsToken::Comment | ScsToken::CommentBlock => Ok(()),
-            ScsToken::BracketOpen
-            | ScsToken::ParenthesisOpen
-            | ScsToken::AngleBracketOpen
-            | ScsToken::SquareBracketOpen => {
-                // TreeNode::Branch(Vec::new());
+    // function_call = Name, [ParenthesisOpen, { Name, } ParenthesisClose]
+    fn process_function_call(&self, tokens: &[Token<ScsToken>]) -> Option<ParseResult> {
+        let name = Parser::get_first_if(&tokens, ScsToken::Name)?;
 
-                Ok(())
+        if Parser::first_is(&tokens[1..], ScsToken::ParenthesisOpen) {
+            let parameter_types: Vec<String>;
+            let token_idx = 2;
+
+            while let Some(variable_name) =
+                Parser::get_first_if(&tokens[token_idx..], ScsToken::Name)
+            {
             }
-            _ => Ok(()),
         }
+
+        todo!()
+    }
+
+    fn get_first_if<'a>(tokens: &[Token<'a, ScsToken>], token: ScsToken) -> Option<&'a str> {
+        tokens.get(0).filter(|t| t.class == token).map(|t| t.slice)
+    }
+
+    fn first_is(tokens: &[Token<ScsToken>], token: ScsToken) -> bool {
+        tokens.get(0).map(|t| t.class == token).unwrap_or(false)
     }
 }

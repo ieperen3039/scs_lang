@@ -21,6 +21,8 @@ impl ArgumentParser {
         let mut parameters: Vec<Parameter> = Vec::new();
         let mut flags: Vec<Flag> = Vec::new();
 
+        let program_name = arg_itr.next();
+
         let mut next_arg = arg_itr.next();
 
         while let Some(name) = next_arg {

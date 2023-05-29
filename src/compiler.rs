@@ -14,7 +14,8 @@ impl ScsCompiler {
 
     pub fn compile(&self, program_string : &str) -> Result<(), SimpleError>
     {
-        let tokens = self.lexer.read_all(program_string)?;
+        let mut tokens : Vec<Token<ScsToken>> = self.lexer.read_all(program_string)?;
+        tokens.retain(|t| (t.class != ScsToken::Whitespace) && (t.class != ScsToken::Comment) && (t.class != ScsToken::CommentBlock));
 
         let mut parser = Parser::new();
         let result = parser.process(&tokens)?;

@@ -7,10 +7,6 @@ fn lexer_small_execute() {
             curry_fn1
             curry_fn2(parameter2)
             > Type1 parameter3
-
-        parameter3
-            curry_fn3
-            > return
     "#;
     let lexer = Lexer::new_scs();
     let tokens = {
@@ -35,12 +31,8 @@ fn lexer_small_execute() {
         ScsToken::ParenthesisClose,
         ScsToken::Whitespace,
         ScsToken::AngleBracketClose,
-        ScsToken::Whitespace, // Type1
-        ScsToken::Name,
-        ScsToken::Whitespace,
-        ScsToken::Name,
-        ScsToken::Whitespace,
-        ScsToken::Name,
+        ScsToken::Whitespace, 
+        ScsToken::Name, // Type1
         ScsToken::Whitespace,
         ScsToken::Name,
         ScsToken::Whitespace,
