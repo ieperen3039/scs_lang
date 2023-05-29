@@ -1,7 +1,7 @@
 use regex::Regex;
 use simple_error::SimpleError;
 
-const LEXER_ERROR_INDICATOR_OFFSET : usize = 20;
+const LEXER_ERROR_INDICATOR_OFFSET: usize = 20;
 
 pub struct Lexer<T: Copy> {
     elements: Vec<TokenDefinition<T>>,
@@ -15,7 +15,8 @@ struct TokenDefinition<T: Copy> {
 #[derive(Clone, Debug)]
 pub struct Token<'a, T: Copy> {
     pub class: T,
-    pub slice: &'a str
+    pub slice: &'a str,
+    pub char_idx: usize,
 }
 
 impl<T: Copy> Lexer<T> {
@@ -51,12 +52,14 @@ impl<T: Copy> Lexer<T> {
             match self.read_token(&string[cursor..]) {
                 Some((class, size)) => {
                     let slice = &string[cursor..(cursor + size)];
-                    tokens.push(Token { class, slice });
+                    tokens.push(Token {
+                        class,
+                        slice,
+                        char_idx: cursor,
+                    });
                     cursor += size;
-                },
-                None => {
-                    return Err(SimpleError::new(error_message_parse(string, cursor)))
                 }
+                None => return Err(SimpleError::new(error_message_parse(string, cursor))),
             }
         }
 
@@ -68,7 +71,7 @@ fn error_message_parse(string: &str, index: usize) -> String {
     let start = index - LEXER_ERROR_INDICATOR_OFFSET;
     let end = index + LEXER_ERROR_INDICATOR_OFFSET;
     let mut message = String::from("Unknown symbol:\n");
-    message += &string[start .. end];
+    message += &string[start..end];
     message += "\n";
     for _i in [0..LEXER_ERROR_INDICATOR_OFFSET] {
         message += " ";

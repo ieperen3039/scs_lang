@@ -3,7 +3,7 @@ use simple_error::SimpleError;
 use crate::{lexer::Token, scs_lexer::ScsToken};
 
 pub struct OkResult<'a, T> {
-    syntax_node: T,
+    val: T,
     remaining_tokens: &'a [Token<'a, ScsToken>],
 }
 
@@ -77,10 +77,10 @@ impl Parser {
         let method_call = self.process_method_call(colon2.remaining_tokens)?;
 
         Ok(OkResult {
-            syntax_node: StaticFunctionCall {
-                namespace: String::from(namespace.syntax_node),
-                name: method_call.syntax_node.name,
-                arguments: method_call.syntax_node.arguments,
+            val: StaticFunctionCall {
+                namespace: String::from(namespace.val),
+                name: method_call.val.name,
+                arguments: method_call.val.arguments,
             },
             remaining_tokens: method_call.remaining_tokens,
         })
@@ -98,16 +98,16 @@ impl Parser {
                 self.process_token(argument_list.remaining_tokens, ScsToken::ParenthesisClose)?;
 
             Ok(OkResult {
-                syntax_node: MethodCall {
-                    name: String::from(name.syntax_node),
-                    arguments: argument_list.syntax_node,
+                val: MethodCall {
+                    name: String::from(name.val),
+                    arguments: argument_list.val,
                 },
                 remaining_tokens: close_parenthesis.remaining_tokens,
             })
         } else {
             Ok(OkResult {
-                syntax_node: MethodCall {
-                    name: String::from(name.syntax_node),
+                val: MethodCall {
+                    name: String::from(name.val),
                     arguments: Vec::new(),
                 },
                 remaining_tokens: name.remaining_tokens,
@@ -120,15 +120,15 @@ impl Parser {
         let mut all_arguments = Vec::new();
 
         let mut this_argument = self.process_named_argument(tokens)?;
-        all_arguments.push(this_argument.syntax_node);
+        all_arguments.push(this_argument.val);
 
         while let Ok(comma) = self.process_token(this_argument.remaining_tokens, ScsToken::Comma) {
             this_argument = self.process_named_argument(comma.remaining_tokens)?;
-            all_arguments.push(this_argument.syntax_node);
+            all_arguments.push(this_argument.val);
         }
 
         Ok(OkResult {
-            syntax_node: all_arguments,
+            val: all_arguments,
             remaining_tokens: this_argument.remaining_tokens,
         })
     }
@@ -137,14 +137,14 @@ impl Parser {
     fn process_named_argument(&self, tokens: &[Token<ScsToken>]) -> ParseResult<NamedArgument> {
         let parameter_name = self.process_token(&tokens, ScsToken::Name)?;
         let comma = self.process_token(parameter_name.remaining_tokens, ScsToken::Colon)?;
-        let value = self.process_expression(comma.remaining_tokens)?;
+        let arg_value = self.process_expression(comma.remaining_tokens)?;
 
         Ok(OkResult {
-            syntax_node: NamedArgument {
-                parameter_name: String::from(parameter_name.syntax_node),
-                value: value.syntax_node,
+            val: NamedArgument {
+                parameter_name: String::from(parameter_name.val),
+                value: arg_value.val,
             },
-            remaining_tokens: value.remaining_tokens,
+            remaining_tokens: arg_value.remaining_tokens,
         })
     }
 
@@ -158,7 +158,7 @@ impl Parser {
 
         if found_token.class == token {
             Ok(OkResult {
-                syntax_node: found_token.slice,
+                val: found_token.slice,
                 remaining_tokens: &tokens[1..],
             })
         } else {
