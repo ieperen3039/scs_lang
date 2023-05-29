@@ -1,69 +1,171 @@
 use simple_error::SimpleError;
-use crate::ast::*;
 
 use crate::{lexer::Token, scs_lexer::ScsToken};
 
-struct ParseResult<'a> {
-    node: ProtoExpression,
+pub struct OkResult<'a, T> {
+    syntax_node: T,
     remaining_tokens: &'a [Token<'a, ScsToken>],
 }
 
-struct ProtoFunctionBody {
-    statements : Vec<ProtoStatement>
+pub enum ErrResult<'a> {
+    Error(SimpleError),
+    OutOfTokens {
+        expected: ScsToken,
+    },
+    UnexpectedToken {
+        found: Token<'a, ScsToken>,
+        expected: ScsToken,
+    },
 }
 
-struct ProtoStatement {
-    expressions : Vec<ProtoExpression>
+type ParseResult<'a, T> = Result<OkResult<'a, T>, ErrResult<'a>>;
+
+pub struct FunctionBody {
+    statements: Vec<Statement>,
 }
 
-enum ProtoExpression {
+pub struct Statement {
+    expressions: Vec<Expression>,
+}
+
+pub enum Expression {
     VariableName(String),
-    StaticFunctionCall(ProtoFunctionCall),
-    MemberFunctionCall(ProtoFunctionCall),
-    FunctionBlock(ProtoFunctionBody)
+    StaticFunctionCall(StaticFunctionCall),
+    MemberFunctionCall(MethodCall),
+    FunctionBlock(FunctionBody),
 }
 
-struct ProtoFunctionCall {
-    name : String,
-    parameters : Vec<ProtoExpression>,
+pub struct StaticFunctionCall {
+    namespace: String,
+    name: String,
+    arguments: Vec<NamedArgument>,
 }
 
-pub struct Parser {
-    variables: Vec<TypeDefinition>,
-    functions: Vec<FunctionDefinition>,
+pub struct MethodCall {
+    name: String,
+    arguments: Vec<NamedArgument>,
 }
+
+pub struct NamedArgument {
+    parameter_name: String,
+    value: Expression,
+}
+
+pub struct Parser {}
 
 impl Parser {
     pub fn new() -> Parser {
         todo!()
     }
 
-    pub fn process(&self, tokens: &Vec<Token<ScsToken>>) -> Result<FunctionBody, SimpleError> {
+    pub fn parse(&self, tokens: &Vec<Token<ScsToken>>) -> ParseResult<FunctionBody> {
         todo!()
     }
 
-    // function_call = Name, [ParenthesisOpen, { Name, } ParenthesisClose]
-    fn process_function_call(&self, tokens: &[Token<ScsToken>]) -> Option<ParseResult> {
-        let name = Parser::get_first_if(&tokens, ScsToken::Name)?;
+    fn process_expression(&self, tokens: &[Token<ScsToken>]) -> ParseResult<Expression> {
+        todo!()
+    }
 
-        if Parser::first_is(&tokens[1..], ScsToken::ParenthesisOpen) {
-            let parameter_types: Vec<String>;
-            let token_idx = 2;
+    // static_function_call = Name, Colon, Colon, method_call
+    fn process_static_function_call(
+        &self,
+        tokens: &[Token<ScsToken>],
+    ) -> ParseResult<StaticFunctionCall> {
+        let namespace = self.process_token(&tokens, ScsToken::Name)?;
+        let colon1 = self.process_token(namespace.remaining_tokens, ScsToken::Colon)?;
+        let colon2 = self.process_token(colon1.remaining_tokens, ScsToken::Colon)?;
+        let method_call = self.process_method_call(colon2.remaining_tokens)?;
 
-            while let Some(variable_name) =
-                Parser::get_first_if(&tokens[token_idx..], ScsToken::Name)
-            {
-            }
+        Ok(OkResult {
+            syntax_node: StaticFunctionCall {
+                namespace: String::from(namespace.syntax_node),
+                name: method_call.syntax_node.name,
+                arguments: method_call.syntax_node.arguments,
+            },
+            remaining_tokens: method_call.remaining_tokens,
+        })
+    }
+
+    // method_call = Name, [ParenthesisOpen, argument_list, ParenthesisClose]
+    fn process_method_call(&self, tokens: &[Token<ScsToken>]) -> ParseResult<MethodCall> {
+        let name = self.process_token(&tokens, ScsToken::Name)?;
+
+        if let Ok(parenthesis) =
+            self.process_token(name.remaining_tokens, ScsToken::ParenthesisOpen)
+        {
+            let argument_list = self.process_argument_list(parenthesis.remaining_tokens)?;
+            let close_parenthesis =
+                self.process_token(argument_list.remaining_tokens, ScsToken::ParenthesisClose)?;
+
+            Ok(OkResult {
+                syntax_node: MethodCall {
+                    name: String::from(name.syntax_node),
+                    arguments: argument_list.syntax_node,
+                },
+                remaining_tokens: close_parenthesis.remaining_tokens,
+            })
+        } else {
+            Ok(OkResult {
+                syntax_node: MethodCall {
+                    name: String::from(name.syntax_node),
+                    arguments: Vec::new(),
+                },
+                remaining_tokens: name.remaining_tokens,
+            })
+        }
+    }
+
+    // argument_list = named_argument, { Comma, named_argument }
+    fn process_argument_list(&self, tokens: &[Token<ScsToken>]) -> ParseResult<Vec<NamedArgument>> {
+        let mut all_arguments = Vec::new();
+
+        let mut this_argument = self.process_named_argument(tokens)?;
+        all_arguments.push(this_argument.syntax_node);
+
+        while let Ok(comma) = self.process_token(this_argument.remaining_tokens, ScsToken::Comma) {
+            this_argument = self.process_named_argument(comma.remaining_tokens)?;
+            all_arguments.push(this_argument.syntax_node);
         }
 
-        todo!()
+        Ok(OkResult {
+            syntax_node: all_arguments,
+            remaining_tokens: this_argument.remaining_tokens,
+        })
     }
 
-    fn get_first_if<'a>(tokens: &[Token<'a, ScsToken>], token: ScsToken) -> Option<&'a str> {
-        tokens.get(0).filter(|t| t.class == token).map(|t| t.slice)
+    // named_argument = Name, Colon, expression
+    fn process_named_argument(&self, tokens: &[Token<ScsToken>]) -> ParseResult<NamedArgument> {
+        let parameter_name = self.process_token(&tokens, ScsToken::Name)?;
+        let comma = self.process_token(parameter_name.remaining_tokens, ScsToken::Colon)?;
+        let value = self.process_expression(comma.remaining_tokens)?;
+
+        Ok(OkResult {
+            syntax_node: NamedArgument {
+                parameter_name: String::from(parameter_name.syntax_node),
+                value: value.syntax_node,
+            },
+            remaining_tokens: value.remaining_tokens,
+        })
     }
 
-    fn first_is(tokens: &[Token<ScsToken>], token: ScsToken) -> bool {
-        tokens.get(0).map(|t| t.class == token).unwrap_or(false)
+    // if the first token in `tokens` is of the given token class, wrap the string slice of this token into an OkResult.
+    // if the first token in `tokens` is not of the given token class, return an ErrResult::UnexpectedToken.
+    // if there are no tokens in `tokens` return an ErrResult::OutOfTokens.
+    fn process_token(&self, tokens: &[Token<ScsToken>], token: ScsToken) -> ParseResult<&str> {
+        let found_token = tokens
+            .get(0)
+            .ok_or(ErrResult::OutOfTokens { expected: token })?;
+
+        if found_token.class == token {
+            Ok(OkResult {
+                syntax_node: found_token.slice,
+                remaining_tokens: &tokens[1..],
+            })
+        } else {
+            Err(ErrResult::UnexpectedToken {
+                found: found_token.clone(),
+                expected: token,
+            })
+        }
     }
 }

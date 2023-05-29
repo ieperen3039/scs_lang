@@ -12,7 +12,7 @@ struct TokenDefinition<T: Copy> {
     regex: Regex,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Token<'a, T: Copy> {
     pub class: T,
     pub slice: &'a str
