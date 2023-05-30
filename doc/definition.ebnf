@@ -1,22 +1,31 @@
-function_block          = BracketOpen, { statement }, [ last_statement ], BracketClose ;
-statement               = expression, { method_call }, assignment, Semicolon ;
-last_statement          = expression, { method_call } ;
-assignment              = ComparatorClose, ( KeywordReturn | [ real_type_name ], Name) ;
-real_type_name          = Name | fn_type ;
-fn_type                 = KeywordFn [ ComparatorOpen, [ ParenthesisOpen, { parameter_list }, ParenthesisClose ], type_name, ComparatorClose ]
-parameter_list          = real_type_name, { Comma, real_type_name }
-type_name               = KeywordVoid | real_type_name
-expression              = Name | static_function_call | function_block | array | literal ;
-static_function_call    = Name, Colon, Colon, method_call ;
-method_call             = Name, [ ParenthesisOpen, ( single_argument | named_argument_list ), ParenthesisClose ] ;
+scs_program             = { definition }, function_block;
+
+definition              = scope | type_definition | function_definition
+scope                   = Name, BracketOpen, { definition }, BracketClose
+
+type_definition         = KeywordType, EqualSign, ( type_name, KeywordNative );
+type_name               = named_type | array_type | fn_type;
+named_type              = Name [ ComparatorOpen, type_name, ComparatorClose ]
+array_type              = type_name, SquareBracketOpen, SquareBracketClose
+fn_type                 = KeywordFn [ ComparatorOpen, [ ParenthesisOpen, { unnamed_parameter_list }, ParenthesisClose ], type_name, ComparatorClose ];
+unnamed_parameter_list  = type_name, { Comma, type_name };
+enum_definition         = KeywordEnum, Name, SquareBracketOpen, { Name, Comma }, SquareBracketClose;
+
+function_definition     = function_signature, ( function_block | KeywordNative );
+function_signature      = { modifier }, Name, ParenthesisOpen, [ named_parameter_list ], ParenthesisClose, [ Colon, type_name ];
+parameter_list          = parameter, { Comma, parameter }
+parameter               = type_name, [ ThreeDots ], Name;
+
+function_block          = BracketOpen, { statement }, [ last_statement ], BracketClose;
+statement               = expression, { method_call }, assignment, Semicolon;
+last_statement          = expression, { method_call };
+expression              = Name | static_function_call | function_block | array | literal;
+static_function_call    = Name, Period, method_call;
+method_call             = Name, [ ParenthesisOpen, ( single_argument | named_argument_list ), ParenthesisClose ];
 single_argument         = Name | named_argument
 named_argument_list     = [ named_argument, { Comma, named_argument } ];
-named_argument          = Name, Colon, expression ;
-array                   = SquareBracketOpen, { expression }, SquareBracketClose ;
-literal                 = number_literal | StringLiteral ;
-number_literal          = DecimalLiteral | HexadecimalLiteral | StringLiteral ;
-
-function_definition     = function_signature, ( function_block | KeywordNative ) ;
-function_signature      = { modifier }, Name, ParenthesisOpen, [ named_parameter_list ], ParenthesisClose, [ Colon, type_name ] ;
-named_parameter_list    = named_parameter, { Comma, named_parameter }
-named_parameter         = real_type_name, Name ;
+named_argument          = Name, Colon, expression;
+array                   = SquareBracketOpen, { expression }, SquareBracketClose;
+literal                 = number_literal | StringLiteral;
+number_literal          = DecimalLiteral | HexadecimalLiteral | StringLiteral;
+assignment              = ComparatorClose, ( KeywordReturn | [ type_name ], Name);
