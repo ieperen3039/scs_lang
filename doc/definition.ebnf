@@ -3,7 +3,7 @@ scs_program             = { definition }, function_block;
 definition              = scope | type_definition | function_definition
 scope                   = Name, BracketOpen, { definition }, BracketClose
 
-type_definition         = KeywordType, EqualSign, ( type_name, KeywordNative );
+type_definition         = KeywordType, EqualSign, ( type_name, KeywordNative ), [ BracketOpen, { function_definition }, BracketClose ];
 type_name               = named_type | array_type | fn_type;
 named_type              = Name [ ComparatorOpen, type_name, ComparatorClose ]
 array_type              = type_name, SquareBracketOpen, SquareBracketClose
@@ -12,7 +12,7 @@ unnamed_parameter_list  = type_name, { Comma, type_name };
 enum_definition         = KeywordEnum, Name, SquareBracketOpen, { Name, Comma }, SquareBracketClose;
 
 function_definition     = function_signature, ( function_block | KeywordNative );
-function_signature      = { modifier }, Name, ParenthesisOpen, [ named_parameter_list ], ParenthesisClose, [ Colon, type_name ];
+function_signature      = { modifier }, Name, [ ParenthesisOpen, [ [ KeywordSelf, Comma ], named_parameter_list ], ParenthesisClose ], Colon, type_name;
 parameter_list          = parameter, { Comma, parameter }
 parameter               = type_name, [ ThreeDots ], Name;
 
@@ -26,6 +26,5 @@ single_argument         = Name | named_argument
 named_argument_list     = [ named_argument, { Comma, named_argument } ];
 named_argument          = Name, Colon, expression;
 array                   = SquareBracketOpen, { expression }, SquareBracketClose;
-literal                 = number_literal | StringLiteral;
-number_literal          = DecimalLiteral | HexadecimalLiteral | StringLiteral;
+literal                 = StringLiteral | DecimalLiteral | HexadecimalLiteral | BinaryLiteral;
 assignment              = ComparatorClose, ( KeywordReturn | [ type_name ], Name);
