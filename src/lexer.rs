@@ -9,7 +9,12 @@ pub struct Lexer<T: Copy> {
 
 struct TokenDefinition<T: Copy> {
     class: T,
-    regex: Regex,
+    lex_method: LexMethod,
+}
+
+enum LexMethod {
+    Literal(&'static str),
+    Regex(Regex),
 }
 
 #[derive(Clone, Debug)]
@@ -19,16 +24,29 @@ pub struct Token<'a, T: Copy> {
     pub char_idx: usize,
 }
 
+pub enum RawLexMethod {
+    Literal(&'static str),
+    Regex(&'static str),
+}
+
 impl<T: Copy> Lexer<T> {
-    pub fn new(tokens: Vec<(T, &str)>) -> Lexer<T> {
+    pub fn new(tokens: Vec<(T, RawLexMethod)>) -> Lexer<T> {
         let mut elements = Vec::new();
 
-        for (class, regex) in tokens {
-            let final_regex = String::from("^") + regex;
-            elements.push(TokenDefinition {
-                class,
-                regex: Regex::new(&final_regex).unwrap(),
-            })
+        for (class, method) in tokens {
+            match method {
+                RawLexMethod::Regex(regex) => {
+                    let final_regex = String::from("^") + regex;
+                    elements.push(TokenDefinition {
+                        class,
+                        lex_method: LexMethod::Regex(Regex::new(&final_regex).unwrap()),
+                    })
+                }
+                RawLexMethod::Literal(string) => elements.push(TokenDefinition {
+                    class,
+                    lex_method: LexMethod::Literal(string),
+                }),
+            }
         }
 
         Lexer { elements }
@@ -36,8 +54,17 @@ impl<T: Copy> Lexer<T> {
 
     pub fn read_token(&self, string: &str) -> Option<(T, usize)> {
         for def in &self.elements {
-            if let Some(found) = def.regex.find(string) {
-                return Some((def.class, found.end()));
+            match def.lex_method {
+                LexMethod::Literal(literal) => {
+                    if string.starts_with(literal) {
+                        return Some((def.class, string.len()));
+                    }
+                }
+                LexMethod::Regex(regex) => {
+                    if let Some(found) = regex.find(string) {
+                        return Some((def.class, found.end()));
+                    }
+                }
             }
         }
 

@@ -3,84 +3,6 @@
 // idea: simple and explicit
 // the language does not have to be turing-complete, and will not use control structures if it does not use them
 
-// ---- an example pipeline file ----
-
-// ---- end example pipeline file ----
-
-// ---- example pipeline file in different dialects ----
-
-// C syntax format
-
-Pipeline "C" {
-	AbsoluteFilePath directory = std_fs_directoryOfThis();
-	AbsoluteFilePath settings = std_FilePath_append(directory, "settings");
-	AbsoluteFilePath settingsCopyPath = std_FilePath_append(std_FilePath_getParent(directory), "copy/settings");
-	AbsoluteFilePath settingsCopy = std_orThrow(std_copy(settings, settingsCopyPath));
-    
-	int result1 = grf_visionTest1(settings)
-	int result2 = grf_visionTest2(settingsCopy)
-    return result1 == 0 && result2 == 0
-}
-
-// C++ syntax format
-
-Pipeline "C++" {
-	AbsoluteFilePath directory = std::fs::directoryOfThis();
-	AbsoluteFilePath settings = directory.append("settings");
-	AbsoluteFilePath settingsCopyPath = directory.getParent().append("copy/settings");
-	AbsoluteFilePath settingsCopy = settings.copy(settingsCopyPath).orThrow();
-    
-    
-	auto future1 = std::async([settings]{ return grf::visionTest1(settings) });
-	auto future2 = std::async([settingsCopy]{ return grf::visionTest2(settingsCopy) });
-    int result1 = future1.get();
-    int result2 = future2.get();
-    return result1 == 0 && result2 == 0
-}
-
-// Rust syntax format
-
-Pipeline "Rust" {
-	let directory = std::fs::directoryOfThis();
-	let settings = directory.append("settings");
-	let settingsCopyPath = directory.getParent().append("copy/settings");
-	let settingsCopy = settings.copy(settingsCopyPath)?;
-    
-	let result1 = grf::visionTest1(settings)
-	let result2 = grf::visionTest2(settingsCopy)
-    return result1 == 0 && result2 == 0
-}
-
-// ---- end example pipeline file in different dialects ----
-
-// ---- the implicit universal pipedef file ---- 
-
-
-// abstract type definitions
-
-// # built-in primitives
-
-// a function that accepts argument `a` of type `A` and return value `R`. 
-// a {...} block always evaluates to a `fn`, 
-// a single expression (without brackets) is also a `fn`
-// the type `fn<T>` is equal to `fn<()T>`
-// the type `fn` is equal to `fn<()void>`, and may be used with (implicit) captures
-// whenever a fn<T> is assigned to a variable of T, it is evaluated
-// captures are _always_ effectively copied (before optimizations)
-// nothing extends `fn`
-type fn<(A a)R> = native
-
-type bool = native
-type number = native
-type int = number // actually a BigInteger
-type float = number // actually a BigDecimal
-type enum = native // each enum value is an object instance, the enum type is a type
-type String = native
-type LogicBuilder<T> = native // a lazy-evaluated boolean expression
-type Optional<T> = native // acts as `T` if it exists, otherwise functions are skipped
-
-// # functions of built-in types
-// Every function either describes a cdecl dll function, or is defined in terms of a bash call
 // Every function accepts either a specialisation of the type or a generalisation of the type.
 // that is, you can implicitly cast up or down, but not both in one statement.
 // Casting down (to a specialisation) may cause runtime errors, and should be avoided.
@@ -88,90 +10,115 @@ type Optional<T> = native // acts as `T` if it exists, otherwise functions are s
 // This applies the function to each element in parallel, collecting the results as an array
 // a closing bracket ends an expression. If the expression has no return (missing `> ...`), then `> return` is implicit
 
-// # explicit functions
-object {
-    equalTo(object other): bool native // use reflection to defer the equality comparison, return false if none is found
-    tryAs<T> : Optional<T> native // Optional.None if a specialisation would cause an error
+// a `fn<(A a)R>` is a function that accepts argument `a` of type `A` and return value `R`. 
+// a {...} block always evaluates to a `fn`, 
+// the type `fn<T>` is equal to `fn<()T>`
+// the type `fn` is equal to `fn<()void>`
+// whenever a fn<T> is assigned to a variable of T, it is evaluated
+// a {...} block may implicitly capture any variable in its scope
+// captures are _always_ effectively copied (before optimizations)
+// nothing extends any `fn<(A a)R>`
+
+// A `native` function describes a cdecl dll function
+
+// ---- if generic type and impl were a thing, we could define these:
+
+// any fn type
+type<A, R> fn<(A a)R> = native
+type<R> fn<R> = fn<()R>
+type fn = fn<()void>
+
+// any array
+impl<T> T[] {
+    fn any: LogicBuilder<T> native
+    fn all: LogicBuilder<T> native
 }
-bool {
-    invert: bool native // we do not define '!' because it looks weird in SCS
-    equalTo(bool other) : bool native
-    switch<T = void>(T true, T false) native
-    ifTrue<T>(T then) : Optional<T> native // see Optional<T>.orElse(T)
-    ifFalse<T>(T then) : Optional<T> native // { self invert ifTrue(then) } // still works with orElse
-}
-Number {
-    isLessThan(Number other): bool native
-    isLessOrEqualThan(Number other): bool native
-    isGreaterThan(Number other): bool native
-    isGreaterOrEqualThan(Number other): bool native
-    equalTo(Number other) : bool native
-}
-int {
-}
-float {
-}
-String {
-    equalTo(String other): bool
-    is: LogicBuilder
-}
-String[] {
-    any: LogicBuilder
-    all: LogicBuilder
-}
-enum {
+
+// each enum value is an object instance, the enum type is a type
+impl<E : enum> E {
     /* every variant of the enum results in an argument of type T, with the name of the variant as argument name */
-    switch<T = void>(T ... expression)
-}
-LogicBuilder {
-    not: LogicBuilder
-    equalTo(String other): bool
-}
-Optional<T> {
-    orThrow: T
-    orElse(T then): T
-    static none : Optional<T> // returns the universal 'not' optional
+    fn switch<T>(T ... expression) : T native
+    fn equalTo(E other): bool native
 }
 
-// ---- an example for the std.io.scsdef file
+// ---- the implicit universal pipedef file ---- 
 
-type FilePath = String
-type AbsoluteFilePath = FilePath
-type RelativeFilePath = FilePath
+type bool = native {
+    fn equalTo(bool other) : bool native
+    fn invert : bool native // we do not define '!' because it looks weird in SCS
+    fn switch<T>(T true, T false) : T native
+    fn ifTrue<T>(T then) : Optional<T> native // see Optional<T>.orElse(T)
+    fn ifFalse<T>(T then) : Optional<T> native // { this invert ifTrue(then) } // still works with orElse
+}
+type int = native {
+    fn isLessThan(int other): bool native
+    fn isLessOrEqualThan(int other): bool native
+    fn isGreaterThan(int other): bool native
+    fn isGreaterOrEqualThan(int other): bool native
+    fn equalTo(int other) : bool native
+    fn asFloat : float native
+}
+type float = native {
+    fn isLessThan(float other): bool native
+    fn isGreaterThan(float other): bool native
+}
+type String = native {
+    fn equalTo(String other): bool native
+    fn is: LogicBuilder<String> native
+}
+// a lazy-evaluated boolean expression
+type LogicBuilder<T> = native {
+    fn not: LogicBuilder<T> native
+    fn equalTo(T other): bool native
+}
+// acts as `T` if it exists, otherwise functions are skipped
+type Optional<T> = native {
+    fn ifExists<R>(fn<(T)R> then) : Optional<R> native
+    fn orPanic: T native
+    fn orElse(T then): T native
+    fn static None : Optional<T> native // returns the 'not' optional
+}
+
+fn static parallel(fn<()T>[] executions) : T[] native
+
+// ---- an example for the system.scsdef file
+
+fn getShellType : ShellType native
+enum ShellType [
+    Batch,
+    Bash
+]
+fn getOS : OperatingSystem native
+enum OperatingSystem [
+    Windows,
+    Unix,
+    MacOS
+]
+// functions to run terminal commands
+impl ShellType {
+    // for enum member functions, the parameter `T ... a` evalutes to a series of parameters of type T, with the name of the variant as argument name.
+    // inside the function, `a` will evaluate to the argument that corresponds to `this`, or when passed to another `T ... a`: expand to the original series of arguments.
+    fn run(String ... command): int native
+    fn readVariable(String variable_name) : String native
     
-system {
-    enum ShellType [
-        Batch,
-        Bash
-    ]{
-        // for enum member functions, the parameter `T ... a` evalutes to a series of parameters of type T, with the name of the variant as argument name.
-        // inside the function, `a` will evaluate to the argument that corresponds to `self`, or when passed to another `T ... a`: expand to the original series of arguments.
-        run(self, String ... command): int native
-        readVariable(self, String variable_name) : String native
-        
-        call(self, String ... command) : Terminal {
-            run(command) 
-                > int errorCode // discarded
-                
-            terminal > return // this `> return` may be omitted, because the next token is a closing bracket
-        }
+    fn call(String ... command) : ShellType {
+        run(command) > errorCode; // discarded
+        this > return; // this `> return` may be omitted, because the next token is a closing bracket
     }
-    enum OS [
-        Windows,
-        Unix,
-        MacOS
-    ]
-    type Terminal = object
-    type BatchTerminal = Terminal
-    type BashTerminal = Terminal
-    
-    // functions to run terminal commands
-    fn getOS : OS native
-    fn getShellType : ShellType native
+}
+
+// ---- an example for the std.scsdef file
+
+use "system"
+
+fs {
+    type FilePath = String
+    type AbsoluteFilePath = FilePath
+    type RelativeFilePath = FilePath
 }
 
 fs {
-    static directoryOfThis: AbsoluteFilePath {
+    fn static directoryOfFile: AbsoluteFilePath {
         system.getShellType
             call(
                 Batch: "set directoryOfThis=%cd%",
@@ -179,41 +126,30 @@ fs {
             )
             readVariable("directoryOfThis")
     }
-}
-FilePath {
-    append(RelativeFilePath): FilePath
-    
-    getParent: AbsoluteFilePath
-    
-    copyTo(AbsoluteFilePath newPath): Maybe<AbsoluteFilePath> {
-        system.getShellType
-            run(
-                Batch: "cp {self} {newPath}",
-                Bash: "cp {self} {newPath}"
-            )
-            equalTo(0)
-            ifTrue(newPath)
-            orElse(Optional.none)
+    impl FilePath {
+        fn append(RelativeFilePath): FilePath native
+        
+        fn copyTo(AbsoluteFilePath newPath): Optional<AbsoluteFilePath> {
+            system.getShellType
+                run(
+                    Batch: "cp {this} {newPath}",
+                    Bash: "cp {this} {newPath}"
+                )
+                equalTo(0)
+                ifTrue(newPath)
+                orElse(Optional.None)
+        }
     }
-}
-AbsoluteFilePath {
-    override append(RelativeFilePath path): AbsoluteFilePath {
-        self append(path)
+    impl AbsoluteFilePath {
+        fn getParent: AbsoluteFilePath native
+
+        fn append(RelativeFilePath path): AbsoluteFilePath {
+            this FilePath.append(path)
+        }
     }
-}
-RelativeFilePath {
-    override append(RelativeFilePath): RelativeFilePath {
-        self append(path)
+    impl RelativeFilePath {
+        fn append(RelativeFilePath): RelativeFilePath {
+            this FilePath.append(path)
+        }
     }
-}
-parallel<T> {
-    static parallel(fn<()T>[] executions) : T[]
-}
-
-// ---- start random snippets ----
-
-Types {}
-
-Functions {
-    zip(AbsoluteFilePath dir, )
 }

@@ -1,10 +1,14 @@
-use crate::lexer::Lexer;
+use crate::lexer::{
+    Lexer,
+    RawLexMethod::{Literal, Regex},
+};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ScsToken {
-    Whitespace,
     Name,
-    NumberLiteral,
+    DecimalLiteral,
+    HexadecimalLiteral,
+    BinaryLiteral,
     StringLiteral,
     ParenthesisOpen,
     ParenthesisClose,
@@ -17,7 +21,20 @@ pub enum ScsToken {
     Colon,
     SemiColon,
     Comma,
+    ThreeDots,
     Period,
+    EqualSign,
+    KeywordType,
+    KeywordFn,
+    KeywordEnum,
+    KeywordNative,
+    KeywordThis,
+    KeywordVoid,
+    KeywordReturn,
+    KeywordStatic,
+    KeywordUse,
+    // ignored
+    Whitespace,
     Comment,
     CommentBlock,
 }
@@ -25,35 +42,46 @@ pub enum ScsToken {
 impl Lexer<ScsToken> {
     pub fn new_scs() -> Lexer<ScsToken> {
         Lexer::new(vec![
-            (ScsToken::Whitespace, r#"[\s\n]+"#),
-            (ScsToken::Comment, r#"\/\/.*"#),
-            (ScsToken::CommentBlock, r#"\/\*.*\*\/"#),
-            (ScsToken::BracketOpen, r#"\{"#),
-            (ScsToken::BracketClose, r#"\}"#),
-            (ScsToken::ParenthesisOpen, r#"\("#),
-            (ScsToken::ParenthesisClose, r#"\)"#),
-            (ScsToken::SquareBracketOpen, r#"\["#),
-            (ScsToken::SquareBracketClose, r#"\]"#),
-            (ScsToken::AngleBracketOpen, r#"<"#),
-            (ScsToken::AngleBracketClose, r#">"#),
-            (ScsToken::Colon, r#":"#),
-            (ScsToken::SemiColon, r#";"#),
-            (ScsToken::Comma, r#","#),
-            (ScsToken::Period, r#"\."#),
-            (ScsToken::Name, r#"[a-zA-Z_][a-zA-Z0-9_]*"#),
-            (ScsToken::StringLiteral, r#""(.*?[^\\]|)\""#),
-            (ScsToken::NumberLiteral, r#"[\d_]+.?[\d_]*"#),
+            (ScsToken::Whitespace, Regex(r#"[\s\n]+"#)),
+            (ScsToken::Comma, Literal(",")),
+            (ScsToken::Colon, Literal(":")),
+            (ScsToken::SemiColon, Literal(";")),
+            (ScsToken::ParenthesisOpen, Literal("(")),
+            (ScsToken::ParenthesisClose, Literal(")")),
+            (ScsToken::BracketOpen, Literal("{")),
+            (ScsToken::BracketClose, Literal("}")),
+            (ScsToken::SquareBracketOpen, Literal("[")),
+            (ScsToken::SquareBracketClose, Literal("]")),
+            (ScsToken::AngleBracketOpen, Literal("<")),
+            (ScsToken::AngleBracketClose, Literal(">")),
+            (ScsToken::ThreeDots, Literal("...")),
+            (ScsToken::Period, Literal(".")),
+            (ScsToken::EqualSign, Literal("=")),
+            (ScsToken::KeywordType, Literal("type")),
+            (ScsToken::KeywordFn, Literal("fn")),
+            (ScsToken::KeywordEnum, Literal("enum")),
+            (ScsToken::KeywordNative, Literal("native")),
+            (ScsToken::KeywordThis, Literal("this")),
+            (ScsToken::KeywordVoid, Literal("void")),
+            (ScsToken::KeywordReturn, Literal("return")),
+            (ScsToken::KeywordStatic, Literal("static")),
+            (ScsToken::KeywordUse, Literal("use")),
+            (ScsToken::Comment, Regex(r#"\/\/.*"#)),
+            (ScsToken::CommentBlock, Regex(r#"\/\*.*\*\/"#)),
+            (ScsToken::Name, Regex(r#"[a-zA-Z_][a-zA-Z0-9_]*"#)),
+            (ScsToken::StringLiteral, Regex(r#""(.*?[^\\]|)\""#)),
+            (ScsToken::DecimalLiteral, Regex(r#"0-9[0-9_]*.?[0-9]*"#)),
+            (ScsToken::HexadecimalLiteral, Regex(r#"0x[0-9A-F_]+"#)),
+            (ScsToken::BinaryLiteral, Regex(r#"0b[01_]+.?[01_]*"#)),
         ])
     }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ProgramToken {
-    SheBang
+    SheBang,
 }
 
 pub fn create_program_lexer() -> Lexer<ProgramToken> {
-    Lexer::new(vec![
-        (ProgramToken::SheBang, r#"#!.*"#),
-    ])
+    Lexer::new(vec![(ProgramToken::SheBang, Regex(r#"#!.*"#))])
 }

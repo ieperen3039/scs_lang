@@ -50,13 +50,9 @@ pub struct NamedArgument {
     parameter_name: String,
     value: Expression,
 }
-
 pub struct Parser {}
 
 impl Parser {
-    pub fn new() -> Parser {
-        todo!()
-    }
 
     pub fn parse(&self, tokens: &Vec<Token<ScsToken>>) -> ParseResult<FunctionBody> {
         todo!()
