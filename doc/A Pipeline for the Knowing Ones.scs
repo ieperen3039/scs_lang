@@ -1,14 +1,14 @@
 // Solid Command Sequence
 // a prototype script language
 // idea: simple and explicit
-// the language does not have to be turing-complete, and will not use control structures if it does not use them
+// the language does not have to be turing-complete, and will not use control structures if it does not need them
 
 // Every function accepts either a specialisation of the type or a generalisation of the type.
 // that is, you can implicitly cast up or down, but not both in one statement.
 // Casting down (to a specialisation) may cause runtime errors, and should be avoided.
 // Any non-static function of `T` can be applied to T[]. 
 // This applies the function to each element in parallel, collecting the results as an array
-// a closing bracket ends an expression. If the expression has no return (missing `> ...`), then `> return` is implicit
+// a closing bracket ends a function. If the last statement has no return (missing `> ...`), then `> return` is implicit
 
 // a `fn<(A a)R>` is a function that accepts argument `a` of type `A` and return value `R`. 
 // a {...} block always evaluates to a `fn`, 
