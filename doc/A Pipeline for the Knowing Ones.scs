@@ -60,9 +60,6 @@ Types [
     
     // # built-in primitives
     
-    // things; everything but 'fn' extends `object`
-    object 
-    
     // a function that accepts argument `a` of type `A` and return value `R`. 
     // a {...} block always evaluates to a `fn`, 
     // a single expression (without brackets) is also a `fn`
@@ -71,17 +68,16 @@ Types [
     // whenever a fn<T> is assigned to a variable of T, it is evaluated
     // captures are _always_ effectively copied (before optimizations)
     // nothing extends `fn`
-    fn<(A a)R> 
-    
-    // # built-in derived types (but with implicit implementation)
-	bool = object
-	number = object
+    fn<(A a)R> = native
+   
+	bool = native
+	number = native
 	int = number // actually a BigInteger
 	float = number // actually a BigDecimal
-    enum = object // each enum value is an object instance, the enum type is a type
-	String = object
-	LogicBuilder<T> = object // a lazy-evaluated boolean expression
-	Optional<T> = object // acts as `T` if it exists, otherwise functions are skipped
+    enum = native // each enum value is an object instance, the enum type is a type
+	String = native
+	LogicBuilder<T> = native // a lazy-evaluated boolean expression
+	Optional<T> = native // acts as `T` if it exists, otherwise functions are skipped
 ]
 
 Functions {
@@ -89,13 +85,12 @@ Functions {
 	// Every function accepts either a specialisation of the type or a generalisation of the type.
     // that is, you can implicitly cast up or down, but not both in one statement.
 	// Casting down (to a specialisation) may cause runtime errors, and should be avoided.
-    // Any non-staic function of`T` can be applied to T[]. 
+    // Any non-static function of`T` can be applied to T[]. 
     // This applies the function to each element in parallel, collecting the results as an array
-     // a closing bracket ends an expression. If the expression has no return (missing `> ...`), then `> return` is implicit
+    // a closing bracket ends an expression. If the expression has no return (missing `> ...`), then `> return` is implicit
 	// # explicit functions
     
 	object {
-		'=='(object other): bool native // calls `equalTo(object)`
 		equalTo(object other): bool native // use reflection to defer the equality comparison, return false if none is found
         tryAs<T> : Optional<T> native // Optional.None if a specialisation would cause an error
 	}
