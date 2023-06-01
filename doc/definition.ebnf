@@ -1,12 +1,15 @@
 
-scs_program             = { definition | use_declaration }, function_block;
+scs_program             = [ version_declaration ], { definition | use_declaration }, function_block;
+
+version_declaration     = KeywordVersion, Name, ( Star | version );
+version                 = DecimalLiteral, Period, DecimalLiteral, Period, DecimalLiteral;
 
 use_declaration         = KeywordUse, StringLiteral;
 
 definition              = scope | type_definition | enum_definition | implementation | function_definition;
 scope                   = Name, BracketOpen, { definition }, BracketClose;
 
-type_definition         = KeywordType, EqualSign, ( type_name, KeywordNative ), [ BracketOpen, { function_definition }, BracketClose ];
+type_definition         = KeywordType, Equal, ( type_name, KeywordNative ), [ BracketOpen, { function_definition }, BracketClose ];
 type_name               = named_type | array_type | fn_type;
 named_type              = Name, [ generic_type ];
 generic_type            = AngleBracketOpen, Name, AngleBracketClose;
@@ -20,9 +23,9 @@ implementation          = KeywordImpl, BracketOpen, { function_definition }, Bra
 function_definition     = function_signature, ( function_block | KeywordNative );
 function_signature      = KeywordFn, [ KeywordStatic ], Name, [ generic_type ], [ ParenthesisOpen, [ parameter_list ], ParenthesisClose ], Colon, type_name;
 parameter_list          = parameter, { Comma, parameter };
-parameter               = type_name, [ ThreeDots ], Name;
+parameter               = type_name, [ Ellipsis ], Name;
 function_block          = BracketOpen, { statement }, [ last_statement ], BracketClose;
-statement               = expression, { method_call }, assignment, SemiColon;
+statement               = expression, { method_call }, [ assignment ], SemiColon;
 last_statement          = expression, { method_call };
 expression              = Name | static_function_call | function_block | array_initialisation | literal;
 static_function_call    = Name, Period, method_call;
@@ -50,9 +53,11 @@ AngleBracketClose = "";
 Colon = "";
 SemiColon = "";
 Comma = "";
-ThreeDots = "";
+Ellipsis = "";
 Period = "";
-EqualSign = "";
+Equal = "";
+Minus = "";
+Star = "";
 KeywordType = "";
 KeywordFn = "";
 KeywordImpl = "";
@@ -63,3 +68,4 @@ KeywordVoid = "";
 KeywordReturn = "";
 KeywordStatic = "";
 KeywordUse = "";
+KeywordVersion = "";
