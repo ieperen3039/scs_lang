@@ -1,25 +1,28 @@
 // Solid Command Sequence
 // a prototype script language
 // idea: simple and explicit
-// the language does not have to be turing-complete, and will not use control structures if it does not need them
+// the language does not have to be turing-complete, and may not use control structures if it does not need them
 
 // Every function accepts either a specialisation of the type or a generalisation of the type.
 // that is, you can implicitly cast up or down, but not both in one statement.
 // Casting down (to a specialisation) may cause runtime errors, and should be avoided.
 // Any non-static function of `T` can be applied to T[]. 
 // This applies the function to each element in parallel, collecting the results as an array
-// a closing bracket ends a function. If the last statement has no return (missing `> ...`), then `> return` is implicit
+
+// A `native` function describes a cdecl dll function
+// any value is _always_ effectively copied
+// a closing bracket ends a function. If the last statement has no assignment (it is missing `> ...`), then `> return` is implicit
 
 // a `fn<(A a)R>` is a function that accepts argument `a` of type `A` and return value `R`. 
 // a {...} block always evaluates to a `fn`, 
+// a (A a){...} block evaluates to a `<(A a)R>` for some implied R, possibly void, 
 // the type `fn<T>` is equal to `fn<()T>`
 // the type `fn` is equal to `fn<()void>`
-// whenever a fn<T> is assigned to a variable of T, it is evaluated
+// whenever a `fn<T>` is assigned to a variable of `T`, it is evaluated
+// a variable of type `T` may also be assigned to a variable of `fn<T>`, resulting in a function that just returns the value
 // a {...} block may implicitly capture any variable in its scope
-// captures are _always_ effectively copied (before optimizations)
+// captures are _always_ effectively copied
 // nothing extends any `fn<(A a)R>`
-
-// A `native` function describes a cdecl dll function
 
 // ---- if generic type and impl were a thing, we could define these:
 
@@ -38,48 +41,54 @@ impl<T> T[] {
 impl<E : enum> E {
     /* every variant of the enum results in an argument of type T, with the name of the variant as argument name */
     fn switch<T>(T ... expression) : T native
-    fn equalTo(E other): bool native
+    fn equalTo(E other): boolean native
 }
 
 // ---- the implicit universal pipedef file ---- 
 
-type bool = native {
-    fn equalTo(bool other) : bool native
-    fn invert : bool native // we do not define '!' because it looks weird in SCS
-    fn switch<T>(T true, T false) : T native
-    fn ifTrue<T>(T then) : Optional<T> native // see Optional<T>.orElse(T)
-    fn ifFalse<T>(T then) : Optional<T> native // { this invert ifTrue(then) } // still works with orElse
+type boolean = native {
+    fn equalTo(boolean other) : boolean native
+    fn invert : boolean native // we do not define '!' because it looks weird in SCS
+    fn if<T>(fn<T> true, fn<T> false) : T native
+    fn ifTrue<T>(fn<T> then) : Optional<T> native // see Optional<T>.orElse(T)
+    fn ifFalse<T>(fn<T> then) : Optional<T> native // { this invert ifTrue(then) } // still works with orElse
+}
+type boolean[] = boolean[] {
+    fn any: boolean native
+    fn all: boolean native
 }
 type int = native {
-    fn isLessThan(int other): bool native
-    fn isLessOrEqualThan(int other): bool native
-    fn isGreaterThan(int other): bool native
-    fn isGreaterOrEqualThan(int other): bool native
-    fn equalTo(int other) : bool native
+    fn isLessThan(int other): boolean native
+    fn isLessOrEqualThan(int other): boolean native
+    fn isGreaterThan(int other): boolean native
+    fn isGreaterOrEqualThan(int other): boolean native
+    fn equalTo(int other) : boolean native
     fn asFloat : float native
 }
 type float = native {
-    fn isLessThan(float other): bool native
-    fn isGreaterThan(float other): bool native
+    fn isLessThan(float other): boolean native
+    fn isGreaterThan(float other): boolean native
 }
 type String = native {
-    fn equalTo(String other): bool native
+    fn equalTo(String other): boolean native
     fn is: LogicBuilder<String> native
 }
 // a lazy-evaluated boolean expression
 type LogicBuilder<T> = native {
     fn not: LogicBuilder<T> native
-    fn equalTo(T other): bool native
+    fn equalTo(T other): boolean native
 }
-// acts as `T` if it exists, otherwise functions are skipped
 type Optional<T> = native {
     fn ifExists<R>(fn<(T)R> then) : Optional<R> native
     fn orPanic: T native
-    fn orElse(T then): T native
+    fn orElse(fn<T> then): T native
     fn static None : Optional<T> native // returns the 'not' optional
 }
 
-fn static parallel(fn<()T>[] executions) : T[] native
+fn parallel(fn<T>[] executions) : T[] {
+    // evaluating the array of functions as an array of T executes the functions
+    executions
+}
 
 // ---- an example for the system.scsdef file
 
