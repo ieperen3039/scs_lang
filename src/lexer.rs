@@ -13,8 +13,9 @@ struct TokenDefinition<T: Copy> {
 }
 
 enum LexMethod {
-    Literal(&'static str),
+    Literal(&'static str, usize),
     Regex(Regex),
+    CaptureRegex(Regex),
 }
 
 #[derive(Clone, Debug)]
@@ -26,6 +27,7 @@ pub struct Token<'a, T: Copy> {
 
 pub enum RawLexMethod {
     Literal(&'static str),
+    Word(&'static str),
     Regex(&'static str),
 }
 
@@ -44,8 +46,15 @@ impl<T: Copy> Lexer<T> {
                 }
                 RawLexMethod::Literal(string) => elements.push(TokenDefinition {
                     class,
-                    lex_method: LexMethod::Literal(string),
+                    lex_method: LexMethod::Literal(string, string.len()),
                 }),
+                RawLexMethod::Word(string) => {
+                    let final_regex = String::from("^(") + string + ")[^a-zA-Z0-9_]";
+                    elements.push(TokenDefinition {
+                        class,
+                        lex_method: LexMethod::CaptureRegex(Regex::new(&final_regex).unwrap()),
+                    });
+                },
             }
         }
 
@@ -54,15 +63,20 @@ impl<T: Copy> Lexer<T> {
 
     pub fn read_token(&self, string: &str) -> Option<(T, usize)> {
         for def in &self.elements {
-            match def.lex_method {
-                LexMethod::Literal(literal) => {
+            match &def.lex_method {
+                LexMethod::Literal(literal, size) => {
                     if string.starts_with(literal) {
-                        return Some((def.class, string.len()));
+                        return Some((def.class, *size));
                     }
                 }
                 LexMethod::Regex(regex) => {
                     if let Some(found) = regex.find(string) {
                         return Some((def.class, found.end()));
+                    }
+                },
+                LexMethod::CaptureRegex(regex) => {
+                    if let Some(found) = regex.captures(string) {
+                        return Some((def.class, found.get(1).unwrap().end()));
                     }
                 }
             }
