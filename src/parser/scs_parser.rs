@@ -69,28 +69,39 @@ impl Parser {
     fn process_method_call(&self, tokens: &[Token<ScsToken>]) -> ParseResult<MethodCall> {
         let name = self.process_token(&tokens, ScsToken::Name)?;
 
-        let args = self.process_token(name.remaining_tokens, ScsToken::ParenthesisOpen)
-            .and_then(|p| self.process_argument_list(p.remaining_tokens));
-            
-        let closed_args = args.and_then(|a| self.process_token(a.remaining_tokens, ScsToken::ParenthesisClose));
-            
-        if let Ok(closed) = closed_args
-        {
-            Ok(OkResult {
-                val: MethodCall {
-                    name: name.val,
-                    arguments : args.unwrap().val,
-                },
-                remaining_tokens : closed.remaining_tokens,
-            })
-        }
-        else {
+        let maybe_open = self.process_token(name.remaining_tokens, ScsToken::ParenthesisOpen);
+        let maybe_args = maybe_open.and_then(|p| self.process_argument_list(p.remaining_tokens));
+
+        let maybe_close = if let Ok(args) = maybe_args {
+            self.process_token(args.remaining_tokens, ScsToken::ParenthesisClose)
+        } else {
+            maybe_open
+                .and_then(|p| self.process_token(p.remaining_tokens, ScsToken::ParenthesisClose))
+        };
+
+        if maybe_open.is_err() || maybe_close.is_err() {
             Ok(OkResult {
                 val: MethodCall {
                     name: name.val,
                     arguments: ArgumentList::Empty,
                 },
                 remaining_tokens: name.remaining_tokens,
+            })
+        } else if let Ok(args) = maybe_args {
+            Ok(OkResult {
+                val: MethodCall {
+                    name: name.val,
+                    arguments: args.val,
+                },
+                remaining_tokens: maybe_close.unwrap().remaining_tokens,
+            })
+        } else {
+            Ok(OkResult {
+                val: MethodCall {
+                    name: name.val,
+                    arguments: ArgumentList::Empty,
+                },
+                remaining_tokens: maybe_close.unwrap().remaining_tokens,
             })
         }
     }
