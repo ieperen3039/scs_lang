@@ -7,7 +7,7 @@
 //      | identifier ;
 
 pub enum Term {
-    Group(Vec<Term>),
+    Group(Box<Term>),
     Optional(Box<Term>),
     Repetition(Box<Term>),
     // concatenation = term , "," , term , { "," , term };
