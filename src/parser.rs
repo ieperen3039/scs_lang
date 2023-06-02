@@ -1,167 +1,71 @@
+mod ast;
+mod proto_ast;
+mod scs_parser;
+
 use simple_error::SimpleError;
 
 use crate::{lexer::Token, scs_lexer::ScsToken};
+
+type ParseResult<'a, T> = Result<OkResult<'a, T>, ErrResult<'a>>;
 
 pub struct OkResult<'a, T> {
     val: T,
     remaining_tokens: &'a [Token<'a, ScsToken>],
 }
 
+#[derive(Debug)]
 pub enum ErrResult<'a> {
     Error(SimpleError),
     OutOfTokens {
-        expected: ScsToken,
+        while_parsing: String,
     },
     UnexpectedToken {
         found: Token<'a, ScsToken>,
-        expected: ScsToken,
+        expected: Vec<ScsToken>,
     },
 }
 
-type ParseResult<'a, T> = Result<OkResult<'a, T>, ErrResult<'a>>;
-
-pub struct FunctionBody {
-    statements: Vec<Statement>,
-}
-
-pub struct Statement {
-    expressions: Vec<Expression>,
-}
-
-pub enum Expression {
-    VariableName(String),
-    StaticFunctionCall(StaticFunctionCall),
-    MemberFunctionCall(MethodCall),
-    FunctionBlock(FunctionBody),
-}
-
-pub struct StaticFunctionCall {
-    namespace: String,
-    name: String,
-    arguments: Vec<NamedArgument>,
-}
-
-pub struct MethodCall {
-    name: String,
-    arguments: Vec<NamedArgument>,
-}
-
-pub struct NamedArgument {
-    parameter_name: String,
-    value: Expression,
-}
-pub struct Parser {}
-
-impl Parser {
-
-    pub fn parse(&self, tokens: &Vec<Token<ScsToken>>) -> ParseResult<FunctionBody> {
-        todo!()
+impl <'a, T> std::fmt::Debug for OkResult<'a, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OkResult").finish_non_exhaustive()
     }
+}
 
-    fn process_expression(&self, tokens: &[Token<ScsToken>]) -> ParseResult<Expression> {
-        todo!()
-    }
-
-    // static_function_call = Name, Colon, Colon, method_call
-    fn process_static_function_call(
-        &self,
-        tokens: &[Token<ScsToken>],
-    ) -> ParseResult<StaticFunctionCall> {
-        let namespace = self.process_token(&tokens, ScsToken::Name)?;
-        let colon1 = self.process_token(namespace.remaining_tokens, ScsToken::Colon)?;
-        let colon2 = self.process_token(colon1.remaining_tokens, ScsToken::Colon)?;
-        let method_call = self.process_method_call(colon2.remaining_tokens)?;
-
-        Ok(OkResult {
-            val: StaticFunctionCall {
-                namespace: String::from(namespace.val),
-                name: method_call.val.name,
-                arguments: method_call.val.arguments,
+impl<'a> ErrResult<'a> {
+    fn combine(a: ErrResult<'a>, b: ErrResult<'a>) -> ErrResult<'a> {
+        match a {
+            ErrResult::Error(err) => a,
+            ErrResult::OutOfTokens { while_parsing: wpa } => match b {
+                ErrResult::Error(_) => b,
+                ErrResult::OutOfTokens { .. } => a,
+                ErrResult::UnexpectedToken { found, expected } => b,
             },
-            remaining_tokens: method_call.remaining_tokens,
-        })
-    }
-
-    // method_call = Name, [ParenthesisOpen, argument_list, ParenthesisClose]
-    fn process_method_call(&self, tokens: &[Token<ScsToken>]) -> ParseResult<MethodCall> {
-        let name = self.process_token(&tokens, ScsToken::Name)?;
-
-        if let Ok(parenthesis) =
-            self.process_token(name.remaining_tokens, ScsToken::ParenthesisOpen)
-        {
-            let argument_list = self.process_argument_list(parenthesis.remaining_tokens)?;
-            let close_parenthesis =
-                self.process_token(argument_list.remaining_tokens, ScsToken::ParenthesisClose)?;
-
-            Ok(OkResult {
-                val: MethodCall {
-                    name: String::from(name.val),
-                    arguments: argument_list.val,
-                },
-                remaining_tokens: close_parenthesis.remaining_tokens,
-            })
-        } else {
-            Ok(OkResult {
-                val: MethodCall {
-                    name: String::from(name.val),
-                    arguments: Vec::new(),
-                },
-                remaining_tokens: name.remaining_tokens,
-            })
-        }
-    }
-
-    // argument_list = named_argument, { Comma, named_argument }
-    fn process_argument_list(&self, tokens: &[Token<ScsToken>]) -> ParseResult<Vec<NamedArgument>> {
-        let mut all_arguments = Vec::new();
-
-        let mut this_argument = self.process_named_argument(tokens)?;
-        all_arguments.push(this_argument.val);
-
-        while let Ok(comma) = self.process_token(this_argument.remaining_tokens, ScsToken::Comma) {
-            this_argument = self.process_named_argument(comma.remaining_tokens)?;
-            all_arguments.push(this_argument.val);
-        }
-
-        Ok(OkResult {
-            val: all_arguments,
-            remaining_tokens: this_argument.remaining_tokens,
-        })
-    }
-
-    // named_argument = Name, Colon, expression
-    fn process_named_argument(&self, tokens: &[Token<ScsToken>]) -> ParseResult<NamedArgument> {
-        let parameter_name = self.process_token(&tokens, ScsToken::Name)?;
-        let comma = self.process_token(parameter_name.remaining_tokens, ScsToken::Colon)?;
-        let arg_value = self.process_expression(comma.remaining_tokens)?;
-
-        Ok(OkResult {
-            val: NamedArgument {
-                parameter_name: String::from(parameter_name.val),
-                value: arg_value.val,
+            ErrResult::UnexpectedToken {
+                found: found_a,
+                expected: mut exp_a,
+            } => match b {
+                ErrResult::Error(_) => b,
+                ErrResult::OutOfTokens { .. } => a,
+                // pick the last one, or combine the expected tokens
+                ErrResult::UnexpectedToken {
+                    found: found_b,
+                    expected: mut exp_b,
+                } if found_a.char_idx > found_b.char_idx => a,
+                ErrResult::UnexpectedToken {
+                    found: found_b,
+                    expected: mut exp_b,
+                } if found_a.char_idx < found_b.char_idx => b,
+                ErrResult::UnexpectedToken {
+                    found: found_b,
+                    expected: mut exp_b,
+                } => {
+                    exp_a.append(&mut exp_b);
+                    ErrResult::UnexpectedToken {
+                        found: found_a,
+                        expected: exp_a,
+                    }
+                }
             },
-            remaining_tokens: arg_value.remaining_tokens,
-        })
-    }
-
-    // if the first token in `tokens` is of the given token class, wrap the string slice of this token into an OkResult.
-    // if the first token in `tokens` is not of the given token class, return an ErrResult::UnexpectedToken.
-    // if there are no tokens in `tokens` return an ErrResult::OutOfTokens.
-    fn process_token(&self, tokens: &[Token<ScsToken>], token: ScsToken) -> ParseResult<&str> {
-        let found_token = tokens
-            .get(0)
-            .ok_or(ErrResult::OutOfTokens { expected: token })?;
-
-        if found_token.class == token {
-            Ok(OkResult {
-                val: found_token.slice,
-                remaining_tokens: &tokens[1..],
-            })
-        } else {
-            Err(ErrResult::UnexpectedToken {
-                found: found_token.clone(),
-                expected: token,
-            })
         }
     }
 }
