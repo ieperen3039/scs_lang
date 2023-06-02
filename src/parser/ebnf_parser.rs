@@ -21,6 +21,49 @@ enum ErrResult {
     },
 }
 
+fn process_first_of<'a, T, F>(tokens: &'a str, rules: &[F]) -> EbnfParseResult<'a, T>
+where
+    F: Fn(&'a str) -> EbnfParseResult<'a, T>,
+{
+    let mut problems = Vec::new();
+
+    for rule in rules {
+        let result = rule(tokens);
+        if result.is_ok() {
+            return result;
+        }
+
+        if let Err(result_err) = result {
+            match result_err {
+                ErrResult::OutOfTokens | ErrResult::UnclosedGroup { .. } | ErrResult::Error(_) => {
+                    return Err(result_err)
+                }
+                _ => (),
+            }
+
+            problems.push(result_err)
+        }
+    }
+
+    let mut least_remaining: usize = 0;
+    let mut furthest_err = ErrResult::OutOfTokens;
+
+    for err in problems {
+        if let ErrResult::UnexpectedToken {
+            tokens_remaining,
+            while_parsing,
+        } = err
+        {
+            if tokens_remaining < least_remaining {
+                least_remaining = tokens_remaining;
+                furthest_err = err;
+            }
+        }
+    }
+
+    Err(furthest_err)
+}
+
 // grammar = { rule } ;
 pub fn parse_ebnf(grammar: &str) -> EbnfParseResult<EbnfAst> {
     todo!()
@@ -52,6 +95,12 @@ fn process_alternation(tokens: &str) -> EbnfParseResult<Term> {
     todo!()
 }
 
+fn process_terminal<'a>(tokens: &str) -> EbnfParseResult<String> {
+    process_first_of(
+        tokens,
+        &[process_terminal_quote, process_terminal_double_quote][..],
+    )
+}
 
 // terminal = ("'" , character , { character } , "'") | ('"' , character , { character } , '"') ;
 fn process_terminal_quote(tokens: &str) -> EbnfParseResult<String> {
