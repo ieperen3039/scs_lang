@@ -1,8 +1,14 @@
+(*
+After every token, we match with, and ignore, the following regex's:
+whitespace : /[\s\n]+/
+line comments: /\/\/.*/
+block comments: /\/\*.*\*\// 
+*)
 
 scs_program             = [ version_declaration ], { definition | use_declaration }, function_block;
 
 version_declaration     = KeywordVersion, Name, ( Star | version );
-version                 = DecimalLiteral, Period, DecimalLiteral, Period, DecimalLiteral;
+version                 = IntegerLiteral, Period, IntegerLiteral, Period, IntegerLiteral;
 
 use_declaration         = KeywordUse, StringLiteral;
 
@@ -29,43 +35,43 @@ statement               = expression, { method_call }, [ assignment ], SemiColon
 last_statement          = expression, { method_call };
 expression              = Name | static_function_call | function_block | array_initialisation | literal;
 static_function_call    = Name, Period, method_call;
-method_call             = Name, [ ParenthesisOpen, ( single_argument | named_argument_list ), ParenthesisClose ];
-single_argument         = Name | named_argument;
+method_call             = Name, [ ParenthesisOpen, ( single_unnamed_argument | named_argument_list ), ParenthesisClose ];
+single_unnamed_argument = Name;
 named_argument_list     = [ named_argument, { Comma, named_argument } ];
 named_argument          = Name, Colon, expression;
 array_initialisation    = SquareBracketOpen, [ expression, { Comma, expression } ], SquareBracketClose;
-literal                 = StringLiteral | DecimalLiteral | HexadecimalLiteral | BinaryLiteral;
+literal                 = StringLiteral | IntegerLiteral | DecimalLiteral | HexadecimalLiteral | BinaryLiteral;
 assignment              = AngleBracketClose, ( KeywordReturn | [ type_name ], Name);
 
-Name = "";
-DecimalLiteral = "";
-HexadecimalLiteral = "";
-BinaryLiteral = "";
-StringLiteral = "";
-ParenthesisOpen = "";
-ParenthesisClose = "";
-BracketOpen = "";
-BracketClose = "";
-SquareBracketOpen = "";
-SquareBracketClose = "";
-AngleBracketOpen = "";
-AngleBracketClose = "";
-Colon = "";
-SemiColon = "";
-Comma = "";
-Ellipsis = "";
-Period = "";
-Equal = "";
-Minus = "";
-Star = "";
-KeywordType = "";
-KeywordFn = "";
-KeywordImpl = "";
-KeywordEnum = "";
-KeywordNative = "";
-KeywordThis = "";
-KeywordVoid = "";
-KeywordReturn = "";
-KeywordStatic = "";
-KeywordUse = "";
-KeywordVersion = "";
+Comma = ",";
+Colon = ":";
+SemiColon = ";";
+ParenthesisOpen = "(";
+ParenthesisClose = ")";
+BracketOpen = "{";
+BracketClose = "}";
+SquareBracketOpen = "[";
+SquareBracketClose = "]";
+AngleBracketOpen = "<";
+AngleBracketClose = ">";
+Ellipsis = "...";
+Period = ".";
+Equal = "=";
+Star = "*";
+KeywordType = "type";
+KeywordFn = "fn";
+KeywordEnum = "enum";
+KeywordNative = "native";
+KeywordThis = "this";
+KeywordVoid = "void";
+KeywordReturn = "return";
+KeywordStatic = "static";
+KeywordUse = "use";
+KeywordImpl = "impl";
+KeywordVersion = "version";
+Name = ? regex ?(* /[a-zA-Z_][a-zA-Z0-9_]*/ *);
+StringLiteral = ? regex ?(* /"(.*?[^\\]|)\"/ *);
+IntegerLiteral = ? regex ?(* /\d*/ *);
+DecimalLiteral = ? regex ?(* /0-9[0-9_]*.[0-9]*/ *);
+HexadecimalLiteral = ? regex ?(* /0x[0-9A-F_]+/ *);
+BinaryLiteral = ? regex ?(* /0b[01_]+*/ *);
