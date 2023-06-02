@@ -1,6 +1,6 @@
 use simple_error::SimpleError;
 
-use crate::{lexer::{Lexer, Token}, scs_lexer::ScsToken, parser::Parser};
+use crate::{lexer::{Lexer, Token}, scs_lexer::ScsToken};
 
 pub struct ScsCompiler {
     lexer : Lexer<ScsToken>

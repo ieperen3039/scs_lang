@@ -9,7 +9,6 @@ mod parser;
 
 #[cfg(test)]
 mod tests;
-mod ast;
 
 fn main() {
     let mut arg_parser = ArgumentParser::new();

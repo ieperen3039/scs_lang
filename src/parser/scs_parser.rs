@@ -1,7 +1,7 @@
 use crate::{lexer::Token, scs_lexer::ScsToken};
 use simple_error::SimpleError;
 
-use super::{proto_ast::*, ErrResult, OkResult, ParseResult};
+use super::{ast::*, ErrResult, OkResult, ParseResult};
 pub struct Parser {}
 
 impl Parser {
@@ -9,42 +9,6 @@ impl Parser {
     pub fn parse(&self, tokens: &Vec<Token<ScsToken>>) -> ParseResult<FunctionBlock> {
         todo!()
     }
-
-    // version_declaration     = KeywordVersion, Name, ( Star | version );
-    // version                 = DecimalLiteral, Period, DecimalLiteral, Period, DecimalLiteral;
-
-    // use_declaration         = KeywordUse, StringLiteral;
-
-    // definition              = scope | type_definition | enum_definition | implementation | function_definition;
-    // scope                   = Name, BracketOpen, { definition }, BracketClose;
-
-    // type_definition         = KeywordType, Equal, ( type_name | KeywordNative ), [ BracketOpen, { function_definition }, BracketClose ];
-    // type_name               = named_type | array_type | fn_type;
-    // named_type              = Name, [ generic_type ];
-    // generic_type            = AngleBracketOpen, Name, AngleBracketClose;
-    // array_type              = type_name, SquareBracketOpen, SquareBracketClose;
-    // fn_type                 = KeywordFn, [ AngleBracketOpen, [ ParenthesisOpen, { unnamed_parameter_list }, ParenthesisClose ], type_name, AngleBracketClose ];
-    // unnamed_parameter_list  = type_name, { Comma, type_name };
-    // enum_definition         = KeywordEnum, Name, SquareBracketOpen, { Name, Comma }, SquareBracketClose;
-
-    // implementation          = KeywordImpl, type_name, BracketOpen, { function_definition }, BracketClose;
-
-    // function_definition     = function_signature, ( function_block | KeywordNative );
-    // function_signature      = KeywordFn, [ KeywordStatic ], Name, [ generic_type ], [ ParenthesisOpen, [ parameter_list ], ParenthesisClose ], Colon, type_name;
-    // parameter_list          = parameter, { Comma, parameter };
-    // parameter               = type_name, [ Ellipsis ], Name;
-    // function_block          = BracketOpen, { statement }, [ last_statement ], BracketClose;
-    // statement               = expression, { method_call }, [ assignment ], SemiColon;
-    // last_statement          = expression, { method_call };
-    // static_function_call    = Name, Period, method_call;
-    // method_call             = Name, [ ParenthesisOpen, ( single_argument | named_argument_list ), ParenthesisClose ];
-    // single_argument         = Name | named_argument;
-    // named_argument_list     = [ named_argument, { Comma, named_argument } ];
-    // named_argument          = Name, Colon, expression;
-    // array_initialisation    = SquareBracketOpen, [ expression, { Comma, expression } ], SquareBracketClose;
-    // literal                 = StringLiteral | DecimalLiteral | HexadecimalLiteral | BinaryLiteral;
-    // assignment              = AngleBracketClose, ( KeywordReturn | [ type_name ], Name);
-
     // expression              = Name | static_function_call | function_block | array_initialisation | literal;
     fn process_expression(&self, remaining_tokens: &[Token<ScsToken>]) -> ParseResult<Expression> {
         todo!()
