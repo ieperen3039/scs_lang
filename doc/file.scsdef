@@ -4,9 +4,7 @@ fs {
     type FilePath = String
     type AbsoluteFilePath = FilePath
     type RelativeFilePath = FilePath
-}
 
-fs {
     fn static directoryOfFile: AbsoluteFilePath {
         system.getShellType
             call(
@@ -15,6 +13,7 @@ fs {
             )
             readVariable("directoryOfThis")
     }
+
     impl FilePath {
         fn append(RelativeFilePath): FilePath native
         
@@ -29,6 +28,7 @@ fs {
                 orElse(Optional.None)
         }
     }
+
     impl AbsoluteFilePath {
         fn getParent: AbsoluteFilePath native
 
@@ -36,6 +36,7 @@ fs {
             this FilePath.append(path)
         }
     }
+    
     impl RelativeFilePath {
         fn append(RelativeFilePath): RelativeFilePath {
             this FilePath.append(path)
