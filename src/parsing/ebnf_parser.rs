@@ -104,7 +104,7 @@ pub fn process_rule(tokens: &str) -> EbnfParseResult<Rule> {
         Ok(OkResult {
             val: Rule {
                 identifier: id_name,
-                formula: term.val,
+                pattern: term.val,
             },
             remaining_tokens: terminator.remaining_tokens,
         })
@@ -137,10 +137,8 @@ fn process_group(tokens: &str) -> EbnfParseResult<Term> {
     let term = process_term(open.remaining_tokens)?;
     let close = check_starts_with(term.remaining_tokens, ")")?;
 
-    Ok(OkResult {
-        val: Term::Group(Box::new(term.val)),
-        remaining_tokens: close.remaining_tokens,
-    })
+    // we return the internal term, because the grouping only matters for parsing the BNF
+    Ok(term)
 }
 
 // optional = "[" , term , "]"
@@ -162,7 +160,7 @@ fn process_repetition(tokens: &str) -> EbnfParseResult<Term> {
     let close = check_starts_with(term.remaining_tokens, "}")?;
 
     Ok(OkResult {
-        val: Term::Optional(Box::new(term.val)),
+        val: Term::Repetition(Box::new(term.val)),
         remaining_tokens: close.remaining_tokens,
     })
 }

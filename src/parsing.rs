@@ -1,30 +1,11 @@
 mod ast;
-mod scs_parser;
 mod ebnf_ast;
 mod ebnf_parser;
+pub mod parser;
 
 use simple_error::SimpleError;
 
 use crate::{lexer::Token, scs_lexer::ScsToken};
-
-type ParseResult<'a, T> = Result<OkResult<'a, T>, ErrResult<'a>>;
-
-pub struct OkResult<'a, T> {
-    val: T,
-    remaining_tokens: &'a [Token<'a, ScsToken>],
-}
-
-#[derive(Debug, Clone)]
-pub enum ErrResult<'a> {
-    Error(SimpleError),
-    OutOfTokens {
-        while_parsing: String,
-    },
-    UnexpectedToken {
-        found: Token<'a, ScsToken>,
-        expected: Vec<ScsToken>,
-    },
-}
 
 impl <'a, T> std::fmt::Debug for OkResult<'a, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

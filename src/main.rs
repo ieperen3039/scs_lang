@@ -5,7 +5,7 @@ pub mod compiler;
 mod commandline_parser;
 mod lexer;
 mod scs_lexer;
-mod parser;
+mod parsing;
 
 #[cfg(test)]
 mod tests;

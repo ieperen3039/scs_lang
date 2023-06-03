@@ -7,7 +7,6 @@
 //      | identifier ;
 
 pub enum Term {
-    Group(Box<Term>),
     Optional(Box<Term>),
     Repetition(Box<Term>),
     // concatenation = term , "," , term , { "," , term };
@@ -24,7 +23,7 @@ pub enum Term {
 // rule = identifier , "=" , term , terminator ;
 pub struct Rule {
     pub identifier : String,
-    pub formula : Term
+    pub pattern : Term
 }
 
 // grammar = { rule } ;
