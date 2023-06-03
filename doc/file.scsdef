@@ -1,0 +1,44 @@
+use "system"
+
+fs {
+    type FilePath = String
+    type AbsoluteFilePath = FilePath
+    type RelativeFilePath = FilePath
+}
+
+fs {
+    fn static directoryOfFile: AbsoluteFilePath {
+        system.getShellType
+            call(
+                Batch: "set directoryOfThis=%cd%",
+                Bash: "directoryOfThis=$PWD"
+            )
+            readVariable("directoryOfThis")
+    }
+    impl FilePath {
+        fn append(RelativeFilePath): FilePath native
+        
+        fn copyTo(AbsoluteFilePath newPath): Optional<AbsoluteFilePath> {
+            system.getShellType
+                run(
+                    Batch: "cp {this} {newPath}",
+                    Bash: "cp {this} {newPath}"
+                )
+                equalTo(0)
+                ifTrue(newPath)
+                orElse(Optional.None)
+        }
+    }
+    impl AbsoluteFilePath {
+        fn getParent: AbsoluteFilePath native
+
+        fn append(RelativeFilePath path): AbsoluteFilePath {
+            this FilePath.append(path)
+        }
+    }
+    impl RelativeFilePath {
+        fn append(RelativeFilePath): RelativeFilePath {
+            this FilePath.append(path)
+        }
+    }
+}

@@ -24,26 +24,6 @@
 // captures are _always_ effectively copied
 // nothing extends any `fn<(A a)R>`
 
-// ---- if generic type and impl were a thing, we could define these:
-
-// any fn type
-type<A, R> fn<(A a)R> = native
-type<R> fn<R> = fn<()R>
-type fn = fn<()void>
-
-// any array
-impl<T> T[] {
-    fn any: LogicBuilder<T> native
-    fn all: LogicBuilder<T> native
-}
-
-// each enum value is an object instance, the enum type is a type
-impl<E : enum> E {
-    /* every variant of the enum results in an argument of type T, with the name of the variant as argument name */
-    fn switch<T>(T ... expression) : T native
-    fn equalTo(E other): boolean native
-}
-
 // ---- the implicit universal pipedef file ---- 
 
 type boolean = native {
@@ -90,75 +70,22 @@ fn parallel(fn<T>[] executions) : T[] {
     executions
 }
 
-// ---- an example for the system.scsdef file
+// ---- if generic type and impl were a thing, we could define these:
 
-fn getShellType : ShellType native
-enum ShellType [
-    Batch,
-    Bash
-]
-fn getOS : OperatingSystem native
-enum OperatingSystem [
-    Windows,
-    Unix,
-    MacOS
-]
-// functions to run terminal commands
-impl ShellType {
-    // for enum member functions, the parameter `T ... a` evalutes to a series of parameters of type T, with the name of the variant as argument name.
-    // inside the function, `a` will evaluate to the argument that corresponds to `this`, or when passed to another `T ... a`: expand to the original series of arguments.
-    fn run(String ... command): int native
-    fn readVariable(String variable_name) : String native
-    
-    fn call(String ... command) : ShellType {
-        run(command) > errorCode; // discarded
-        this > return; // this `> return` may be omitted, because the next token is a closing bracket
-    }
+// any fn type
+type<A, R> fn<(A a)R> = native
+type<R> fn<R> = fn<()R>
+type fn = fn<()void>
+
+// any array
+impl<T> T[] {
+    fn any: LogicBuilder<T> native
+    fn all: LogicBuilder<T> native
 }
 
-// ---- an example for the std.scsdef file
-
-use "system"
-
-fs {
-    type FilePath = String
-    type AbsoluteFilePath = FilePath
-    type RelativeFilePath = FilePath
-}
-
-fs {
-    fn static directoryOfFile: AbsoluteFilePath {
-        system.getShellType
-            call(
-                Batch: "set directoryOfThis=%cd%",
-                Bash: "directoryOfThis=$PWD"
-            )
-            readVariable("directoryOfThis")
-    }
-    impl FilePath {
-        fn append(RelativeFilePath): FilePath native
-        
-        fn copyTo(AbsoluteFilePath newPath): Optional<AbsoluteFilePath> {
-            system.getShellType
-                run(
-                    Batch: "cp {this} {newPath}",
-                    Bash: "cp {this} {newPath}"
-                )
-                equalTo(0)
-                ifTrue(newPath)
-                orElse(Optional.None)
-        }
-    }
-    impl AbsoluteFilePath {
-        fn getParent: AbsoluteFilePath native
-
-        fn append(RelativeFilePath path): AbsoluteFilePath {
-            this FilePath.append(path)
-        }
-    }
-    impl RelativeFilePath {
-        fn append(RelativeFilePath): RelativeFilePath {
-            this FilePath.append(path)
-        }
-    }
+// each enum value is an object instance, the enum type is a type
+impl<E : enum> E {
+    /* every variant of the enum results in an argument of type T, with the name of the variant as argument name */
+    fn switch<T>(T ... expression) : T native
+    fn equalTo(E other): boolean native
 }

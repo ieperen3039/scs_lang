@@ -5,12 +5,13 @@ line comments: /\/\/.*/
 block comments: /\/\*.*\*\// 
 *)
 
-scs_program             = [ version_declaration ], { definition | use_declaration }, function_block;
+scs_program             = [ version_declaration ], { definition | include_declaration | alias_declaration }, function_block;
 
 version_declaration     = KeywordVersion, Name, ( Star | version );
 version                 = IntegerLiteral, Period, IntegerLiteral, Period, IntegerLiteral;
 
-use_declaration         = KeywordUse, StringLiteral;
+include_declaration     = KeywordUse, StringLiteral;
+alias_declaration       = KeywordUse, Name, Equal, Name;
 
 definition              = scope | type_definition | enum_definition | implementation | function_definition;
 scope                   = Name, BracketOpen, { definition }, BracketClose;
