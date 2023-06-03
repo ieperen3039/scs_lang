@@ -2,14 +2,14 @@ use simple_error::SimpleError;
 
 use super::ebnf_ast::{EbnfAst, Rule, Term};
 
-type EbnfParseResult<'a, T> = Result<OkResult<'a, T>, ErrResult>;
+pub type EbnfParseResult<'a, T> = Result<OkResult<'a, T>, ErrResult>;
 
-struct OkResult<'a, T> {
+pub struct OkResult<'a, T> {
     val: T,
     remaining_tokens: &'a str,
 }
 
-enum ErrResult {
+pub enum ErrResult {
     Error(SimpleError),
     OutOfTokens,
     UnclosedGroup {
