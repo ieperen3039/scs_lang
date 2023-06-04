@@ -3,6 +3,9 @@ mod ebnf_ast;
 mod ebnf_parser;
 pub mod parser;
 
+#[cfg(test)]
+mod tests;
+
 use simple_error::SimpleError;
 
 use crate::{lexer::Token, scs_lexer::ScsToken};

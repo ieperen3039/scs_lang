@@ -1,5 +1,3 @@
-use core::panic;
-
 use simple_error::SimpleError;
 
 use super::ebnf_ast;
@@ -16,15 +14,22 @@ pub struct RuleNode<'prog, 'bnf> {
 
 #[derive(Debug)]
 pub enum ErrResult {
-    Error(SimpleError),
-    OutOfTokens,
-    UnclosedGroup {
-        tokens_remaining: usize,
-    },
+    // the evaluation of this function could not complete for these tokens
+    // this is a normal negative return value
     UnexpectedToken {
         tokens_remaining: usize,
         while_parsing: &'static str,
     },
+    // the end of the program was reached, but more was expected (equivalent to an UnexpectedToken at the end of the program)
+    OutOfTokens,
+    // a group was opened, but never closed (equivalent to an early-evaluated OutOfTokens)
+    UnclosedGroup {
+        tokens_remaining: usize,
+    },
+    // the program or grammar has some unspecified syntax error
+    Error(SimpleError),
+    // the parser has a bug
+    InternalError(SimpleError),
 }
 
 #[derive(Debug)]
@@ -43,73 +48,50 @@ pub fn parse_program_with_grammar<'prog, 'bnf>(
     program: String,
     grammar: ebnf_ast::EbnfAst,
 ) -> Result<RuleNode<'prog, 'bnf>, ErrResult> {
-    todo!()
+    if grammar.rules.is_empty() {
+        return Err(ErrResult::Error(SimpleError::new("No rules in grammar")));
+    }
+
+    let primary_rule = grammar.rules.get(0).expect("Grammar must have rules");
+    let result = apply_rule(&program, primary_rule)?;
+
+    if let ParseNode::Rule(rule_node) = result.val {
+        return Ok(rule_node);
+    } else {
+        return Err(ErrResult::InternalError(SimpleError::new(
+            "Primary rule was no rule",
+        )));
+    }
 }
 
 // apply rule on tokens
-fn apply_any_rule<'prog, 'bnf>(
-    tokens: &'prog str,
-    grammar: ebnf_ast::EbnfAst,
-) -> ParseResult<'prog, 'bnf> {
-    let mut problems = Vec::new();
+fn apply_rule<'prog, 'bnf>(tokens: &'prog str, rule: &ebnf_ast::Rule) -> ParseResult<'prog, 'bnf> {
+    let found_rule = apply_term(tokens, &rule.pattern)?;
 
-    for rule in grammar.rules {
-        let result = apply_term(tokens, rule.pattern);
-
-        match result {
-            Ok(found_rule) => {
-                let num_bytes_parsed = tokens.len() - found_rule.remaining_tokens.len();
-                // if the remaining_tokens is the same as the input tokens, that means that this rule parsed nothing
-                if num_bytes_parsed > 0 {
-                    let sub_rules = match found_rule.val {
-                        ParseNode::Rule(node) => vec![node],
-                        ParseNode::Group(sub_rules) => sub_rules,
-                    };
-
-                    return Ok(OkResult {
-                        val: ParseNode::Rule(RuleNode {
-                            rule: &rule.identifier,
-                            tokens: &tokens[..num_bytes_parsed],
-                            subrules: sub_rules,
-                        }),
-                        remaining_tokens: found_rule.remaining_tokens,
-                    });
-                }
-            }
-            Err(ErrResult::OutOfTokens)
-            | Err(ErrResult::UnclosedGroup { .. })
-            | Err(ErrResult::Error(_)) => {
-                // if this is a syntax-error, return it.
-                return result;
-            }
-            Err(err_result) => {
-                // otherwise, just store it in case no rule applies
-                problems.push(err_result)
-            }
-        }
+    let num_bytes_parsed = tokens.len() - found_rule.remaining_tokens.len();
+    if num_bytes_parsed == 0 {
+        return Err(ErrResult::Error(SimpleError::new(format!(
+            "Rule '{}' yielded nothing",
+            rule.identifier
+        ))));
     }
 
-    // no rule applied, so we look for the best parse result that we could find
-    let mut least_remaining: usize = 0;
-    let mut furthest_err = ErrResult::OutOfTokens;
+    let sub_rules = match found_rule.val {
+        ParseNode::Rule(node) => vec![node],
+        ParseNode::Group(sub_rules) => sub_rules,
+    };
 
-    for err in problems {
-        if let ErrResult::UnexpectedToken {
-            tokens_remaining,
-            while_parsing: _,
-        } = err
-        {
-            if tokens_remaining < least_remaining {
-                least_remaining = tokens_remaining;
-                furthest_err = err;
-            }
-        }
-    }
-
-    Err(furthest_err)
+    Ok(OkResult {
+        val: ParseNode::Rule(RuleNode {
+            rule: &rule.identifier,
+            tokens: &tokens[..num_bytes_parsed],
+            subrules: sub_rules,
+        }),
+        remaining_tokens: found_rule.remaining_tokens,
+    })
 }
 
-fn apply_term<'prog, 'bnf>(tokens: &'prog str, term: ebnf_ast::Term) -> ParseResult<'prog, 'bnf> {
+fn apply_term<'prog, 'bnf>(tokens: &'prog str, term: &ebnf_ast::Term) -> ParseResult<'prog, 'bnf> {
     match term {
         ebnf_ast::Term::Optional(sub_term) => apply_optional(tokens, sub_term),
         ebnf_ast::Term::Repetition(sub_term) => apply_repeptition(tokens, sub_term),
@@ -120,21 +102,26 @@ fn apply_term<'prog, 'bnf>(tokens: &'prog str, term: ebnf_ast::Term) -> ParseRes
     }
 }
 
-fn apply_alternation(tokens: &str, sub_terms: Vec<ebnf_ast::Term>) -> Result<OkResult, ErrResult> {
+fn apply_alternation<'prog, 'bnf>(
+    tokens: &'prog str,
+    sub_terms: &'bnf [ebnf_ast::Term],
+) -> ParseResult<'prog, 'bnf> {
     let mut problems = Vec::new();
 
     for term in sub_terms {
         let result = apply_term(tokens, term);
 
-        match result {
-            Ok(_) => {
+        match &result {
+            Ok(ok_result) => {
+                let num_bytes_parsed = tokens.len() - ok_result.remaining_tokens.len();
+                // if the remaining_tokens is the same as the input tokens, that means that this term evaluated to nothing
+                if num_bytes_parsed > 0 {
+                    return result;
+                }
                 // return the first successful
-                return result;
             }
-            Err(ErrResult::OutOfTokens)
-            | Err(ErrResult::UnclosedGroup { .. })
-            | Err(ErrResult::Error(_)) => {
-                // if this is a syntax-error, return it.
+            Err(ErrResult::InternalError(_)) => {
+                // if this is a syntax-error (or internal error), return it.
                 return result;
             }
             Err(err_result) => {
@@ -146,28 +133,34 @@ fn apply_alternation(tokens: &str, sub_terms: Vec<ebnf_ast::Term>) -> Result<OkR
 
     // no rule applied, so we look for the best parse result that we could find
     let mut least_remaining: usize = 0;
-    let mut furthest_err = ErrResult::OutOfTokens;
+    let mut furthest_err = &ErrResult::OutOfTokens;
 
     for err in problems {
-        if let ErrResult::UnexpectedToken {
-            tokens_remaining,
-            while_parsing: _,
-        } = err
-        {
-            if tokens_remaining < least_remaining {
-                least_remaining = tokens_remaining;
-                furthest_err = err;
+        match err {
+            ErrResult::UnclosedGroup { tokens_remaining }
+            | ErrResult::UnexpectedToken {
+                tokens_remaining,
+                while_parsing: _,
+            } => {
+                if *tokens_remaining < least_remaining {
+                    least_remaining = *tokens_remaining;
+                    furthest_err = err;
+                }
             }
+            ErrResult::OutOfTokens => {
+                return Err(*err);
+            }
+            _ => (),
         }
     }
 
-    Err(furthest_err)
+    Err(*furthest_err)
 }
 
-fn apply_concatenation(
+fn apply_concatenation<'prog, 'bnf>(
     tokens: &str,
-    sub_terms: Vec<ebnf_ast::Term>,
-) -> Result<OkResult, ErrResult> {
+    sub_terms: &'bnf [ebnf_ast::Term],
+) -> ParseResult<'prog, 'bnf> {
     let mut nodes = Vec::new();
     let mut remaining_tokens = tokens;
 
@@ -191,11 +184,14 @@ fn apply_concatenation(
     })
 }
 
-fn apply_repeptition(tokens: &str, sub_term: Box<ebnf_ast::Term>) -> Result<OkResult, ErrResult> {
+fn apply_repeptition<'prog, 'bnf>(
+    tokens: &str,
+    sub_term: &ebnf_ast::Term,
+) -> ParseResult<'prog, 'bnf> {
     let mut nodes = Vec::new();
     let mut remaining_tokens = tokens;
 
-    while let Ok(result) = apply_term(remaining_tokens, *sub_term) {
+    while let Ok(result) = apply_term(remaining_tokens, sub_term) {
         match result.val {
             ParseNode::Rule(rule_node) => nodes.push(rule_node),
             ParseNode::Group(mut sub_nodes) => nodes.append(&mut sub_nodes),
@@ -209,8 +205,11 @@ fn apply_repeptition(tokens: &str, sub_term: Box<ebnf_ast::Term>) -> Result<OkRe
     })
 }
 
-fn apply_optional(tokens: &str, sub_term: Box<ebnf_ast::Term>) -> Result<OkResult, ErrResult> {
-    match apply_term(tokens, *sub_term) {
+fn apply_optional<'prog, 'bnf>(
+    tokens: &str,
+    sub_term: &ebnf_ast::Term,
+) -> ParseResult<'prog, 'bnf> {
+    match apply_term(tokens, sub_term) {
         Ok(result) => Ok(result),
         Err(ErrResult::UnexpectedToken { .. }) => {
             // return an empty non-producing syntax node
