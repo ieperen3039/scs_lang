@@ -1,17 +1,15 @@
-// term = "(" , term , ")"
-//      | "[" , term , "]"
-//      | "{" , term , "}"
-//      | concatenation 
-//      | alternation 
+// term = "(" , alternation , ")"
+//      | "[" , alternation , "]"
+//      | "{" , alternation , "}"
 //      | terminal
 //      | identifier ;
-
+// concatenation = term , { "," , term };
+// alternation = concatenation , { "|" , concatenation };
+#[derive(Debug, PartialEq, Eq)]
 pub enum Term {
     Optional(Box<Term>),
     Repetition(Box<Term>),
-    // concatenation = term , "," , term , { "," , term };
     Concatenation(Vec<Term>),
-    // alternation = term , "|" , term , { "|" , term };
     Alternation(Vec<Term>),
     // terminal = "'" , character , { character } , "'" 
     //          | '"' , character , { character } , '"' ;
@@ -21,12 +19,14 @@ pub enum Term {
 }
 
 // rule = identifier , "=" , term , terminator ;
+#[derive(Debug)]
 pub struct Rule {
     pub identifier : String,
     pub pattern : Term
 }
 
 // grammar = { rule } ;
+#[derive(Debug)]
 pub struct EbnfAst {
     pub rules : Vec<Rule>,
 }
