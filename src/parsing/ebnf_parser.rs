@@ -62,9 +62,7 @@ where
 
         if let Err(result_err) = result {
             match result_err {
-                ErrResult::UnclosedGroup { .. } | ErrResult::Error(_) => {
-                    return Err(result_err)
-                }
+                ErrResult::UnclosedGroup { .. } | ErrResult::Error(_) => return Err(result_err),
                 _ => (),
             }
 
@@ -78,15 +76,15 @@ where
     for err in problems {
         match err {
             ErrResult::UnexpectedToken {
-                    tokens_remaining,
-                    while_parsing: _,
-                } => {
+                tokens_remaining,
+                while_parsing: _,
+            } => {
                 if tokens_remaining < least_remaining {
                     least_remaining = tokens_remaining;
                     furthest_err = err;
                 }
             }
-            ErrResult::OutOfTokens => { return Err(err) },
+            ErrResult::OutOfTokens => return Err(err),
             _ => (),
         }
     }
@@ -119,9 +117,18 @@ where
 // grammar = { rule } ;
 pub fn parse_ebnf(definition: &str) -> Result<EbnfAst, ErrResult> {
     let mut rules = process_repeated(next_of(definition), process_rule)?;
-    rules.val.reverse();
-    // TODO check that no valid tokens are remaining
-    Ok(EbnfAst { rules: rules.val })
+
+    let remaining_tokens = next_of(rules.remaining_tokens);
+
+    if remaining_tokens.is_empty() {
+        rules.val.reverse();
+        // TODO check that no valid tokens are remaining
+        Ok(EbnfAst { rules: rules.val })
+    } else {
+        Err(ErrResult::UnclosedGroup {
+            tokens_remaining: remaining_tokens.len(),
+        })
+    }
 }
 
 // rule = identifier , "=" , alternation , terminator ;
