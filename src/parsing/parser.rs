@@ -1,5 +1,3 @@
-use std::fmt::Pointer;
-
 use simple_error::SimpleError;
 
 use super::ebnf_ast;
@@ -7,19 +5,19 @@ use super::ebnf_ast;
 type ParseResult<'prog, 'bnf> = Result<OkResult<'prog, 'bnf>, ErrResult>;
 
 // the entire resulting syntax tree consists of these nodes
-#[derive(PartialEq, Eq)]
-pub struct RuleNode<'prog, 'bnf> {
+#[derive(PartialEq, Eq, Clone)]
+pub struct RuleNode<'bnf> {
     pub rule: &'bnf str,
-    pub tokens: &'prog str,
-    pub subrules: Vec<RuleNode<'prog, 'bnf>>,
+    pub tokens: String,
+    pub sub_rules: Vec<RuleNode<'bnf>>,
 }
 
-impl<'prog, 'bnf> std::fmt::Debug for RuleNode<'prog, 'bnf> {
+impl<'bnf> std::fmt::Debug for RuleNode<'bnf> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.subrules.is_empty() {
+        if self.sub_rules.is_empty() {
             f.write_fmt(format_args!("{{{}, \"{}\"}}", self.rule, self.tokens))
         } else {
-            f.write_fmt(format_args!("{{{}, {:?}}}", self.rule, self.subrules))
+            f.write_fmt(format_args!("{{{}, {:?}}}", self.rule, self.sub_rules))
         }
     }
 }
@@ -52,15 +50,15 @@ struct OkResult<'prog, 'bnf> {
 
 #[derive(Debug)]
 enum ParseNode<'prog, 'bnf> {
-    Rule(RuleNode<'prog, 'bnf>),
-    Group(Vec<RuleNode<'prog, 'bnf>>),
+    Rule(RuleNode<'bnf>),
+    Group(Vec<ParseNode<'prog, 'bnf>>),
     Literal(&'prog str),
 }
 
 pub fn parse_program_with_grammar<'prog, 'bnf>(
     program: &'prog str,
     grammar: &'bnf ebnf_ast::EbnfAst,
-) -> Result<RuleNode<'prog, 'bnf>, ErrResult> {
+) -> Result<RuleNode<'bnf>, ErrResult> {
     if grammar.rules.is_empty() {
         return Err(ErrResult::Error(SimpleError::new("No rules in grammar")));
     }
@@ -95,8 +93,13 @@ impl<'bnf> ebnf_ast::EbnfAst {
     ) -> ParseResult<'prog, 'bnf> {
         let found_rule = self.apply_term(tokens, &rule.pattern)?;
 
-        let num_bytes_parsed = tokens.len() - found_rule.remaining_tokens.len();
-        if num_bytes_parsed == 0 {
+        let tokens = match &found_rule.val {
+            ParseNode::Rule(node) => node.tokens.clone(),
+            ParseNode::Group(sub_rules) => combine_tokens(sub_rules),
+            ParseNode::Literal(consumed) => String::from(*consumed),
+        };
+
+        if tokens.len() == 0 {
             return Err(ErrResult::Error(SimpleError::new(format!(
                 "Rule '{}' yielded nothing",
                 rule.identifier
@@ -105,15 +108,15 @@ impl<'bnf> ebnf_ast::EbnfAst {
 
         let sub_rules = match found_rule.val {
             ParseNode::Rule(node) => vec![node],
-            ParseNode::Group(sub_rules) => sub_rules,
-            ParseNode::Literal => Vec::new(),
+            ParseNode::Group(sub_rules) => filter_rules(&sub_rules),
+            ParseNode::Literal(consumed) => Vec::new(),
         };
 
         Ok(OkResult {
             val: ParseNode::Rule(RuleNode {
                 rule: &rule.identifier,
-                tokens: &tokens[..num_bytes_parsed],
-                subrules: sub_rules,
+                tokens,
+                sub_rules,
             }),
             remaining_tokens: found_rule.remaining_tokens,
         })
@@ -203,9 +206,8 @@ impl<'bnf> ebnf_ast::EbnfAst {
             match term_result {
                 Ok(result) => {
                     match result.val {
-                        ParseNode::Rule(rule_node) => nodes.push(rule_node),
                         ParseNode::Group(mut sub_nodes) => nodes.append(&mut sub_nodes),
-                        ParseNode::Literal => {}
+                        other => nodes.push(other)
                     }
                     remaining_tokens = result.remaining_tokens
                 }
@@ -229,9 +231,8 @@ impl<'bnf> ebnf_ast::EbnfAst {
 
         while let Ok(result) = self.apply_term(remaining_tokens, sub_term) {
             match result.val {
-                ParseNode::Rule(rule_node) => nodes.push(rule_node),
                 ParseNode::Group(mut sub_nodes) => nodes.append(&mut sub_nodes),
-                ParseNode::Literal => {}
+                other => nodes.push(other)
             }
             remaining_tokens = result.remaining_tokens
         }
@@ -303,4 +304,26 @@ impl<'bnf> ebnf_ast::EbnfAst {
             }),
         }
     }
+}
+
+fn filter_rules<'prog, 'bnf>(sub_rules: &Vec<ParseNode<'prog, 'bnf>>) -> Vec<RuleNode<'bnf>> {
+    let mut result = Vec::new();
+    for node in sub_rules {
+        if let ParseNode::Rule(rule_node) = node {
+            result.push(rule_node.clone())
+        }
+    }
+    result
+}
+
+fn combine_tokens(nodes: &Vec<ParseNode>) -> String {
+    let mut acc = String::new();
+    for node in nodes {
+        match node {
+            ParseNode::Rule(r) => acc += &r.tokens,
+            ParseNode::Group(g) => acc += &combine_tokens(g),
+            ParseNode::Literal(l) => acc += l,
+        }
+    }
+    acc
 }

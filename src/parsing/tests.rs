@@ -89,17 +89,17 @@ fn simple_parser() {
         program_ast,
         RuleNode {
             rule: "addition",
-            tokens: formula,
-            subrules: vec![
+            tokens: formula.to_string(),
+            sub_rules: vec![
                 RuleNode {
                     rule: "number",
-                    tokens: "1",
-                    subrules: Vec::new()
+                    tokens: String::from("1"),
+                    sub_rules: Vec::new()
                 },
                 RuleNode {
                     rule: "number",
-                    tokens: "2",
-                    subrules: Vec::new()
+                    tokens: String::from("2"),
+                    sub_rules: Vec::new()
                 },
             ]
         }
@@ -122,17 +122,17 @@ fn simple_parser_with_simple_ignore() {
         program_ast,
         RuleNode {
             rule: "addition",
-            tokens: formula,
-            subrules: vec![
+            tokens: String::from("1+2"),
+            sub_rules: vec![
                 RuleNode {
                     rule: "number",
-                    tokens: "1",
-                    subrules: Vec::new()
+                    tokens: String::from("1"),
+                    sub_rules: Vec::new()
                 },
                 RuleNode {
                     rule: "number",
-                    tokens: "2",
-                    subrules: Vec::new()
+                    tokens: String::from("2"),
+                    sub_rules: Vec::new()
                 },
             ]
         }
