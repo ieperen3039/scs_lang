@@ -1,6 +1,6 @@
-use crate::parsing::ebnf_ast::*;
+use crate::parsing::{ebnf_ast::*, parser::RuleNode};
 
-use super::ebnf_parser;
+use super::{ebnf_parser, parser::parse_program_with_grammar};
 
 #[test]
 fn simple_ebnf() {
@@ -72,4 +72,69 @@ fn complex_ebnf() {
             Term::Repetition(Box::new(Term::Identifier(String::from("d")),))
         ])
     );
+}
+
+#[test]
+fn simple_parser() {
+    let definition = r#"
+        addition = number, "+", number;
+        number = "0" | "1" | "2";
+    "#;
+    let formula = r#"1+2"#;
+
+    let grammar = ebnf_parser::parse_ebnf(definition).unwrap();
+    let program_ast = parse_program_with_grammar(formula, &grammar).unwrap();
+
+    assert_eq!(
+        program_ast,
+        RuleNode {
+            rule: "addition",
+            tokens: formula,
+            subrules: vec![
+                RuleNode {
+                    rule: "number",
+                    tokens: "1",
+                    subrules: Vec::new()
+                },
+                RuleNode {
+                    rule: "number",
+                    tokens: "2",
+                    subrules: Vec::new()
+                },
+            ]
+        }
+    )
+}
+
+#[test]
+fn simple_parser_with_simple_ignore() {
+    let definition = r#"
+        addition = number, "+", number;
+        number = "0" | "1" | "2";
+        ignored = " ";
+    "#;
+    let formula = r#" 1 + 2 "#;
+
+    let grammar = ebnf_parser::parse_ebnf(definition).unwrap();
+    let program_ast = parse_program_with_grammar(formula, &grammar).unwrap();
+
+    assert_eq!(
+        program_ast,
+        RuleNode {
+            rule: "addition",
+            tokens: formula,
+            subrules: vec![
+                RuleNode {
+                    rule: "number",
+                    tokens: "1",
+                    subrules: Vec::new()
+                },
+                RuleNode {
+                    rule: "number",
+                    tokens: "2",
+                    subrules: Vec::new()
+                },
+            ]
+        }
+    )
 }

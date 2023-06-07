@@ -5,7 +5,7 @@
 //      | identifier ;
 // concatenation = term , { "," , term };
 // alternation = concatenation , { "|" , concatenation };
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Term {
     Optional(Box<Term>),
     Repetition(Box<Term>),
@@ -19,7 +19,7 @@ pub enum Term {
 }
 
 // rule = identifier , "=" , term , terminator ;
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Rule {
     pub identifier : String,
     pub pattern : Term
@@ -29,4 +29,5 @@ pub struct Rule {
 #[derive(Debug)]
 pub struct EbnfAst {
     pub rules : Vec<Rule>,
+    pub ignore_rule : Option<Term>,
 }

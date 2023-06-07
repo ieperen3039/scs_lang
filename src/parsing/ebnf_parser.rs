@@ -118,12 +118,21 @@ where
 pub fn parse_ebnf(definition: &str) -> Result<EbnfAst, ErrResult> {
     let mut rules = process_repeated(next_of(definition), process_rule)?;
 
+    let ignore_rule = rules
+        .val
+        .iter()
+        .position(|rule| rule.identifier == "ignored")
+        .map(|index_of_ignored| {
+            let ignore_rule = rules.val[index_of_ignored].clone();
+            rules.val.remove(index_of_ignored);
+            ignore_rule.pattern
+        });
+
     let remaining_tokens = next_of(rules.remaining_tokens);
 
     if remaining_tokens.is_empty() {
         rules.val.reverse();
-        // TODO check that no valid tokens are remaining
-        Ok(EbnfAst { rules: rules.val })
+        Ok(EbnfAst { rules: rules.val, ignore_rule })
     } else {
         Err(ErrResult::UnclosedGroup {
             tokens_remaining: remaining_tokens.len(),
