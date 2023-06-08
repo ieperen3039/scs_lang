@@ -1,10 +1,3 @@
-(*
-After every token, we match with, and ignore, the following regex's:
-whitespace : /[\s\n]+/
-line comments: /\/\/.*/
-block comments: /\/\*.*\*\// 
-*)
-
 scs_program             = [ version_declaration ], { definition | include_declaration | alias_declaration }, function_block;
 
 version_declaration     = KeywordVersion, Name, ( Star | version );
@@ -75,3 +68,8 @@ IntegerLiteral = "/\d*/";
 DecimalLiteral = "/0-9[0-9_]*.[0-9]*/";
 HexadecimalLiteral = "/0x[0-9A-F_]+/";
 BinaryLiteral = "/0b[01_]+*/";
+
+ignored = line_comments | whitespace | block_comments;
+whitespace = "/[\s\n]+/";
+line_comments = "/\/\/.*/";
+block_comments = "/\/\*.*\*\//";

@@ -80,7 +80,7 @@ fn simple_parser() {
         addition = number, "+", number;
         number = "0" | "1" | "2";
     "#;
-    let formula = r#"1+2"#;
+    let formula = "1+2";
 
     let grammar = ebnf_parser::parse_ebnf(definition).unwrap();
     let program_ast = parse_program_with_grammar(formula, &grammar).unwrap();
@@ -89,16 +89,16 @@ fn simple_parser() {
         program_ast,
         RuleNode {
             rule: "addition",
-            tokens: formula.to_string(),
+            tokens: "1+2",
             sub_rules: vec![
                 RuleNode {
                     rule: "number",
-                    tokens: String::from("1"),
+                    tokens: "1",
                     sub_rules: Vec::new()
                 },
                 RuleNode {
                     rule: "number",
-                    tokens: String::from("2"),
+                    tokens: "2",
                     sub_rules: Vec::new()
                 },
             ]
@@ -122,17 +122,92 @@ fn simple_parser_with_simple_ignore() {
         program_ast,
         RuleNode {
             rule: "addition",
-            tokens: String::from("1+2"),
+            tokens: "1 + 2",
             sub_rules: vec![
                 RuleNode {
                     rule: "number",
-                    tokens: String::from("1"),
+                    tokens: "1",
                     sub_rules: Vec::new()
                 },
                 RuleNode {
                     rule: "number",
-                    tokens: String::from("2"),
+                    tokens: "2",
                     sub_rules: Vec::new()
+                },
+            ]
+        }
+    )
+}
+
+#[test]
+fn complex_parser_with_complex_ignore() {
+    let definition = r#"
+        sentence = demand, ["and", demand] ;
+        demand = person, ["must"], action, how ;
+        person = "you" | "I" | "he" | name ;
+        action = "stay" | "come" | "go" | "meet", person ;
+        how    = "here" | "there" | "with", person ;
+        ignored = { " " | "," | "!" | "?" } ;
+    "#;
+
+    let formula = r#" you must go there, and I come with you! "#;
+
+    let grammar = ebnf_parser::parse_ebnf(definition).unwrap();
+    let program_ast = parse_program_with_grammar(formula, &grammar).unwrap();
+
+    assert_eq!(
+        program_ast,
+        RuleNode {
+            rule: "sentence",
+            tokens: "you must go there, and I come with you",
+            sub_rules: vec![
+                RuleNode {
+                    rule: "demand",
+                    tokens: "you must go there",
+                    sub_rules: vec![
+                        RuleNode {
+                            rule: "person",
+                            tokens: "you",
+                            sub_rules: Vec::new()
+                        },
+                        RuleNode {
+                            rule: "action",
+                            tokens: "go",
+                            sub_rules: Vec::new()
+                        },
+                        RuleNode {
+                            rule: "how",
+                            tokens: "there",
+                            sub_rules: Vec::new()
+                        }
+                    ]
+                },
+                RuleNode {
+                    rule: "demand",
+                    tokens: "I come with you",
+                    sub_rules: vec![
+                        RuleNode {
+                            rule: "person",
+                            tokens: "I",
+                            sub_rules: Vec::new()
+                        },
+                        RuleNode {
+                            rule: "action",
+                            tokens: "come",
+                            sub_rules: Vec::new()
+                        },
+                        RuleNode {
+                            rule: "how",
+                            tokens: "with you",
+                            sub_rules: vec![
+                                RuleNode {
+                                    rule: "person",
+                                    tokens: "you",
+                                    sub_rules: Vec::new()
+                                },
+                            ]
+                        }
+                    ]
                 },
             ]
         }
