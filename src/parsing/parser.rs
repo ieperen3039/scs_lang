@@ -1,8 +1,11 @@
+use std::cmp;
+
+use regex::Regex;
 use simple_error::SimpleError;
 
 use super::ebnf_ast;
 
-type ParseResult<'prog, 'bnf> = Result<OkResult<'prog, 'bnf>, ErrResult>;
+type ParseResult<'prog, 'bnf> = Result<OkResult<'prog, 'bnf>, ErrResult<'bnf>>;
 
 // the entire resulting syntax tree consists of these nodes
 #[derive(PartialEq, Eq, Clone)]
@@ -23,15 +26,21 @@ impl<'prog, 'bnf> std::fmt::Debug for RuleNode<'prog, 'bnf> {
 }
 
 #[derive(Debug, Clone)]
-pub enum ErrResult {
+pub enum ErrResult<'bnf> {
+    // the worst error of no errors at all
+    Multiple {
+        errors: Vec<ErrResult<'bnf>>
+    },
     // the evaluation of this function could not complete for these tokens
     // this is a normal negative return value
     UnexpectedToken {
         tokens_remaining: usize,
-        while_parsing: String,
+        expected: &'bnf str
     },
     // the end of the program was reached, but more was expected (equivalent to an UnexpectedToken at the end of the program)
-    OutOfTokens,
+    OutOfTokens {
+        expected: &'bnf str,
+    },
     // a group was opened, but never closed (equivalent to an early-evaluated OutOfTokens)
     UnclosedGroup {
         tokens_remaining: usize,
@@ -42,10 +51,36 @@ pub enum ErrResult {
     InternalError(SimpleError),
 }
 
+pub fn error_string(error: &ErrResult, source: &str) -> String {
+    match error {
+        ErrResult::UnexpectedToken {
+            tokens_remaining, ..
+        }
+        | ErrResult::UnclosedGroup { tokens_remaining } => {
+            let offset = source.len() - tokens_remaining;
+            let line_number = source[..=offset].bytes().filter(|c| c == &b'\n').count();
+            let lower_newline = source[..=offset].rfind("\n").map(|v| v + 1).unwrap_or(0);
+            let upper_newline = source[offset..]
+                .find("\n")
+                .map(|v| v + offset)
+                .unwrap_or(source.len());
+            let lb = cmp::max(offset as i64 - 40, lower_newline as i64) as usize;
+            let ub = cmp::min(offset as i64 + 40, upper_newline as i64) as usize;
+            format!(
+                "{:?} on line {line_number}:\n\n{:>40}{:<40}\n{:>40}^ when parsing here",
+                error,
+                &source[lb..offset],
+                &source[offset..ub],
+                ""
+            )
+        }
+        _ => format!("{:?}", error),
+    }
+}
+
 #[derive(Debug)]
 struct OkResult<'prog, 'bnf> {
     val: ParseNode<'prog, 'bnf>,
-    num_tokens_not_consumed : usize,
     remaining_tokens: &'prog str,
 }
 
@@ -59,16 +94,14 @@ enum ParseNode<'prog, 'bnf> {
 pub fn parse_program_with_grammar<'prog, 'bnf>(
     program: &'prog str,
     grammar: &'bnf ebnf_ast::EbnfAst,
-) -> Result<RuleNode<'prog, 'bnf>, ErrResult> {
+) -> Result<RuleNode<'prog, 'bnf>, ErrResult<'bnf>> {
     if grammar.rules.is_empty() {
         return Err(ErrResult::Error(SimpleError::new("No rules in grammar")));
     }
 
     let primary_rule = grammar.rules.get(0).expect("Grammar must have rules");
 
-    // skip whitespace
-    let tokens = grammar.next_of(program);
-    let result = grammar.apply_rule(tokens, primary_rule)?;
+    let result = grammar.apply_rule(program, primary_rule)?;
 
     if !result.remaining_tokens.is_empty() {
         return Err(ErrResult::UnclosedGroup {
@@ -92,31 +125,35 @@ impl<'bnf> ebnf_ast::EbnfAst {
         tokens: &'prog str,
         rule: &'bnf ebnf_ast::Rule,
     ) -> ParseResult<'prog, 'bnf> {
-        let found_rule = self.apply_term(tokens, &rule.pattern)?;
+        let rule_result = self.apply_term(tokens, &rule.pattern)?;
 
-        let num_tokens_consumed = tokens.len() - found_rule.num_tokens_not_consumed;
-        if num_tokens_consumed == 0 {
-            return Err(ErrResult::Error(SimpleError::new(format!(
-                "Rule '{}' yielded nothing",
-                rule.identifier
-            ))));
+        let is_transparent = rule.identifier.as_bytes()[0] == b'_';
+        if is_transparent {
+            Ok(rule_result)
+        } else {
+            let num_tokens = tokens.len() - rule_result.remaining_tokens.len();
+            if num_tokens == 0 {
+                return Err(ErrResult::Error(SimpleError::new(format!(
+                    "Rule '{}' yielded nothing",
+                    rule.identifier
+                ))));
+            }
+
+            let sub_rules = match rule_result.val {
+                ParseNode::Rule(node) => vec![node],
+                ParseNode::Group(sub_rules) => sub_rules,
+                ParseNode::Terminal(_) => Vec::new(),
+            };
+
+            Ok(OkResult {
+                val: ParseNode::Rule(RuleNode {
+                    rule: &rule.identifier,
+                    tokens: &tokens[..num_tokens],
+                    sub_rules,
+                }),
+                remaining_tokens: rule_result.remaining_tokens,
+            })
         }
-
-        let sub_rules = match found_rule.val {
-            ParseNode::Rule(node) => vec![node],
-            ParseNode::Group(sub_rules) => sub_rules,
-            ParseNode::Terminal(_) => Vec::new(),
-        };
-
-        Ok(OkResult {
-            val: ParseNode::Rule(RuleNode {
-                rule: &rule.identifier,
-                tokens : &tokens[..num_tokens_consumed],
-                sub_rules,
-            }),
-            num_tokens_not_consumed: found_rule.num_tokens_not_consumed,
-            remaining_tokens: found_rule.remaining_tokens,
-        })
     }
 
     fn apply_term<'prog>(
@@ -129,8 +166,11 @@ impl<'bnf> ebnf_ast::EbnfAst {
             ebnf_ast::Term::Repetition(sub_term) => self.apply_repetition(tokens, sub_term),
             ebnf_ast::Term::Concatenation(sub_terms) => self.apply_concatenation(tokens, sub_terms),
             ebnf_ast::Term::Alternation(sub_terms) => self.apply_alternation(tokens, sub_terms),
-            ebnf_ast::Term::Terminal(literal) => self.parse_literal(tokens, literal),
+            ebnf_ast::Term::Literal(literal) => self.parse_literal(tokens, literal),
             ebnf_ast::Term::Identifier(rule_name) => self.parse_rule_identifier(tokens, rule_name),
+            ebnf_ast::Term::Regex(ebnf_ast::RegexWrapper { regex }) => {
+                self.parse_regex(tokens, regex)
+            }
         }
     }
 
@@ -154,7 +194,7 @@ impl<'bnf> ebnf_ast::EbnfAst {
                     }
                 }
                 Err(ErrResult::InternalError(_)) => {
-                    // if this is a syntax-error (or internal error), return it.
+                    // if this is a internal error, return it.
                     return result;
                 }
                 Err(err_result) => {
@@ -166,7 +206,7 @@ impl<'bnf> ebnf_ast::EbnfAst {
 
         // no rule applied, so we look for the best parse result that we could find
         let mut least_remaining: usize = 0;
-        let mut furthest_err = ErrResult::OutOfTokens;
+        let mut furthest_err = ErrResult::Multiple { errors: Vec::new() };
 
         for err in problems {
             match err {
@@ -179,7 +219,7 @@ impl<'bnf> ebnf_ast::EbnfAst {
                         furthest_err = err;
                     }
                 }
-                ErrResult::OutOfTokens => {
+                ErrResult::OutOfTokens { .. } => {
                     return Err(err);
                 }
                 _ => (),
@@ -196,7 +236,6 @@ impl<'bnf> ebnf_ast::EbnfAst {
     ) -> ParseResult<'prog, 'bnf> {
         let mut nodes = Vec::new();
         let mut remaining_tokens = tokens;
-        let mut num_tokens_not_consumed = tokens.len();
 
         for sub_term in sub_terms {
             let term_result = self.apply_term(remaining_tokens, sub_term);
@@ -205,10 +244,9 @@ impl<'bnf> ebnf_ast::EbnfAst {
                     match result.val {
                         ParseNode::Group(mut sub_nodes) => nodes.append(&mut sub_nodes),
                         ParseNode::Rule(rule) => nodes.push(rule),
-                        _ => {}
+                        _ => {} // literals are ignored
                     }
                     remaining_tokens = result.remaining_tokens;
-                    num_tokens_not_consumed = result.num_tokens_not_consumed;
                 }
                 Err(result) => return Err(result),
             }
@@ -216,7 +254,6 @@ impl<'bnf> ebnf_ast::EbnfAst {
 
         Ok(OkResult {
             val: ParseNode::Group(nodes),
-            num_tokens_not_consumed,
             remaining_tokens,
         })
     }
@@ -228,21 +265,18 @@ impl<'bnf> ebnf_ast::EbnfAst {
     ) -> ParseResult<'prog, 'bnf> {
         let mut nodes = Vec::new();
         let mut remaining_tokens = tokens;
-        let mut num_tokens_not_consumed = tokens.len();
 
         while let Ok(result) = self.apply_term(remaining_tokens, sub_term) {
             match result.val {
                 ParseNode::Group(mut sub_nodes) => nodes.append(&mut sub_nodes),
                 ParseNode::Rule(rule) => nodes.push(rule),
-                _ => {}
+                _ => {} // literals are ignored
             }
             remaining_tokens = result.remaining_tokens;
-            num_tokens_not_consumed = result.num_tokens_not_consumed;
         }
 
         Ok(OkResult {
             val: ParseNode::Group(nodes),
-            num_tokens_not_consumed,
             remaining_tokens,
         })
     }
@@ -258,11 +292,29 @@ impl<'bnf> ebnf_ast::EbnfAst {
                 // return an empty non-producing syntax node
                 Ok(OkResult {
                     val: ParseNode::Group(vec![]),
-                    num_tokens_not_consumed: tokens.len(),
                     remaining_tokens: tokens,
                 })
             }
             Err(err) => Err(err),
+        }
+    }
+
+    fn parse_regex<'prog>(
+        &'bnf self,
+        tokens: &'prog str,
+        regex: &'bnf Regex,
+    ) -> ParseResult<'prog, 'bnf> {
+        if let Some(found) = regex.find(tokens) {
+            let slice = &tokens[..found.end()];
+            Ok(OkResult {
+                val: ParseNode::Terminal(slice),
+                remaining_tokens: &tokens[found.end()..],
+            })
+        } else {
+            Err(ErrResult::UnexpectedToken {
+                tokens_remaining: tokens.len(),
+                expected: regex.as_str(),
+            })
         }
     }
 
@@ -272,27 +324,15 @@ impl<'bnf> ebnf_ast::EbnfAst {
         literal: &'bnf str,
     ) -> ParseResult<'prog, 'bnf> {
         if tokens.starts_with(literal) {
-            let remaining_tokens = &tokens[literal.len()..];
             Ok(OkResult {
-                val: ParseNode::Terminal(remaining_tokens),
-                num_tokens_not_consumed: remaining_tokens.len(),
-                remaining_tokens: self.next_of(remaining_tokens),
+                val: ParseNode::Terminal(&tokens[..literal.len()]),
+                remaining_tokens: &tokens[literal.len()..],
             })
         } else {
             Err(ErrResult::UnexpectedToken {
                 tokens_remaining: tokens.len(),
-                while_parsing: literal.to_string(),
+                expected: literal,
             })
-        }
-    }
-
-    fn next_of<'prog>(&self, new_tokens: &'prog str) -> &'prog str {
-        if let Some(ignore) = &self.ignore_rule {
-            self.apply_term(new_tokens, ignore)
-                .map(|res| res.remaining_tokens)
-                .unwrap_or(new_tokens)
-        } else {
-            new_tokens
         }
     }
 
@@ -307,7 +347,7 @@ impl<'bnf> ebnf_ast::EbnfAst {
             Some(rule) => self.apply_rule(tokens, rule),
             None => Err(ErrResult::UnexpectedToken {
                 tokens_remaining: tokens.len(),
-                while_parsing: rule_name.to_string(),
+                expected: rule_name,
             }),
         }
     }

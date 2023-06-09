@@ -12,25 +12,25 @@ use "visionTest1"
 use "visionTest2"
 
 // type-checked replacements of categories or types or functions
-use fs = std.fs
+// use fs = std.fs
 
 {
 	fs.directoryOfThis 
-		> directory
+		> directory;
 		
 	directory 
 		append("settings") // if no namespace is given, it is assumed to be a method (this calls `directory.append("settings")`)
-		> settings
+		> settings;
 		
 	directory 
 		getParent // if no arguments are given, parenthesis can be omitted
 		append("copy/settings") 
-		> settingsCopyPath
+		> settingsCopyPath;
 		
 	settings 
 		copyTo(settingsCopyPath)
 		orThrow
-		> settingsCopy
+		> settingsCopy;
 		
 	std.parallel([
         { grf.visionTest1(settings) },
@@ -38,5 +38,4 @@ use fs = std.fs
     ])
 		all 
 		equalTo(0)
-        > return
 }

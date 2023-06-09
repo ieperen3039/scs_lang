@@ -5,7 +5,7 @@
 //      | identifier ;
 // concatenation = term , { "," , term };
 // alternation = concatenation , { "|" , concatenation };
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Term {
     Optional(Box<Term>),
     Repetition(Box<Term>),
@@ -13,9 +13,22 @@ pub enum Term {
     Alternation(Vec<Term>),
     // terminal = "'" , character , { character } , "'" 
     //          | '"' , character , { character } , '"' ;
-    Terminal(String),
+    Literal(String),
+    Regex(RegexWrapper),
     // identifier = letter , { letter | digit | "_" } ;
     Identifier(String),
+}
+
+// explicit PartialEq implementation for regex
+#[derive(Debug, Clone)]
+pub struct RegexWrapper {
+    pub regex : regex::Regex
+}
+
+impl PartialEq for RegexWrapper {
+    fn eq(&self, other: &Self) -> bool {
+        self.regex.as_str() == other.regex.as_str()
+    }
 }
 
 // rule = identifier , "=" , term , terminator ;
