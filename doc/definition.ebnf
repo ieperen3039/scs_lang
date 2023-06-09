@@ -1,4 +1,4 @@
-scs_program             = [ _shebang ], _, [ version_declaration ], { definition | include_declaration | alias_declaration }, _, function_block;
+scs_program             = [ _shebang ], _, [ version_declaration ], { _definition | include_declaration | alias_declaration }, _, function_block;
 
 version_declaration     = _keyword_Version, _, version_dialect, _, [ version ];
 version_dialect         = _name;
@@ -7,8 +7,8 @@ version                 = integer_literal, ".", integer_literal, ".", integer_li
 include_declaration     = _keyword_Use, _, string_literal, _;
 alias_declaration       = _keyword_Use, _, identifier, _, "=", _, identifier, _;
 
-definition              = scope | type_definition | enum_definition | implementation | function_definition;
-scope                   = identifier, _, "{", _, { definition }, "}", _;
+_definition              = scope | type_definition | enum_definition | implementation | function_definition;
+scope                   = identifier, _, "{", _, { _definition }, "}", _;
 
 type_definition         = _keyword_Type, _, "=", _, ( type_name | _keyword_Native, _ ), [ "{", _, { function_definition }, "}", _ ];
 type_name               = named_type | array_type | fn_type;
@@ -26,14 +26,14 @@ function_signature      = _keyword_Fn, _, [ _keyword_Static, _ ], identifier, [ 
 parameter_list          = parameter, { ",", _, parameter };
 parameter               = type_name, [ "...", _ ], identifier;
 function_block          = "{", _, { statement }, [ last_statement ], "}", _;
-statement               = expression, { method_call }, [ assignment ], ";", _;
-last_statement          = expression, { method_call };
-expression              = identifier | static_function_call | function_block | array_initialisation | _literal, _;
+statement               = _expression, { method_call }, [ assignment ], ";", _;
+last_statement          = _expression, { method_call };
+_expression              = identifier | static_function_call | function_block | array_initialisation | _literal, _;
 static_function_call    = identifier, _, ".", method_call;
 method_call             = identifier, _, [ "(", _, [ argument_list ], ")", _ ];
 argument_list           = identifier, _ | named_argument, { ",", _, named_argument };
-named_argument          = identifier, _, ":", _, expression;
-array_initialisation    = "[", _, [ expression, { ",", _, expression } ], "]", _;
+named_argument          = identifier, _, ":", _, _expression, _;
+array_initialisation    = "[", _, [ _expression, { ",", _, _expression } ], "]", _;
 _literal                 = string_literal | integer_literal | decimal_literal | hexadecimal_literal | binary_literal;
 assignment              = ">", _, ( _keyword_Return, _ | [ type_name ], identifier);
 identifier = _name;
