@@ -103,9 +103,8 @@ pub fn parse_program_with_grammar<'prog, 'bnf>(
 
     let primary_rule = grammar.rules.get(0).expect("Grammar must have rules");
 
-    let all_parse_results = grammar.apply_rule(program, primary_rule);
-
-    let mut interpretations: Vec<Interpretation> = all_parse_results
+    let mut interpretations: Vec<Interpretation> = grammar
+        .apply_rule(program, primary_rule)
         .into_iter()
         .filter_map(|result| result.ok())
         .collect();
@@ -151,29 +150,26 @@ impl<'bnf> ebnf_ast::EbnfAst {
 
         result_of_term
             .into_iter()
-            .map(|rule_result| {
-                if let Ok(interpretation) = rule_result {
-                    let num_tokens = tokens.len() - interpretation.remaining_tokens.len();
-                    if num_tokens == 0 {
-                        Err(Failure::EmptyEvaluation)
-                    } else {
+            .filter_map(|rule_result| rule_result.ok())
+            .filter_map(|interpretation| {
+                match tokens.len() - interpretation.remaining_tokens.len() {
+                    0 => None,
+                    num_tokens => {
                         let sub_rules = match interpretation.val {
                             ParseNode::Rule(node) => vec![node],
                             ParseNode::Group(sub_rules) => sub_rules,
                             ParseNode::Terminal(_) => Vec::new(),
                         };
 
-                        Ok(Interpretation {
+                        Some(Ok(Interpretation {
                             val: ParseNode::Rule(RuleNode {
                                 rule: &rule.identifier,
                                 tokens: &tokens[..num_tokens],
                                 sub_rules,
                             }),
                             remaining_tokens: interpretation.remaining_tokens,
-                        })
+                        }))
                     }
-                } else {
-                    rule_result
                 }
             })
             .collect()
@@ -189,10 +185,10 @@ impl<'bnf> ebnf_ast::EbnfAst {
             ebnf_ast::Term::Repetition(sub_term) => self.apply_repetition(tokens, sub_term),
             ebnf_ast::Term::Concatenation(sub_terms) => self.apply_concatenation(tokens, sub_terms),
             ebnf_ast::Term::Alternation(sub_terms) => self.apply_alternation(tokens, sub_terms),
-            ebnf_ast::Term::Literal(literal) => self.parse_literal(tokens, literal),
+            ebnf_ast::Term::Literal(literal) => vec![self.parse_literal(tokens, literal)],
             ebnf_ast::Term::Identifier(rule_name) => self.parse_rule_identifier(tokens, rule_name),
             ebnf_ast::Term::Regex(ebnf_ast::RegexWrapper { regex }) => {
-                self.parse_regex(tokens, regex)
+                vec![self.parse_regex(tokens, regex)]
             }
         }
     }
@@ -247,10 +243,12 @@ impl<'bnf> ebnf_ast::EbnfAst {
     ) -> ParseResult<'prog, 'bnf> {
         self.apply_term(tokens, sub_term)
             .into_iter()
-            .flat_map(|maybe_result| {
-                maybe_result.map(|result| self.apply_repetition(result.remaining_tokens, sub_term))
+            .filter_map(|rule_result| rule_result.ok())
+            .flat_map(|result| {
+                let mut others = self.apply_repetition(result.remaining_tokens, sub_term);
+                others.push(Ok(result));
+                others
             })
-            .flatten()
             .collect()
     }
 
@@ -275,8 +273,8 @@ impl<'bnf> ebnf_ast::EbnfAst {
         &'bnf self,
         tokens: &'prog str,
         regex: &'bnf Regex,
-    ) -> ParseResult<'prog, 'bnf> {
-        vec![if let Some(found) = regex.find(tokens) {
+    ) -> Result<Interpretation<'prog, 'bnf>, Failure<'bnf>> {
+        if let Some(found) = regex.find(tokens) {
             let slice = &tokens[..found.end()];
             Ok(Interpretation {
                 val: ParseNode::Terminal(slice),
@@ -287,15 +285,15 @@ impl<'bnf> ebnf_ast::EbnfAst {
                 tokens_remaining: tokens.len(),
                 expected: regex.as_str(),
             })
-        }]
+        }
     }
 
     fn parse_literal<'prog>(
         &'bnf self,
         tokens: &'prog str,
         literal: &'bnf str,
-    ) -> ParseResult<'prog, 'bnf> {
-        vec![if tokens.starts_with(literal) {
+    ) -> Result<Interpretation<'prog, 'bnf>, Failure<'bnf>> {
+        if tokens.starts_with(literal) {
             Ok(Interpretation {
                 val: ParseNode::Terminal(&tokens[..literal.len()]),
                 remaining_tokens: &tokens[literal.len()..],
@@ -305,7 +303,7 @@ impl<'bnf> ebnf_ast::EbnfAst {
                 tokens_remaining: tokens.len(),
                 expected: literal,
             })
-        }]
+        }
     }
 
     fn parse_rule_identifier<'prog>(
@@ -313,14 +311,14 @@ impl<'bnf> ebnf_ast::EbnfAst {
         tokens: &'prog str,
         rule_name: &'bnf str,
     ) -> ParseResult<'prog, 'bnf> {
-        let rule = self.rules.iter().find(|rule| rule.identifier == rule_name);
-
-        match rule {
-            Some(rule) => self.apply_rule(tokens, rule),
-            None => vec![Err(Failure::UnexpectedToken {
-                tokens_remaining: tokens.len(),
-                expected: rule_name,
-            })],
-        }
+        self.rules
+            .iter()
+            .find(|rule| rule.identifier == rule_name)
+            .map(|rule| self.apply_rule(tokens, rule))
+            .unwrap_or_else(|| {
+                vec![Err(Failure::InternalError(SimpleError::new(format!(
+                    "Unknown rule {rule_name}"
+                ))))]
+            })
     }
 }
