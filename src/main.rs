@@ -1,3 +1,5 @@
+#[allow(dead_code)]
+
 use crate::commandline_parser::ArgumentParser;
 
 pub mod compiler;
