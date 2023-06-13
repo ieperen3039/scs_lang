@@ -84,6 +84,7 @@ pub fn error_string(error: &Failure, source: &str) -> String {
     }
 }
 
+#[derive(PartialEq, Eq)]
 struct Interpretation<'prog, 'bnf> {
     val: ParseNode<'prog, 'bnf>,
     remaining_tokens: &'prog str,
@@ -95,7 +96,7 @@ impl<'prog, 'bnf> std::fmt::Debug for Interpretation<'prog, 'bnf> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum ParseNode<'prog, 'bnf> {
     Rule(RuleNode<'prog, 'bnf>),
     EmptyNode,
@@ -115,7 +116,7 @@ pub fn parse_program_with_grammar<'prog, 'bnf>(
 
     let primary_rule = grammar.rules.get(0).expect("Grammar must have rules");
 
-    let (mut interpretations, mut failures) = grammar
+    let (mut interpretations, failures) = grammar
         .apply_rule(program, primary_rule)
         .into_iter()
         .partition::<ParseResult, _>(|result| result.is_ok());
@@ -173,7 +174,10 @@ impl<'bnf> ebnf_ast::EbnfAst {
                 result.map(|interpretation| {
                     let remaining_tokens = interpretation.remaining_tokens;
                     match tokens.len() - remaining_tokens.len() {
-                        0 => Err(Failure::EmptyEvaluation),
+                        0 => Ok(Interpretation {
+                            val: ParseNode::EmptyNode,
+                            remaining_tokens: tokens,
+                        }),
                         num_tokens => Ok(Interpretation {
                             val: ParseNode::Rule(RuleNode {
                                 rule: &rule.identifier,
@@ -187,7 +191,9 @@ impl<'bnf> ebnf_ast::EbnfAst {
             })
             .collect();
 
-        println!("{:<30} => {:?}", rule.identifier, results);
+        for val in &results {
+            println!("<val>{:?}</val>", val);
+        }
         println!("</{}>", rule.identifier);
         results
     }

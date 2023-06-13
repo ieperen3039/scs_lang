@@ -11,10 +11,10 @@ _definition              = scope | type_definition | enum_definition | implement
 scope                   = identifier, _, "{", _, { _definition }, "}", _;
 
 type_definition         = _keyword_Type, _, "=", _, ( type_name | _keyword_Native, _ ), [ "{", _, { function_definition }, "}", _ ];
-type_name               = _named_type | array_type | fn_type;
-_named_type              = identifier, _, [ generic_type ];
+type_name               = _base_type | array_type | fn_type;
+_base_type              = identifier, _, [ generic_type ];
 generic_type            = "<", _, identifier, _, ">", _;
-array_type              = type_name, "[", _, "]", _;
+array_type              = (_base_type | fn_type ), "[", _, "]", _;
 fn_type                 = _keyword_Fn, _, [ "<", _, [ "(", _, { unnamed_parameter_list }, ")", _ ], type_name, ">", _ ];
 unnamed_parameter_list  = type_name, { ",", _, type_name };
 enum_definition         = _keyword_Enum, _, identifier, _, "[", _, { identifier, _, ",", _ }, "]", _;
@@ -58,7 +58,7 @@ _keyword_start_implementation = "impl";
 
 _shebang = "/#!.*/";
 
-_ = { _line_comments | _block_comments | _whitespace};
+_ = { _line_comments | _block_comments | _whitespace };
 _whitespace = "/[\s\n]+/";
 _line_comments = "/\/\/.*/";
 _block_comments = "/\/\*.*\*\//";
