@@ -11,8 +11,8 @@ _definition              = scope | type_definition | enum_definition | implement
 scope                   = identifier, _, "{", _, { _definition }, "}", _;
 
 type_definition         = _keyword_Type, _, "=", _, ( type_name | _keyword_Native, _ ), [ "{", _, { function_definition }, "}", _ ];
-type_name               = named_type | array_type | fn_type;
-named_type              = identifier, _, [ generic_type ];
+type_name               = _named_type | array_type | fn_type;
+_named_type              = identifier, _, [ generic_type ];
 generic_type            = "<", _, identifier, _, ">", _;
 array_type              = type_name, "[", _, "]", _;
 fn_type                 = _keyword_Fn, _, [ "<", _, [ "(", _, { unnamed_parameter_list }, ")", _ ], type_name, ">", _ ];
@@ -40,7 +40,7 @@ identifier = _name;
 
 _name = "/[a-zA-Z_][a-zA-Z0-9_]*/";
 string_literal = '/"(.*?[^\\]|)"/';
-integer_literal = "/\d*/";
+integer_literal = "/\d+/";
 decimal_literal = "/0-9[0-9_]*.[0-9]*/";
 hexadecimal_literal = "/0x[0-9A-F_]+/";
 binary_literal = "/0b[01_]+*/";
@@ -58,8 +58,7 @@ _keyword_start_implementation = "impl";
 
 _shebang = "/#!.*/";
 
-_ = { _line_comments | _whitespace | _newline | _block_comments };
-_whitespace = "/\s/";
-_newline = "/\n/";
+_ = { _line_comments | _block_comments | _whitespace};
+_whitespace = "/[\s\n]+/";
 _line_comments = "/\/\/.*/";
 _block_comments = "/\/\*.*\*\//";

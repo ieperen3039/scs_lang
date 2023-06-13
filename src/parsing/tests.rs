@@ -1,4 +1,10 @@
-use crate::parsing::{ebnf_ast::*, ebnf_parser, parser::{RuleNode, self}};
+use std::borrow::Borrow;
+
+use crate::parsing::{
+    ebnf_ast::*,
+    ebnf_parser,
+    parser::{self, RuleNode},
+};
 
 #[test]
 fn simple_ebnf() {
@@ -321,16 +327,31 @@ fn scs() {
 
     let grammar = ebnf_parser::parse_ebnf(definition)
         .map_err(|err| {
-            println!("Error parsing EBNF definition: {}", ebnf_parser::error_string(&err, definition));
+            println!(
+                "Error parsing EBNF definition: {}",
+                ebnf_parser::error_string(&err, definition)
+            );
             err
         })
         .unwrap();
-    let program_ast = parser::parse_program_with_grammar(program, &grammar)
-        .map_err(|err| {
-            println!("Error parsing program: {}", parser::error_string(&err, program));
-            err
-        })
-        .unwrap();
+
+    let parse_result = parser::parse_program_with_grammar(program, &grammar);
+
+    if parse_result.is_err() {
+        print!(
+            "Error parsing program: \n{}",
+            parse_result
+                .as_ref()
+                .unwrap_err()
+                .into_iter()
+                .map(|err| parser::error_string(&err, program) + "\n")
+                .collect::<String>()
+        );
+        assert!(parse_result.is_ok());
+
+    }
+    
+    let program_ast = parse_result.unwrap();
 
     assert!(program_ast.rule == "scs_program")
 }

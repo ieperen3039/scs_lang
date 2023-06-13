@@ -386,6 +386,7 @@ fn process_terminal_regex_with<'a>(tokens: &'a str, open : &'static str, close :
         val: Term::Regex(RegexWrapper {
             regex: regex::Regex::new(&final_regex)
                 .map_err(|err| ErrResult::InvalidRegex(SimpleError::from(err)))?,
+            regex_str : final_regex
         }),
         remaining_tokens: skip_ignored(&tokens[(regex_end + 2)..]),
     })

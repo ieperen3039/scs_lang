@@ -22,7 +22,8 @@ pub enum Term {
 // explicit PartialEq implementation for regex
 #[derive(Debug, Clone)]
 pub struct RegexWrapper {
-    pub regex : regex::Regex
+    pub regex : regex::Regex,
+    pub regex_str : String
 }
 
 impl PartialEq for RegexWrapper {
