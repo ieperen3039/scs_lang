@@ -1,4 +1,4 @@
-use std::cmp;
+use std::{cmp, collections::HashSet};
 
 use regex::Regex;
 use simple_error::SimpleError;
@@ -8,7 +8,7 @@ use super::ebnf_ast;
 type ParseResult<'prog, 'bnf> = Vec<Result<Interpretation<'prog, 'bnf>, Failure<'bnf>>>;
 
 // the entire resulting syntax tree consists of these nodes
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone)]
 pub struct RuleNode<'prog, 'bnf> {
     pub rule: &'bnf str,
     pub tokens: &'prog str,
@@ -84,7 +84,6 @@ pub fn error_string(error: &Failure, source: &str) -> String {
     }
 }
 
-#[derive(PartialEq, Eq)]
 struct Interpretation<'prog, 'bnf> {
     val: ParseNode<'prog, 'bnf>,
     remaining_tokens: &'prog str,
@@ -96,7 +95,7 @@ impl<'prog, 'bnf> std::fmt::Debug for Interpretation<'prog, 'bnf> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 enum ParseNode<'prog, 'bnf> {
     Rule(RuleNode<'prog, 'bnf>),
     EmptyNode,
@@ -168,31 +167,46 @@ impl<'bnf> ebnf_ast::EbnfAst {
             return result_of_term;
         }
 
-        let results = result_of_term
-            .into_iter()
-            .flat_map(|result| {
-                result.map(|interpretation| {
+        let mut found = HashSet::new();
+        let mut results = Vec::new();
+        let mut any_empty_result = false;
+
+        for result in result_of_term {
+            match result {
+                Ok(interpretation) => {
                     let remaining_tokens = interpretation.remaining_tokens;
                     match tokens.len() - remaining_tokens.len() {
-                        0 => Ok(Interpretation {
-                            val: ParseNode::EmptyNode,
-                            remaining_tokens: tokens,
-                        }),
-                        num_tokens => Ok(Interpretation {
-                            val: ParseNode::Rule(RuleNode {
+                        0 => any_empty_result = true,
+                        num_tokens => {
+                            found.insert(RuleNode {
                                 rule: &rule.identifier,
                                 tokens: &tokens[..num_tokens],
                                 sub_rules: unwrap_to_rulenodes(interpretation.val),
-                            }),
-                            remaining_tokens,
-                        }),
+                            });
+                        }
                     }
-                })
-            })
-            .collect();
+                }
+                _ => results.push(result),
+            }
+        }
 
-        for val in &results {
+        for val in &found {
             println!("<val>{:?}</val>", val);
+        }
+        
+        for node in found {
+            let num_tokens = node.tokens.len();
+            results.push(Ok(Interpretation {
+                val: ParseNode::Rule(node),
+                remaining_tokens: &tokens[num_tokens..],
+            }))
+        }
+
+        if any_empty_result {
+            results.push(Ok(Interpretation {
+                val: ParseNode::EmptyNode,
+                remaining_tokens: tokens,
+            }))
         }
         println!("</{}>", rule.identifier);
         results
