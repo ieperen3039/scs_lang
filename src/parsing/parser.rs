@@ -5,7 +5,14 @@ use simple_error::SimpleError;
 
 use super::ebnf_ast;
 
-type ParseResult<'prog, 'bnf> = Vec<Result<Interpretation<'prog, 'bnf>, Failure<'bnf>>>;
+type ParseResult<'prog, 'bnf> =
+    Box<dyn Iterator<Item = Result<Interpretation<'prog, 'bnf>, Failure<'bnf>>> + 'prog + 'bnf>;
+
+fn box_iter<'prog, 'bnf>(
+    result: Result<Interpretation<'prog, 'bnf>, Failure<'bnf>>,
+) -> ParseResult<'prog, 'bnf> {
+    Box::new(std::iter::once(result))
+}
 
 // the entire resulting syntax tree consists of these nodes
 #[derive(PartialEq, Eq, Clone)]
@@ -148,31 +155,32 @@ impl<'bnf> ebnf_ast::EbnfAst {
             return result_of_term;
         }
 
-        result_of_term
-            .into_iter()
-            .filter_map(|rule_result| rule_result.ok())
-            .filter_map(|interpretation| {
-                match tokens.len() - interpretation.remaining_tokens.len() {
-                    0 => None,
-                    num_tokens => {
-                        let sub_rules = match interpretation.val {
-                            ParseNode::Rule(node) => vec![node],
-                            ParseNode::Group(sub_rules) => sub_rules,
-                            ParseNode::Terminal(_) => Vec::new(),
-                        };
+        Box::new(
+            result_of_term
+                .into_iter()
+                .filter_map(|rule_result| rule_result.ok())
+                .filter_map(|interpretation| {
+                    match tokens.len() - interpretation.remaining_tokens.len() {
+                        0 => None,
+                        num_tokens => {
+                            let sub_rules = match interpretation.val {
+                                ParseNode::Rule(node) => vec![node],
+                                ParseNode::Group(sub_rules) => sub_rules,
+                                ParseNode::Terminal(_) => Vec::new(),
+                            };
 
-                        Some(Ok(Interpretation {
-                            val: ParseNode::Rule(RuleNode {
-                                rule: &rule.identifier,
-                                tokens: &tokens[..num_tokens],
-                                sub_rules,
-                            }),
-                            remaining_tokens: interpretation.remaining_tokens,
-                        }))
+                            Some(Ok(Interpretation {
+                                val: ParseNode::Rule(RuleNode {
+                                    rule: &rule.identifier,
+                                    tokens: &tokens[..num_tokens],
+                                    sub_rules,
+                                }),
+                                remaining_tokens: interpretation.remaining_tokens,
+                            }))
+                        }
                     }
-                }
-            })
-            .collect()
+                }),
+        )
     }
 
     fn apply_term<'prog>(
@@ -185,10 +193,10 @@ impl<'bnf> ebnf_ast::EbnfAst {
             ebnf_ast::Term::Repetition(sub_term) => self.apply_repetition(tokens, sub_term),
             ebnf_ast::Term::Concatenation(sub_terms) => self.apply_concatenation(tokens, sub_terms),
             ebnf_ast::Term::Alternation(sub_terms) => self.apply_alternation(tokens, sub_terms),
-            ebnf_ast::Term::Literal(literal) => vec![self.parse_literal(tokens, literal)],
+            ebnf_ast::Term::Literal(literal) => box_iter(self.parse_literal(tokens, literal)),
             ebnf_ast::Term::Identifier(rule_name) => self.parse_rule_identifier(tokens, rule_name),
             ebnf_ast::Term::Regex(ebnf_ast::RegexWrapper { regex }) => {
-                vec![self.parse_regex(tokens, regex)]
+                box_iter(self.parse_regex(tokens, regex))
             }
         }
     }
@@ -198,10 +206,11 @@ impl<'bnf> ebnf_ast::EbnfAst {
         tokens: &'prog str,
         sub_terms: &'bnf [ebnf_ast::Term],
     ) -> ParseResult<'prog, 'bnf> {
-        sub_terms
-            .iter()
-            .flat_map(|term| self.apply_term(tokens, term))
-            .collect()
+        Box::new(
+            sub_terms
+                .iter()
+                .flat_map(|term| self.apply_term(tokens, term)),
+        )
     }
 
     fn apply_concatenation<'prog>(
@@ -215,24 +224,25 @@ impl<'bnf> ebnf_ast::EbnfAst {
             Some(term) => {
                 let all_results = self.apply_term(tokens, term);
 
-                let (all_ok, all_err) = all_results
-                    .into_iter()
-                    .partition::<ParseResult, _>(|result| result.is_ok());
+                let all_ok = all_results
+                    .filter(|result| result.is_ok())
+                    .collect::<Vec<_>>();
 
                 if all_ok.is_empty() {
-                    all_err
+                    all_results
                 } else {
-                    all_ok
-                        .into_iter()
-                        .map(|rule| rule.unwrap())
-                        .flat_map(|rule| {
-                            self.apply_concatenation(rule.remaining_tokens, &sub_terms[1..])
-                        })
-                        .collect()
+                    Box::new(
+                        all_ok
+                            .into_iter()
+                            .map(|rule| rule.unwrap())
+                            .flat_map(|rule| {
+                                self.apply_concatenation(rule.remaining_tokens, &sub_terms[1..])
+                            }),
+                    )
                 }
             }
             // if we ran out of terms, then we return a empty (but positive) result
-            None => Vec::new(),
+            None => Box::new(std::iter::empty()),
         }
     }
 
@@ -241,15 +251,15 @@ impl<'bnf> ebnf_ast::EbnfAst {
         tokens: &'prog str,
         sub_term: &'bnf ebnf_ast::Term,
     ) -> ParseResult<'prog, 'bnf> {
-        self.apply_term(tokens, sub_term)
-            .into_iter()
-            .filter_map(|rule_result| rule_result.ok())
-            .flat_map(|result| {
-                let mut others = self.apply_repetition(result.remaining_tokens, sub_term);
-                others.push(Ok(result));
-                others
-            })
-            .collect()
+        Box::new(
+            self.apply_term(tokens, sub_term)
+                .into_iter()
+                .filter_map(|rule_result| rule_result.ok())
+                .flat_map(|result| {
+                    std::iter::once(Ok(result))
+                        .chain(self.apply_repetition(result.remaining_tokens, sub_term))
+                }),
+        )
     }
 
     fn apply_optional<'prog>(
@@ -257,16 +267,17 @@ impl<'bnf> ebnf_ast::EbnfAst {
         tokens: &'prog str,
         sub_term: &'bnf ebnf_ast::Term,
     ) -> ParseResult<'prog, 'bnf> {
-        self.apply_term(tokens, sub_term)
-            .into_iter()
-            .map(|result| match result {
-                Err(Failure::UnexpectedToken { .. }) => Ok(Interpretation {
-                    val: ParseNode::Group(vec![]),
-                    remaining_tokens: tokens,
+        Box::new(
+            self.apply_term(tokens, sub_term)
+                .into_iter()
+                .map(|result| match result {
+                    Err(Failure::UnexpectedToken { .. }) => Ok(Interpretation {
+                        val: ParseNode::Group(vec![]),
+                        remaining_tokens: tokens,
+                    }),
+                    _ => result,
                 }),
-                _ => result,
-            })
-            .collect()
+        )
     }
 
     fn parse_regex<'prog>(
@@ -311,14 +322,16 @@ impl<'bnf> ebnf_ast::EbnfAst {
         tokens: &'prog str,
         rule_name: &'bnf str,
     ) -> ParseResult<'prog, 'bnf> {
-        self.rules
-            .iter()
-            .find(|rule| rule.identifier == rule_name)
-            .map(|rule| self.apply_rule(tokens, rule))
-            .unwrap_or_else(|| {
-                vec![Err(Failure::InternalError(SimpleError::new(format!(
-                    "Unknown rule {rule_name}"
-                ))))]
-            })
+        Box::new(
+            self.rules
+                .iter()
+                .find(|rule| rule.identifier == rule_name)
+                .map(|rule| self.apply_rule(tokens, rule))
+                .unwrap_or_else(|| {
+                    box_iter(Err(Failure::InternalError(SimpleError::new(format!(
+                        "Unknown rule {rule_name}"
+                    )))))
+                }),
+        )
     }
 }
