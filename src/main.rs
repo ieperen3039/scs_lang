@@ -5,8 +5,6 @@ use crate::commandline_parser::ArgumentParser;
 pub mod compiler;
 
 mod commandline_parser;
-mod lexer;
-mod scs_lexer;
 mod parsing;
 
 #[cfg(test)]
