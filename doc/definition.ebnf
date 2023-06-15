@@ -28,11 +28,13 @@ parameter               = type_name, _, [ "...", _ ], identifier;
 function_block          = "{", { _, statement }, [ _, last_statement ], _, "}";
 (* it is a syntax error, but not a parse error, to not end with an all-assign *)
 statement               = _expression, { _, _mutator }, _, ";"; 
-_mutator                = mutator_method | mutator_application | mutator_stop_new | mutator_assign;
+_mutator                = mutator_method | mutator_application | mutator_stop_new | mutator_assign | _implicit_both_method;
 mutator_method          = _selector_symbol, usage_method, _, function_call_tail;
 mutator_application     = _selector_symbol, usage_application, _, static_function_call;
 mutator_stop_new        = _selector_symbol, usage_stop_new, _, _expression;
 mutator_assign          = _selector_symbol, usage_assign, _, ( _keyword_return | [ type_name ], _, identifier);
+(* if the choice of implicitness should not be in the syntax tree, then we can just type out all combinations *)
+_implicit_both_method   = function_call_tail;
 last_statement          = _expression, _, { function_call_tail };
 _expression             = identifier | static_function_call | function_block | array_initialisation | _literal;
 static_function_call    = identifier, _, ".", function_call_tail;
@@ -41,13 +43,13 @@ argument_list           = identifier, _ | named_argument, { _, ",", _, named_arg
 named_argument          = identifier, _, ":", _, _expression;
 array_initialisation    = "[", [ _, _expression, { _, ",", _, _expression } ], _, "]";
 
-_selector_symbol         = selector_all | selector_positive | selector_negative;
+_selector_symbol         = selector_both | selector_positive | selector_negative;
 _usage_symbol            = usage_method | usage_application | usage_stop_new | usage_assign;
 identifier              = _name;
 _lamda                  = "(", _, parameter_list, _, ")", _, function_block;
 _literal                = string_literal | integer_literal | decimal_literal | hexadecimal_literal | binary_literal;
 
-selector_all = ":";
+selector_both = ":";
 selector_positive = ">";
 selector_negative = "?";
 usage_method = ">";

@@ -1,4 +1,4 @@
-use std::{cmp, collections::HashSet};
+use std::{cmp, collections::HashSet, hash::Hash};
 
 use regex::Regex;
 use simple_error::SimpleError;
@@ -7,12 +7,35 @@ use super::ebnf_ast;
 
 type ParseResult<'prog, 'bnf> = Vec<Result<Interpretation<'prog, 'bnf>, Failure<'bnf>>>;
 
+const MAX_NUM_TOKENS_BACKTRACE_ON_ERROR: i32 = 5;
+
 // the entire resulting syntax tree consists of these nodes
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(Eq, Clone)]
 pub struct RuleNode<'prog, 'bnf> {
     pub rule: &'bnf str,
     pub tokens: &'prog str,
     pub sub_rules: Vec<RuleNode<'prog, 'bnf>>,
+}
+
+impl<'prog, 'bnf> Hash for RuleNode<'prog, 'bnf> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.rule.hash(state);
+        self.sub_rules.hash(state);
+
+        if self.sub_rules.is_empty() {
+            self.tokens.hash(state);
+        }
+    }
+}
+
+impl<'prog, 'bnf> PartialEq for RuleNode<'prog, 'bnf> {
+    fn eq(&self, other: &Self) -> bool {
+        if self.sub_rules.is_empty() {
+            other.sub_rules.is_empty() && self.rule == other.rule && self.tokens == other.tokens
+        } else {
+            self.rule == other.rule && self.sub_rules == other.sub_rules
+        }
+    }
 }
 
 impl<'prog, 'bnf> std::fmt::Debug for RuleNode<'prog, 'bnf> {
@@ -27,11 +50,6 @@ impl<'prog, 'bnf> std::fmt::Debug for RuleNode<'prog, 'bnf> {
 
 #[derive(Debug, Clone)]
 pub enum Failure<'bnf> {
-    // many near-equal failures
-    // often multiple interpretations would almost be possible
-    Multiple {
-        errors: Vec<Failure<'bnf>>,
-    },
     // the evaluation of this function could not complete for these tokens
     // this is a normal negative return value
     UnexpectedToken {
@@ -60,8 +78,8 @@ pub fn error_string(error: &Failure, source: &str) -> String {
         }
         | Failure::UnclosedGroup { tokens_remaining } => {
             let offset = source.len() - tokens_remaining;
-            let line_number = source[..=offset].bytes().filter(|c| c == &b'\n').count();
-            let lower_newline = source[..=offset].rfind("\n").map(|v| v + 1).unwrap_or(0);
+            let line_number = source[..offset].bytes().filter(|c| c == &b'\n').count() + 1;
+            let lower_newline = source[..offset].rfind("\n").map(|v| v + 1).unwrap_or(0);
             let upper_newline = source[offset..]
                 .find("\n")
                 .map(|v| v + offset)
@@ -76,10 +94,6 @@ pub fn error_string(error: &Failure, source: &str) -> String {
                 ""
             )
         }
-        Failure::Multiple { errors } => errors
-            .into_iter()
-            .map(|err| error_string(&err, source) + "\n")
-            .collect::<String>(),
         _ => format!("{:?}", error),
     }
 }
@@ -115,31 +129,48 @@ pub fn parse_program_with_grammar<'prog, 'bnf>(
 
     let primary_rule = grammar.rules.get(0).expect("Grammar must have rules");
 
-    let (mut interpretations, failures) = grammar
-        .apply_rule(program, primary_rule)
-        .into_iter()
-        .partition::<ParseResult, _>(|result| result.is_ok());
+    let mut interpretations = grammar.apply_rule(program, primary_rule);
 
-    if interpretations.is_empty() {
-        return Err(failures
+    // rules always sort their results (but lets check this)
+    for ele in interpretations.windows(2) {
+        if compare_result(&ele[0], &ele[1]) == cmp::Ordering::Greater {
+            panic!("{:?} was before {:?}", ele[0], ele[1]);
+        }
+    }
+
+    let partition_point = interpretations.partition_point(|r| r.is_ok());
+
+    if interpretations[..partition_point].is_empty() {
+        return Err(interpretations
             .into_iter()
             .map(|reason| reason.unwrap_err())
             .collect());
     }
 
-    if interpretations.len() > 1 {
-        todo!();
+    let result_borrowed = interpretations.first().unwrap().as_ref().unwrap();
+
+    if !result_borrowed.remaining_tokens.is_empty() {
+        let mut furthest_failures = vec![Failure::UnclosedGroup {
+            tokens_remaining: result_borrowed.remaining_tokens.len(),
+        }];
+
+        let mut iter = interpretations.into_iter().rev();
+
+        while let Some(Err(failure)) = iter.next() {
+            let minimum = get_err_significance(furthest_failures.last().unwrap())
+                - MAX_NUM_TOKENS_BACKTRACE_ON_ERROR;
+            if get_err_significance(&failure) > minimum {
+                furthest_failures.push(failure);
+                furthest_failures.sort_by(compare_err_result);
+            }
+        }
+
+        return Err(furthest_failures);
     }
 
-    let result = interpretations.pop().unwrap().unwrap();
+    let result_removed = interpretations.swap_remove(0).unwrap();
 
-    if !result.remaining_tokens.is_empty() {
-        return Err(vec![Failure::UnclosedGroup {
-            tokens_remaining: result.remaining_tokens.len(),
-        }]);
-    }
-
-    if let ParseNode::Rule(rule_node) = result.val {
+    if let ParseNode::Rule(rule_node) = result_removed.val {
         return Ok(rule_node);
     } else {
         return Err(vec![Failure::InternalError(SimpleError::new(
@@ -193,7 +224,7 @@ impl<'bnf> ebnf_ast::EbnfAst {
         for val in &found {
             println!("<val>{:?}</val>", val);
         }
-        
+
         for node in found {
             let num_tokens = node.tokens.len();
             results.push(Ok(Interpretation {
@@ -208,6 +239,10 @@ impl<'bnf> ebnf_ast::EbnfAst {
                 remaining_tokens: tokens,
             }))
         }
+
+        // make sure the longest solutions are first
+        results.sort_unstable_by(compare_result);
+
         println!("</{}>", rule.identifier);
         results
     }
@@ -250,7 +285,7 @@ impl<'bnf> ebnf_ast::EbnfAst {
 
         let all_results = self.apply_term(tokens, term);
 
-        if sub_terms.len() >= 2 {
+        if sub_terms.len() > 1 {
             all_results
                 .into_iter()
                 .flat_map(|term_result| match term_result {
@@ -285,30 +320,35 @@ impl<'bnf> ebnf_ast::EbnfAst {
         self.apply_term(tokens, sub_term)
             // for all evaluation attempts
             .into_iter()
-            // we don't care about parse errors in a repetition (parse failure is an ok return)
-            .filter_map(|term_result| term_result.ok())
-            // remove all interpretations that consume no tokens
-            .filter(|term_interp| term_interp.remaining_tokens != tokens)
-            // for all successful interpretations, recursively evaluate further repetitions
-            .flat_map(|term_interp| {
-                self.apply_repetition(term_interp.remaining_tokens, sub_term)
-                    // this includes the interpretation of 0 further repetitions (= term_interp)
-                    .into_iter()
-                    // we don't care about parse errors in a repetition (parse failure is an ok return)
-                    .filter_map(|further_result| further_result.ok())
-                    // remove all interpretations that consume no tokens
-                    .filter(|further_interp| further_interp.remaining_tokens != tokens)
-                    // each further interpretation creates a unique pair of 'this' and 'the further interpretation'
-                    .map(move |further_interp| {
-                        Ok(Interpretation {
-                            val: ParseNode::Pair(
-                                Box::new(term_interp.val.clone()),
-                                Box::new(further_interp.val),
-                            ),
-                            remaining_tokens: further_interp.remaining_tokens,
-                        })
-                    })
+            .map(|term_result| {
+                if let Ok(term_interp) = term_result {
+                    if term_interp.remaining_tokens.len() != tokens.len() {
+                        self.apply_repetition(term_interp.remaining_tokens, sub_term)
+                            // this includes the interpretation of 0 further repetitions (= term_interp)
+                            .into_iter()
+                            // each further interpretation creates a unique pair of 'this' and 'the further interpretation'
+                            .map(move |further_result| {
+                                if let Ok(further_interp) = further_result {
+                                    Ok(Interpretation {
+                                        val: ParseNode::Pair(
+                                            Box::new(term_interp.val.clone()),
+                                            Box::new(further_interp.val),
+                                        ),
+                                        remaining_tokens: further_interp.remaining_tokens,
+                                    })
+                                } else {
+                                    further_result
+                                }
+                            })
+                            .collect()
+                    } else {
+                        vec![Err(Failure::EmptyEvaluation)]
+                    }
+                } else {
+                    vec![term_result]
+                }
             })
+            .flatten()
             // we also return the interpretation of 0 repetitions
             .chain(std::iter::once(Ok(Interpretation {
                 val: ParseNode::EmptyNode,
@@ -386,6 +426,45 @@ impl<'bnf> ebnf_ast::EbnfAst {
                     "Unknown rule {rule_name}"
                 ))))]
             })
+    }
+}
+
+// ok < err, see compare_ok_result and compare_err_result
+fn compare_result(
+    a: &Result<Interpretation<'_, '_>, Failure<'_>>,
+    b: &Result<Interpretation<'_, '_>, Failure<'_>>,
+) -> cmp::Ordering {
+    match (a.is_ok(), b.is_ok()) {
+        (true, false) => cmp::Ordering::Less,
+        (false, true) => cmp::Ordering::Greater,
+        (true, true) => compare_ok_result(a.as_ref().unwrap(), b.as_ref().unwrap()),
+        (false, false) => compare_err_result(a.as_ref().unwrap_err(), b.as_ref().unwrap_err()),
+    }
+}
+
+// return whether a has more tokens than b
+fn compare_ok_result(a: &Interpretation<'_, '_>, b: &Interpretation<'_, '_>) -> cmp::Ordering {
+    let a_len = a.remaining_tokens.len();
+    let b_len = b.remaining_tokens.len();
+    // smallest number of remaining tokens first
+    a_len.cmp(&b_len)
+}
+
+// return whether a is more or less significant than b
+fn compare_err_result(a: &Failure<'_>, b: &Failure<'_>) -> cmp::Ordering {
+    get_err_significance(a).cmp(&get_err_significance(b))
+}
+
+fn get_err_significance(a: &Failure<'_>) -> i32 {
+    match a {
+        Failure::UnexpectedToken {
+            tokens_remaining, ..
+        }
+        | Failure::UnclosedGroup { tokens_remaining } => -(*tokens_remaining as i32),
+        Failure::OutOfTokens { .. } => 0,
+        Failure::EmptyEvaluation => 1,
+        Failure::Error(_) => 2,
+        Failure::InternalError(_) => 3,
     }
 }
 

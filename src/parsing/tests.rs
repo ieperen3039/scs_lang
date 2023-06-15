@@ -344,7 +344,7 @@ fn scs() {
                 .as_ref()
                 .unwrap_err()
                 .into_iter()
-                .map(|err| parser::error_string(&err, program) + "\n")
+                .map(|err| parser::error_string(&err, program) + "\n---\n\n")
                 .collect::<String>()
         );
         assert!(parse_result.is_ok());

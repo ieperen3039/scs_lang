@@ -14,11 +14,11 @@ use "filesystem"
 (FileName input_file) 
 {
     input_file
-        :? File.open // all-application;
+        :? File.open // both-application;
         >> read_to_string // positive-method;
-        ?? Error // negative-application;
-        split_on("\n") // implicit ":>"
-        := input_string; // all-assign
+        ?? Error.new // negative-application;
+        split_on("\n") // implicit ":>" (both-method)
+        := input_string; // both-assign
 
     input_string := return
 }
