@@ -6,36 +6,19 @@
 // = "version"<space><dialect-word><space><major>.<minor>.<impl>
 version scs 0.0.0
 
-// include '.scsdef' files
-use "std"
-use "visionTest1"
-use "visionTest2"
+// include other files
+use "filesystem"
 
-// type-checked replacements of categories or types or functions
-// use fs = std.fs
-
+// file-parameters are directly translated to command-line parameters
+// not sure how to do documentation though (special 'active' comment maybe)
+(FileName input_file) 
 {
-	fs.directoryOfThis 
-		> directory;
-		
-	directory 
-		append("settings") // if no namespace is given, it is assumed to be a method (this calls `directory.append("settings")`)
-		> settings;
-		
-	directory 
-		getParent // if no arguments are given, parenthesis can be omitted
-		append("copy/settings") 
-		> settingsCopyPath;
-		
-	settings 
-		copyTo(settingsCopyPath)
-		orThrow
-		> settingsCopy;
-		
-	std.parallel([
-        { grf.visionTest1(settings) },
-		{ grf.visionTest2(settingsCopy) }
-    ])
-		all 
-		equalTo(0)
+    input_file
+        :? File.open // all-application;
+        >> read_to_string // positive-method;
+        ?? Error // negative-application;
+        split_on("\n") // implicit ":>"
+        := input_string; // all-assign
+
+    input_string := return
 }

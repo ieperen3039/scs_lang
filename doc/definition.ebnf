@@ -1,42 +1,71 @@
-scs_program             = [ _shebang ], _, [ version_declaration ], { _definition | include_declaration | alias_declaration }, _, function_block;
+scs_program             = [ _shebang ], _, [ version_declaration ], { _, ( _definition | include_declaration | alias_declaration ) }, [ _, _lamda ] ;
 
-version_declaration     = _keyword_Version, _, version_dialect, _, [ version ];
+version_declaration     = _keyword_version, _, version_dialect, _, [ version ];
 version_dialect         = _name;
-version                 = integer_literal, ".", integer_literal, ".", integer_literal, _;
+version                 = integer_literal, ".", integer_literal, ".", integer_literal;
 
-include_declaration     = _keyword_Use, _, string_literal, _;
-alias_declaration       = _keyword_Use, _, identifier, _, "=", _, identifier, _;
+include_declaration     = _keyword_use, _, string_literal;
+alias_declaration       = _keyword_use, _, identifier, _, "=", _, identifier;
 
-_definition              = scope | type_definition | enum_definition | implementation | function_definition;
-scope                   = identifier, _, "{", _, { _definition }, "}", _;
+_definition              = scope | type_definition | enum_definition | variant_definition | implementation | function_definition;
+scope                   = identifier, _, "{", { _, _definition }, _, "}";
 
-type_definition         = _keyword_Type, _, "=", _, ( type_name | _keyword_Native, _ ), [ "{", _, { function_definition }, "}", _ ];
+type_definition         = _keyword_type, _, "=", _, ( type_name | _keyword_native ), _, [ "{", { _, function_definition }, _, "}" ];
 type_name               = _base_type | array_type | fn_type;
 _base_type              = identifier, _, [ generic_type ];
-generic_type            = "<", _, identifier, _, ">", _;
-array_type              = (_base_type | fn_type ), "[", _, "]", _;
-fn_type                 = _keyword_Fn, _, [ "<", _, [ "(", _, { unnamed_parameter_list }, ")", _ ], type_name, ">", _ ];
-unnamed_parameter_list  = type_name, { ",", _, type_name };
-enum_definition         = _keyword_Enum, _, identifier, _, "[", _, { identifier, _, ",", _ }, "]", _;
+generic_type            = "<", _, identifier, _, ">";
+array_type              = (_base_type | fn_type ), "[", _, "]";
+fn_type                 = _keyword_fn, _, [ "<", _, [ "(", { _, unnamed_parameter_list }, _, ")", _ ], type_name, ">" ];
+unnamed_parameter_list  = type_name, { _, ",", _, type_name };
+enum_definition         = _keyword_enum, _, identifier, _, "[", _, { _, identifier, _, "," }, _, "]";
+variant_definition      = _keyword_variant, _, identifier, _, "[", _, { _, identifier, _, "," }, _, "]";
+implementation          = _keyword_start_implementation, _, type_name, _, "{", { _, function_definition }, _, "}";
 
-implementation          = _keyword_start_implementation, _, type_name, "{", _, { function_definition }, "}", _;
+function_definition     = function_signature, _, ( function_block | _keyword_native, _ );
+function_signature      = _keyword_fn, _, [ _keyword_static, _ ], identifier, _, [ generic_type ], _, [ "(", _, [ parameter_list ], _, ")", _ ], ":", _, type_name;
+parameter_list          = parameter, { _, ",", _, parameter };
+parameter               = type_name, _, [ "...", _ ], identifier;
+function_block          = "{", { _, statement }, [ _, last_statement ], _, "}";
+(* it is a syntax error, but not a parse error, to not end with an all-assign *)
+statement               = _expression, { _, _mutator }, _, ";"; 
+_mutator                = mutator_method | mutator_application | mutator_stop_new | mutator_assign;
+mutator_method          = _selector_symbol, usage_method, _, function_call_tail;
+mutator_application     = _selector_symbol, usage_application, _, static_function_call;
+mutator_stop_new        = _selector_symbol, usage_stop_new, _, _expression;
+mutator_assign          = _selector_symbol, usage_assign, _, ( _keyword_return | [ type_name ], _, identifier);
+last_statement          = _expression, _, { function_call_tail };
+_expression             = identifier | static_function_call | function_block | array_initialisation | _literal;
+static_function_call    = identifier, _, ".", function_call_tail;
+function_call_tail      = identifier, _, [ "(", [ _, argument_list ], _, ")" ];
+argument_list           = identifier, _ | named_argument, { _, ",", _, named_argument };
+named_argument          = identifier, _, ":", _, _expression;
+array_initialisation    = "[", [ _, _expression, { _, ",", _, _expression } ], _, "]";
 
-function_definition     = function_signature, ( function_block | _keyword_Native, _ );
-function_signature      = _keyword_Fn, _, [ _keyword_Static, _ ], identifier, [ generic_type ], [ "(", _, [ parameter_list ], ")", _ ], ":", _, type_name;
-parameter_list          = parameter, { ",", _, parameter };
-parameter               = type_name, [ "...", _ ], identifier;
-function_block          = "{", _, { statement }, [ last_statement ], "}", _;
-statement               = _expression, { method_call }, [ assignment ], ";", _;
-last_statement          = _expression, { method_call };
-_expression              = identifier | static_function_call | function_block | array_initialisation | _literal, _;
-static_function_call    = identifier, _, ".", method_call;
-method_call             = identifier, _, [ "(", _, [ argument_list ], ")", _ ];
-argument_list           = identifier, _ | named_argument, { ",", _, named_argument };
-named_argument          = identifier, _, ":", _, _expression, _;
-array_initialisation    = "[", _, [ _expression, { ",", _, _expression } ], "]", _;
-_literal                 = string_literal | integer_literal | decimal_literal | hexadecimal_literal | binary_literal;
-assignment              = ">", _, ( _keyword_Return, _ | [ type_name ], identifier);
-identifier = _name;
+_selector_symbol         = selector_all | selector_positive | selector_negative;
+_usage_symbol            = usage_method | usage_application | usage_stop_new | usage_assign;
+identifier              = _name;
+_lamda                  = "(", _, parameter_list, _, ")", _, function_block;
+_literal                = string_literal | integer_literal | decimal_literal | hexadecimal_literal | binary_literal;
+
+selector_all = ":";
+selector_positive = ">";
+selector_negative = "?";
+usage_method = ">";
+usage_application = "?";
+usage_stop_new = "!";
+usage_assign = "=";
+
+_keyword_version = "version";
+_keyword_type = "type";
+_keyword_fn = "fn";
+_keyword_enum = "enum";
+_keyword_variant = "variant";
+_keyword_native = "native";
+_keyword_this = "this";
+_keyword_return = "return";
+_keyword_static = "static";
+_keyword_use = "use";
+_keyword_start_implementation = "impl";
 
 _name = "/[a-zA-Z_][a-zA-Z0-9_]*/";
 string_literal = '/"(.*?[^\\]|)"/';
@@ -44,17 +73,6 @@ integer_literal = "/\d+/";
 decimal_literal = "/0-9[0-9_]*.[0-9]*/";
 hexadecimal_literal = "/0x[0-9A-F_]+/";
 binary_literal = "/0b[01_]+*/";
-
-_keyword_Version = "version";
-_keyword_Type = "type";
-_keyword_Fn = "fn";
-_keyword_Enum = "enum";
-_keyword_Native = "native";
-_keyword_This = "this";
-_keyword_Return = "return";
-_keyword_Static = "static";
-_keyword_Use = "use";
-_keyword_start_implementation = "impl";
 
 _shebang = "/#!.*/";
 
