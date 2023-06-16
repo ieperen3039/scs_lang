@@ -1,40 +1,49 @@
-use simple_error::SimpleError;
-use crate::parsing::{ebnf_parser, parser, ebnf_ast::EbnfAst};
+use crate::parsing::{ebnf_parser, parser};
 
-pub struct  ScsCompiler {
-    grammar : EbnfAst,
-    xml_out : Option<std::fs::File>
+pub struct ScsCompiler {
+    parser: parser::Parser,
 }
 
 impl ScsCompiler {
-    pub fn build(definition : &str, xml_out : Option<std::fs::File>) -> Option<ScsCompiler> {
-        ebnf_parser::parse_ebnf(definition)
-        .map_err(|err| {
+    pub fn build(definition: &str, xml_out: Option<std::fs::File>) -> Option<ScsCompiler> {
+        let grammar = ebnf_parser::parse_ebnf(definition);
+        if let Err(err) = grammar {
             println!(
                 "Error parsing EBNF definition: {}",
                 ebnf_parser::error_string(&err, definition)
             );
+            return None;
+        }
+
+        let parser = parser::Parser::new(grammar.unwrap(), xml_out);
+        if let Err(err) = parser {
+            println!("Error creating parser: {}", err);
+            return None;
+        }
+
+        Some(ScsCompiler {
+            parser: parser.unwrap(),
         })
-        .map( | grammar | ScsCompiler { grammar, xml_out })
-        .ok()
     }
 
-    pub fn compile<'prog, 'bnf>(&'bnf self, program : &'prog str) -> Option<parser::RuleNode<'prog, 'bnf>>{
+    pub fn compile<'prog, 'bnf>(
+        &'bnf self,
+        program: &'prog str,
+    ) -> Option<parser::RuleNode<'prog, 'bnf>> {
+        let parse_result = self.parser.parse_program(program);
 
-        let parse_result = parser::parse_program_with_grammar(program, &self.grammar);
-
-        if parse_result.is_err() {
+        if let Err(err) = parse_result {
             print!(
                 "Error parsing program: \n{}",
-                parse_result
-                    .as_ref()
-                    .unwrap_err()
-                    .into_iter()
+                err.into_iter()
                     .map(|err| parser::error_string(&err, program) + "\n---\n\n")
                     .collect::<String>()
             );
+            None
         }
-
-        parse_result.ok()
+        else
+        {
+            parse_result.ok()
+        }
     }
 }

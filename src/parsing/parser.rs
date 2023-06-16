@@ -1,4 +1,4 @@
-use std::{cmp, collections::HashSet, hash::Hash};
+use std::{cmp, collections::HashSet, hash::Hash, io::Write, fmt::format};
 
 use regex::Regex;
 use simple_error::SimpleError;
@@ -117,69 +117,85 @@ enum ParseNode<'prog, 'bnf> {
     Terminal(&'prog str),
 }
 
-pub fn parse_program_with_grammar<'prog, 'bnf>(
-    program: &'prog str,
-    grammar: &'bnf ebnf_ast::EbnfAst,
-) -> Result<RuleNode<'prog, 'bnf>, Vec<Failure<'bnf>>> {
-    if grammar.rules.is_empty() {
-        return Err(vec![Failure::Error(SimpleError::new(
-            "No rules in grammar",
-        ))]);
-    }
+pub struct Parser {
+    grammar: ebnf_ast::EbnfAst,
+    xml_out: Option<std::fs::File>,
+}
 
-    let primary_rule = grammar.rules.get(0).expect("Grammar must have rules");
-
-    let mut interpretations = grammar.apply_rule(program, primary_rule);
-
-    // rules always sort their results (but lets check this)
-    for ele in interpretations.windows(2) {
-        if compare_result(&ele[0], &ele[1]) == cmp::Ordering::Greater {
-            panic!("{:?} was before {:?}", ele[0], ele[1]);
+impl<'bnf> Parser {
+    pub fn new(
+        grammar: ebnf_ast::EbnfAst,
+        xml_out: Option<std::fs::File>,
+    ) -> Result<Parser, SimpleError> {
+        if grammar.rules.is_empty() {
+            Err(SimpleError::new("No rules in grammar"))
+        } else {
+            Ok(Parser { grammar, xml_out })
         }
     }
 
-    let partition_point = interpretations.partition_point(|r| r.is_ok());
-
-    if interpretations[..partition_point].is_empty() {
-        return Err(interpretations
-            .into_iter()
-            .map(|reason| reason.unwrap_err())
-            .collect());
+    fn log(&'bnf self, string : String) {
+        if let Some(mut file) = self.xml_out.as_ref() {
+            let _ = write!(file, "{string}");
+        }
     }
 
-    let result_borrowed = interpretations.first().unwrap().as_ref().unwrap();
+    pub fn parse_program<'prog>(
+        &'bnf self,
+        program: &'prog str,
+    ) -> Result<RuleNode<'prog, 'bnf>, Vec<Failure<'bnf>>> {
+        let primary_rule = self.grammar.rules.get(0).expect("Grammar must have rules");
 
-    if !result_borrowed.remaining_tokens.is_empty() {
-        let mut furthest_failures = vec![Failure::UnclosedGroup {
-            tokens_remaining: result_borrowed.remaining_tokens.len(),
-        }];
+        let mut interpretations = self.apply_rule(program, primary_rule);
 
-        let mut iter = interpretations.into_iter().rev();
-
-        while let Some(Err(failure)) = iter.next() {
-            let minimum = get_err_significance(furthest_failures.last().unwrap())
-                - MAX_NUM_TOKENS_BACKTRACE_ON_ERROR;
-            if get_err_significance(&failure) > minimum {
-                furthest_failures.push(failure);
-                furthest_failures.sort_by(compare_err_result);
+        // rules always sort their results (but lets check this)
+        for ele in interpretations.windows(2) {
+            if compare_result(&ele[0], &ele[1]) == cmp::Ordering::Greater {
+                panic!("{:?} was before {:?}", ele[0], ele[1]);
             }
         }
 
-        return Err(furthest_failures);
+        let partition_point = interpretations.partition_point(|r| r.is_ok());
+
+        if interpretations[..partition_point].is_empty() {
+            return Err(interpretations
+                .into_iter()
+                .map(|reason| reason.unwrap_err())
+                .collect());
+        }
+
+        let result_borrowed = interpretations.first().unwrap().as_ref().unwrap();
+
+        if !result_borrowed.remaining_tokens.is_empty() {
+            let mut furthest_failures = vec![Failure::UnclosedGroup {
+                tokens_remaining: result_borrowed.remaining_tokens.len(),
+            }];
+
+            let mut iter = interpretations.into_iter().rev();
+
+            while let Some(Err(failure)) = iter.next() {
+                let minimum = get_err_significance(furthest_failures.last().unwrap())
+                    - MAX_NUM_TOKENS_BACKTRACE_ON_ERROR;
+                if get_err_significance(&failure) > minimum {
+                    furthest_failures.push(failure);
+                    furthest_failures.sort_by(compare_err_result);
+                }
+            }
+
+            return Err(furthest_failures);
+        }
+
+        let result_removed = interpretations.swap_remove(0).unwrap();
+
+        if let ParseNode::Rule(rule_node) = result_removed.val {
+            return Ok(rule_node);
+        } else {
+            return Err(vec![Failure::InternalError(SimpleError::new(
+                "Primary rule was no rule",
+            ))]);
+        }
     }
 
-    let result_removed = interpretations.swap_remove(0).unwrap();
-
-    if let ParseNode::Rule(rule_node) = result_removed.val {
-        return Ok(rule_node);
-    } else {
-        return Err(vec![Failure::InternalError(SimpleError::new(
-            "Primary rule was no rule",
-        ))]);
-    }
-}
-
-impl<'bnf> ebnf_ast::EbnfAst {
     // apply rule on tokens
     fn apply_rule<'prog>(
         &'bnf self,
@@ -189,7 +205,7 @@ impl<'bnf> ebnf_ast::EbnfAst {
         let is_transparent = rule.identifier.as_bytes()[0] == b'_';
 
         if !is_transparent {
-            println!("<{}>", rule.identifier);
+            self.log(format!("<{}>", rule.identifier));
         }
 
         let result_of_term = self.apply_term(tokens, &rule.pattern);
@@ -222,8 +238,10 @@ impl<'bnf> ebnf_ast::EbnfAst {
         }
 
         for val in &found {
-            println!("<val>{:?}</val>", val);
+            self.log(format!("<val>{:?}</val>", val));
         }
+
+        self.log(format!("<and>{} errors</and>", results.len()));
 
         for node in found {
             let num_tokens = node.tokens.len();
@@ -243,7 +261,8 @@ impl<'bnf> ebnf_ast::EbnfAst {
         // make sure the longest solutions are first
         results.sort_unstable_by(compare_result);
 
-        println!("</{}>", rule.identifier);
+        self.log(format!("</{}>", rule.identifier));
+
         results
     }
 
@@ -417,7 +436,8 @@ impl<'bnf> ebnf_ast::EbnfAst {
         tokens: &'prog str,
         rule_name: &'bnf str,
     ) -> ParseResult<'prog, 'bnf> {
-        self.rules
+        self.grammar
+            .rules
             .iter() // note: we iterate over the rules of the bnf
             .find(|rule| rule.identifier == rule_name)
             .map(|rule| self.apply_rule(tokens, rule))
