@@ -323,10 +323,22 @@ impl<'bnf> Parser {
         tokens: &'prog str,
         sub_terms: &'bnf [ebnf_ast::Term],
     ) -> ParseResult<'prog, 'bnf> {
-        sub_terms
-            .into_iter()
-            .flat_map(|term| self.apply_term(tokens, term))
-            .collect()
+        let mut combined_results = Vec::new();
+        for term in sub_terms {
+            let mut results = self.apply_term(tokens, term);
+
+            if let Some(Ok(interp)) = results.first() {
+                if interp.remaining_tokens.is_empty()
+                {
+                     // we have found a full parse
+                     // there is no need to continue parsing
+                    combined_results.append(&mut results);
+                    return combined_results;
+                }
+            }
+            combined_results.append(&mut results);
+        }
+        combined_results
     }
 
     fn apply_concatenation<'prog>(
