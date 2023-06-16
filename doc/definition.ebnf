@@ -61,13 +61,13 @@ _mutator_assign         = _selector_symbol, usage_assign, _, ( return_decl | [ t
 implicit_method         = method_call;
 
 array_initialisation    = "[", [ _, _expression, { _, ",", _, _expression } ], _, "]";
+lambda                  = _lamda;
 _lamda                  = [ "(", _, untyped_parameter_list, _, ")", _ ], [ ":", _, type_name ], _, function_block;
-_literal                = string_literal | integer_literal (* | decimal_literal | hexadecimal_literal | binary_literal *);
+_literal                = string_literal | integer_literal;
 
 return_decl             = _keyword_return;
 static_decl             = _keyword_static;
 native_decl             = _keyword_native;
-lambda                  = _lamda;
 
 selector_both = ":";
 selector_positive = ">";
@@ -98,8 +98,8 @@ integer_literal = _integer_literal;
 _integer_literal = "/\d+/";
 decimal_literal = _decimal_literal;
 _decimal_literal = "/0-9[0-9_]*.[0-9]*/";
-hexadecimal_literal = "/0x[0-9A-F_]+/";
-binary_literal = "/0b[01_]+*/";
+(* hexadecimal_literal = "/0x[0-9A-F_]+/"; *)
+(* binary_literal = "/0b[01_]+*/"; *)
 
 _shebang = "/#!.*/";
 
