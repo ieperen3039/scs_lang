@@ -1,4 +1,9 @@
-use std::{cmp, collections::HashSet, hash::Hash, io::Write, fmt::format};
+use std::{
+    cmp,
+    collections::{HashSet, VecDeque},
+    hash::Hash,
+    io::Write,
+};
 
 use regex::Regex;
 use simple_error::SimpleError;
@@ -8,6 +13,7 @@ use super::ebnf_ast;
 type ParseResult<'prog, 'bnf> = Vec<Result<Interpretation<'prog, 'bnf>, Failure<'bnf>>>;
 
 const MAX_NUM_TOKENS_BACKTRACE_ON_ERROR: i32 = 5;
+const MAX_ERRORS_PER_RULE: usize = 50;
 
 // the entire resulting syntax tree consists of these nodes
 #[derive(Eq, Clone)]
@@ -56,45 +62,43 @@ pub enum Failure<'bnf> {
         tokens_remaining: usize,
         expected: &'bnf str,
     },
-    // the end of the program was reached, but more was expected (equivalent to an UnexpectedToken at the end of the program)
-    OutOfTokens {
-        expected: &'bnf str,
-    },
-    // a group was opened, but never closed (equivalent to an early-evaluated OutOfTokens)
-    UnclosedGroup {
+    // the parser finished before the end of the file
+    IncompleteParse {
         tokens_remaining: usize,
     },
     EmptyEvaluation,
     // the program or grammar has some unspecified syntax error
     Error(SimpleError),
-    // the parser has a bug
+    // the parser has 'crashed' due to a compiler bug
     InternalError(SimpleError),
 }
 
-pub fn error_string(error: &Failure, source: &str) -> String {
-    match error {
-        Failure::UnexpectedToken {
-            tokens_remaining, ..
+impl Failure<'_> {
+    pub fn error_string(&self, source: &str) -> String {
+        match self {
+            Failure::UnexpectedToken {
+                tokens_remaining, ..
+            }
+            | Failure::IncompleteParse { tokens_remaining } => {
+                let offset = source.len() - tokens_remaining;
+                let line_number = source[..offset].bytes().filter(|c| c == &b'\n').count() + 1;
+                let lower_newline = source[..offset].rfind("\n").map(|v| v + 1).unwrap_or(0);
+                let upper_newline = source[offset..]
+                    .find("\n")
+                    .map(|v| v + offset)
+                    .unwrap_or(source.len());
+                let lb = cmp::max(offset as i64 - 40, lower_newline as i64) as usize;
+                let ub = cmp::min(offset as i64 + 40, upper_newline as i64) as usize;
+                format!(
+                    "{:?} on line {line_number}:\n\n{:>40}{:<40}\n{:>40}^ when parsing here",
+                    self,
+                    &source[lb..offset],
+                    &source[offset..ub],
+                    ""
+                )
+            }
+            _ => format!("{:?}", self),
         }
-        | Failure::UnclosedGroup { tokens_remaining } => {
-            let offset = source.len() - tokens_remaining;
-            let line_number = source[..offset].bytes().filter(|c| c == &b'\n').count() + 1;
-            let lower_newline = source[..offset].rfind("\n").map(|v| v + 1).unwrap_or(0);
-            let upper_newline = source[offset..]
-                .find("\n")
-                .map(|v| v + offset)
-                .unwrap_or(source.len());
-            let lb = cmp::max(offset as i64 - 40, lower_newline as i64) as usize;
-            let ub = cmp::min(offset as i64 + 40, upper_newline as i64) as usize;
-            format!(
-                "{:?} on line {line_number}:\n\n{:>40}{:<40}\n{:>40}^ when parsing here",
-                error,
-                &source[lb..offset],
-                &source[offset..ub],
-                ""
-            )
-        }
-        _ => format!("{:?}", error),
     }
 }
 
@@ -134,7 +138,7 @@ impl<'bnf> Parser {
         }
     }
 
-    fn log(&'bnf self, string : String) {
+    fn log(&'bnf self, string: String) {
         if let Some(mut file) = self.xml_out.as_ref() {
             let _ = write!(file, "{string}");
         }
@@ -167,7 +171,7 @@ impl<'bnf> Parser {
         let result_borrowed = interpretations.first().unwrap().as_ref().unwrap();
 
         if !result_borrowed.remaining_tokens.is_empty() {
-            let mut furthest_failures = vec![Failure::UnclosedGroup {
+            let mut furthest_failures = vec![Failure::IncompleteParse {
                 tokens_remaining: result_borrowed.remaining_tokens.len(),
             }];
 
@@ -214,8 +218,8 @@ impl<'bnf> Parser {
             return result_of_term;
         }
 
-        let mut found = HashSet::new();
-        let mut results = Vec::new();
+        let mut interpretations = HashSet::new();
+        let mut failures = VecDeque::new();
         let mut any_empty_result = false;
 
         for result in result_of_term {
@@ -225,7 +229,7 @@ impl<'bnf> Parser {
                     match tokens.len() - remaining_tokens.len() {
                         0 => any_empty_result = true,
                         num_tokens => {
-                            found.insert(RuleNode {
+                            interpretations.insert(RuleNode {
                                 rule: &rule.identifier,
                                 tokens: &tokens[..num_tokens],
                                 sub_rules: unwrap_to_rulenodes(interpretation.val),
@@ -233,17 +237,45 @@ impl<'bnf> Parser {
                         }
                     }
                 }
-                _ => results.push(result),
+                Err(_) => {
+                    let search_result =
+                        failures.binary_search_by(|other| compare_result(other, &result));
+                    let index = match search_result {
+                        Ok(v) => v,
+                        Err(v) => v,
+                    };
+                    if failures.len() < MAX_ERRORS_PER_RULE {
+                        failures.insert(index, result);
+                    } else if index > 0 {
+                        failures.insert(index, result);
+                        failures.pop_front();
+                    }
+                }
             }
         }
 
-        for val in &found {
-            self.log(format!("<val>{:?}</val>", val));
+        for val in &interpretations {
+            self.log(format!("<val>{}</val>", sanitize(format!("{:?}", val))));
         }
 
-        self.log(format!("<and>{} errors</and>", results.len()));
+        if !interpretations.is_empty() && !failures.is_empty() {
+            self.log(format!(
+                "<err>and {} failed interpretations</err>",
+                failures.len()
+            ));
+        } else if failures.len() == 1 {
+            self.log(format!(
+                "<err>{}</err>",
+                sanitize(format!(
+                    "{:?}",
+                    failures.front().unwrap().as_ref().unwrap_err()
+                ))
+            ));
+        }
 
-        for node in found {
+        let mut results = Vec::new();
+
+        for node in interpretations {
             let num_tokens = node.tokens.len();
             results.push(Ok(Interpretation {
                 val: ParseNode::Rule(node),
@@ -257,6 +289,8 @@ impl<'bnf> Parser {
                 remaining_tokens: tokens,
             }))
         }
+
+        failures.into_iter().for_each(|fail| results.push(fail));
 
         // make sure the longest solutions are first
         results.sort_unstable_by(compare_result);
@@ -480,8 +514,7 @@ fn get_err_significance(a: &Failure<'_>) -> i32 {
         Failure::UnexpectedToken {
             tokens_remaining, ..
         }
-        | Failure::UnclosedGroup { tokens_remaining } => -(*tokens_remaining as i32),
-        Failure::OutOfTokens { .. } => 0,
+        | Failure::IncompleteParse { tokens_remaining } => -(*tokens_remaining as i32),
         Failure::EmptyEvaluation => 1,
         Failure::Error(_) => 2,
         Failure::InternalError(_) => 3,
@@ -499,4 +532,13 @@ fn unwrap_to_rulenodes<'prog, 'bnf>(node: ParseNode<'prog, 'bnf>) -> Vec<RuleNod
         }
         ParseNode::Terminal(_) | ParseNode::EmptyNode => Vec::new(),
     }
+}
+
+fn sanitize(original: String) -> String {
+    original
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace("\r\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\n", "\\n")
 }

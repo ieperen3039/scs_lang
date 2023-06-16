@@ -36,7 +36,7 @@ impl ScsCompiler {
             print!(
                 "Error parsing program: \n{}",
                 err.into_iter()
-                    .map(|err| parser::error_string(&err, program) + "\n---\n\n")
+                    .map(|err| err.error_string(program) + "\n---\n\n")
                     .collect::<String>()
             );
             None

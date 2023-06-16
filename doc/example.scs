@@ -3,7 +3,6 @@
 // also, 'solid_command_sequence.exe' because we verbose
 
 // definitely start with the language version
-// = "version"<space><dialect-word><space><major>.<minor>.<impl>
 version scs 0.0.0
 
 // include other files
@@ -11,15 +10,22 @@ use "filesystem"
 
 // file-parameters are directly translated to command-line parameters
 // not sure how to do documentation though (special 'active' comment maybe)
-(FileName input_file) 
+(FileName input_file) : Result<String, String>
 {
     input_file
         :? File.open // both-application
-        ?? Error.new // negative-application
         ?= file_open_error // negative-assign
-        :> read_to_string // both-method
+        read_to_string // both-method
         >> split_on("\n") // positive-method
         := input_string; // both-assign
 
-    input_string := return;
+    file_open_error
+        :? (arg) {  // both-application to lamda
+            io.format(fmt: "Could not open file {}", args: arg) 
+        }
+        := return;
+
+    input_string
+        >> reduce(String.concat)
+        := return;
 }

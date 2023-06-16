@@ -29,13 +29,13 @@ fn main() {
         if file_contents.is_err() {
             panic!("File {file_name} can not be opened")
         } else {
-            file_contents.unwrap()
+            file_contents.unwrap().replace("\r\n", "\n")
         }
     } else {
         panic!("missing --program tag");
     };
 
-    let xml_output_file = arg_parser.get_parameter("--xml").map(std::fs::File::open).map(Result::ok).flatten();
+    let xml_output_file = arg_parser.get_parameter("--xml").map(std::fs::File::create).map(Result::ok).flatten();
 
     let compiler = ScsCompiler::build(&definition, xml_output_file).unwrap();
 
