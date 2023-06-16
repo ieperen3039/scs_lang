@@ -24,10 +24,10 @@ enum_definition         = _keyword_enum, _, identifier, _, "[", _, { _, identifi
 variant_definition      = _keyword_variant, _, identifier, _, "[", _, { _, identifier, _, "," }, _, "]";
 implementation          = _keyword_start_implementation, _, type_name, _, "{", { _, function_definition }, _, "}";
 
-function_definition     = function_signature, _, ( function_block | _keyword_native, _ );
-function_signature      = _keyword_fn, _, [ _keyword_static, _ ], identifier, _, [ generic_type ], _, [ "(", _, [ parameter_list ], _, ")", _ ], ":", _, type_name;
+function_definition     = function_signature, _, ( function_block | native_decl, _ );
+function_signature      = _keyword_fn, _, [ static_decl, _ ], identifier, _, [ generic_type ], _, [ "(", _, [ parameter_list ], _, ")", _ ], ":", _, type_name;
 parameter_list          = parameter, { _, ",", _, parameter };
-parameter               = type_name, _, [ "...", _ ], identifier;
+parameter               = type_name, _, [ expansion_decl, _ ], identifier;
 function_block          = "{", { _, statement }, [ _, last_statement ], _, "}";
 (* it is a syntax error, but not a parse error, to not end with an all-assign *)
 statement               = _expression, { _, _mutator }, _, ";"; 
@@ -35,9 +35,9 @@ _mutator                = mutator_method | mutator_application | mutator_stop_ne
 mutator_method          = _selector_symbol, usage_method, _, function_call_tail;
 mutator_application     = _selector_symbol, usage_application, _, static_function_call;
 mutator_stop_new        = _selector_symbol, usage_stop_new, _, _expression;
-mutator_assign          = _selector_symbol, usage_assign, _, ( _keyword_return | [ type_name ], _, identifier);
+mutator_assign          = _selector_symbol, usage_assign, _, ( return_decl | [ type_name ], _, identifier);
 last_statement          = _expression, _, { function_call_tail };
-_expression             = identifier | static_function_call | function_block | array_initialisation | _literal;
+_expression             = identifier | static_function_call | lamda_decl | array_initialisation | _literal;
 static_function_call    = identifier, _, ".", function_call_tail;
 function_call_tail      = identifier, _, [ "(", [ _, argument_list ], _, ")" ];
 argument_list           = _expression, _ | named_argument, { _, ",", _, named_argument };
@@ -46,13 +46,18 @@ array_initialisation    = "[", [ _, _expression, { _, ",", _, _expression } ], _
 
 _selector_symbol         = selector_both | selector_positive | selector_negative;
 _usage_symbol            = usage_method | usage_application | usage_stop_new | usage_assign;
-_lamda                  = "(", _, parameter_list, _, ")", _, function_block;
+_lamda                  = [ "(", _, parameter_list, _, ")", _ ], function_block;
 _literal                = string_literal | integer_literal | decimal_literal | hexadecimal_literal | binary_literal;
 
 identifier              = _name;
 integer_literal         = _integer_literal;
 decimal_literal         = _decimal_literal;
 string_literal          = _string_literal;
+
+return_decl             = _keyword_return;
+static_decl             = _keyword_static;
+native_decl             = _keyword_native;
+lamda_decl              = _lamda;
 
 selector_both = ":";
 selector_positive = ">";
@@ -61,6 +66,7 @@ usage_method = ">";
 usage_application = "?";
 usage_stop_new = "!";
 usage_assign = "=";
+expansion_decl = "...";
 
 _keyword_version = "version";
 _keyword_type = "type";
@@ -86,4 +92,4 @@ _shebang = "/#!.*/";
 _ = { _line_comments | _block_comments | _whitespace };
 _whitespace = "/[\s\n]+/";
 _line_comments = "/\/\/.*/";
-_block_comments = "/\/\*.*\*\//";
+_block_comments = "/\/\*.*?\*\//";
