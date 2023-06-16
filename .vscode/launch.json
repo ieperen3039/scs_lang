@@ -1,0 +1,26 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'scs_lang'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=scs_lang",
+                    "--package=scs_lang"
+                ],
+                "filter": {
+                    "name": "scs_lang",
+                    "kind": "bin"
+                }
+            },
+            "args": ["--definition", "doc/definition.ebnf", "--program", "doc/example.scs", "--xml", "target/output_run.xml"],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
