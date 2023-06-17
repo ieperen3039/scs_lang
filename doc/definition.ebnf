@@ -1,19 +1,26 @@
 scs_program             = [ _shebang ], _, [ version_declaration ], { _, ( _definition | include_declaration | alias_declaration ) }, [ _, function_interface, _, function_block ], _;
 
+(* version *)
 version_declaration     = _keyword_version, _, version_dialect, _, [ version ];
 version_dialect         = _name;
 version                 = version_major, ".", version_minor, ".", version_patch;
-version_major           = _integer_literal;
-version_minor           = _integer_literal;
-version_patch           = _integer_literal;
+version_major           = _integer_number;
+version_minor           = _integer_number;
+version_patch           = _integer_number;
 
-include_declaration     = _keyword_use, _, _string_literal;
+(* include section *)
+include_declaration     = _keyword_use, _, '"', include_file, '"';
+include_file            =  { directory, "/" }, file;
+directory               = _file_name;
+file                    = _file_name;
+
+(* alias *)
 alias_declaration       = _keyword_use, _, identifier, _, "=", _, identifier;
 
+(* scopes and definitions *)
 _definition             = scope | type_definition | enum_definition | variant_definition | implementation | function_definition;
 scope_name              = _base_type;
 scope                   = scope_name, _, "{", { _, _definition }, _, "}";
-
 type_definition         = _keyword_type, _, "=", _, ( type_name | _keyword_native ), _, [ "{", { _, function_definition }, _, "}" ];
 type_name               = _base_type | array_type | fn_type;
 _base_type              = identifier, _, [ generic_types ];
@@ -24,16 +31,24 @@ enum_definition         = _keyword_enum, _, identifier, _, "[", _, { _, identifi
 variant_definition      = _keyword_variant, _, identifier, _, "[", _, { _, identifier, _, "," }, _, "]";
 implementation          = _keyword_start_implementation, _, type_name, _, "{", { _, function_definition }, _, "}";
 
+(* scopes and function definitions *)
 function_definition     = function_signature, _, ( function_block | native_decl, _ );
 function_signature      = _keyword_fn, _, [ static_decl, _ ], function_name, _, [ generic_types ], _, function_interface;
 function_name           = _name;
 function_interface      = [ "(", _, [ parameter_list ], _, ")", _ ], ":", _, type_name;
-function_block          = "{", { _, statement }, [ _, last_statement ], _, "}";
 parameter_list          = parameter, { _, ",", _, parameter };
 parameter               = type_name, _, [ expansion_decl, _ ], identifier;
 unnamed_parameter_list  = _type_list;
 untyped_parameter_list  = _name_list;
 
+(* statements *)
+(* it is a syntax error, but not a parse error, to not end with an all-assign *)
+function_block          = "{", { _, statement }, [ _, last_statement ], _, "}";
+statement               = _expression, { _, _mutator }, _, ";"; 
+last_statement          = _expression, { _, _mutator }; 
+_expression             = identifier | static_function_call | lambda | array_initialisation | _literal;
+
+(* function call statements *)
 _scope_call             = { scope_name, _, "." };
 static_function_call    = _scope_call, _function_call_tail;
 method_call             = _function_call_tail;
@@ -45,11 +60,7 @@ _type_list              = type_name, { _, ",", _, type_name };
 _name_list              = identifier, { _, ",", _, identifier };
 _static_callable        = ( _scope_call, identifier ) | ( identifier, identifier ) | lambda;
 
-(* it is a syntax error, but not a parse error, to not end with an all-assign *)
-statement               = _expression, { _, _mutator }, _, ";"; 
-last_statement          = _expression, { _, _mutator }; 
-_expression             = identifier | static_function_call | lambda | array_initialisation | _literal;
-
+(* mutators, selectors and usage indicators *)
 _selector_symbol        = selector_both | selector_positive | selector_negative;
 _usage_symbol           = usage_method | usage_application | usage_stop_new | usage_assign;
 
@@ -60,15 +71,24 @@ _mutator_stop_new       = _selector_symbol, usage_stop_new, _, _expression;
 _mutator_assign         = _selector_symbol, usage_assign, _, ( return_decl | [ type_name ], _, identifier);
 implicit_method         = method_call;
 
+(* other statements *)
 array_initialisation    = "[", [ _, _expression, { _, ",", _, _expression } ], _, "]";
 lambda                  = _lamda;
 _lamda                  = [ "(", _, untyped_parameter_list, _, ")", _ ], [ ":", _, type_name ], _, function_block;
 _literal                = string_literal | integer_literal;
 
+(* keyword wrappers *)
 return_decl             = _keyword_return;
 static_decl             = _keyword_static;
 native_decl             = _keyword_native;
 
+(* other wrappers *)
+identifier = _name;
+string_literal = _string_literal;
+integer_literal = _integer_number;
+floating_point_literal = _floating_point_number;
+
+(* symbol definitions *)
 selector_both = ":";
 selector_positive = ">";
 selector_negative = "?";
@@ -78,6 +98,7 @@ usage_stop_new = "!";
 usage_assign = "=";
 expansion_decl = "...";
 
+(* keywords *)
 _keyword_version = "version";
 _keyword_type = "type";
 _keyword_fn = "fn";
@@ -90,19 +111,17 @@ _keyword_static = "static";
 _keyword_use = "use";
 _keyword_start_implementation = "impl";
 
-identifier = _name;
-_name = "/[a-zA-Z_][a-zA-Z0-9_]*/";
-string_literal = _string_literal;
+(* regex matchers *)
+_name = "/[\w][\w0-9]*/";
 _string_literal = '/"(.*?[^\\]|)"/';
-integer_literal = _integer_literal;
-_integer_literal = "/\d+/";
-decimal_literal = _decimal_literal;
-_decimal_literal = "/0-9[0-9_]*.[0-9]*/";
-(* hexadecimal_literal = "/0x[0-9A-F_]+/"; *)
-(* binary_literal = "/0b[01_]+*/"; *)
-
+_integer_number = "/\d+/";
+_floating_point_number = "/0-9[0-9_]*.[0-9]*/";
+(* _hexadecimal_number = "/0x[0-9A-F_]+/"; *)
+(* _binary_number = "/0b[01_]+*/"; *)
+_file_name = '/[^\\\/"]+/';
 _shebang = "/#!.*/";
 
+(* whitespace *)
 _ = { _line_comments | _block_comments | _whitespace };
 _whitespace = "/[\s\r\n]+/";
 _line_comments = "/\/\/.*/", _whitespace;
