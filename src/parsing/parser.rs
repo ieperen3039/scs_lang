@@ -13,6 +13,7 @@ use super::ebnf_ast;
 type ParseResult<'prog, 'bnf> = Vec<Result<Interpretation<'prog, 'bnf>, Failure<'bnf>>>;
 
 const MAX_NUM_TOKENS_BACKTRACE_ON_ERROR: i32 = 5;
+const MAX_NUM_TOKENS_BACKTRACE_ON_SUCCESS: usize = 50;
 const MAX_ERRORS_PER_RULE: usize = 50;
 
 // the entire resulting syntax tree consists of these nodes
@@ -258,20 +259,20 @@ impl<'bnf> Parser {
             self.log(format!("<val>{}</val>", sanitize(format!("{:?}", val))));
         }
 
-        if !interpretations.is_empty() && !failures.is_empty() {
-            self.log(format!(
-                "<err>and {} failed interpretations</err>",
-                failures.len()
-            ));
-        } else if failures.len() == 1 {
-            self.log(format!(
-                "<err>{}</err>",
-                sanitize(format!(
-                    "{:?}",
-                    failures.front().unwrap().as_ref().unwrap_err()
-                ))
-            ));
-        }
+        // if !interpretations.is_empty() && !failures.is_empty() {
+        //     self.log(format!(
+        //         "<err>and {} failed interpretations</err>",
+        //         failures.len()
+        //     ));
+        // } else if failures.len() == 1 {
+        //     self.log(format!(
+        //         "<err>{}</err>",
+        //         sanitize(format!(
+        //             "{:?}",
+        //             failures.front().unwrap().as_ref().unwrap_err()
+        //         ))
+        //     ));
+        // }
 
         let mut results = Vec::new();
 
@@ -323,20 +324,42 @@ impl<'bnf> Parser {
         tokens: &'prog str,
         sub_terms: &'bnf [ebnf_ast::Term],
     ) -> ParseResult<'prog, 'bnf> {
+        if sub_terms.len() > 2 { return self.apply_alternation_with_sortcut(tokens, sub_terms); }
+
         let mut combined_results = Vec::new();
+        for term in sub_terms {
+            combined_results.append(&mut self.apply_term(tokens, term));
+        }
+        combined_results
+    }
+
+    fn apply_alternation_with_sortcut<'prog>(
+        &'bnf self,
+        tokens: &'prog str,
+        sub_terms: &'bnf [ebnf_ast::Term],
+    ) -> ParseResult<'prog, 'bnf> {
+        let mut combined_results = Vec::new();
+        
         for term in sub_terms {
             let mut results = self.apply_term(tokens, term);
 
-            if let Some(Ok(interp)) = results.first() {
-                if interp.remaining_tokens.is_empty()
-                {
-                     // we have found a full parse
-                     // there is no need to continue parsing
-                    combined_results.append(&mut results);
-                    return combined_results;
-                }
-            }
+            let least_remaining = results
+                .iter()
+                .filter_map(|r| r.as_ref().ok())
+                .map(|i| i.remaining_tokens.len())
+                .min()
+                .unwrap_or(tokens.len());
+
             combined_results.append(&mut results);
+
+            if least_remaining + MAX_NUM_TOKENS_BACKTRACE_ON_SUCCESS < tokens.len() {
+                self.log(format!(
+                    "<shortcut>found solution {} / {}</shortcut>",
+                    least_remaining,
+                    tokens.len(),
+                ));
+                return combined_results;
+            }
         }
         combined_results
     }
@@ -354,26 +377,33 @@ impl<'bnf> Parser {
             all_results
                 .into_iter()
                 .flat_map(|term_result| match term_result {
-                    Ok(term_interp) => self
-                        .apply_concatenation(term_interp.remaining_tokens, &sub_terms[1..])
-                        .into_iter()
-                        .map(move |further_result| match further_result {
-                            Ok(further_interp) => Ok(Interpretation {
-                                val: ParseNode::Pair(
-                                    Box::new(term_interp.val.clone()),
-                                    Box::new(further_interp.val),
-                                ),
-                                remaining_tokens: further_interp.remaining_tokens,
-                            }),
-                            Err(_) => further_result,
-                        })
-                        .collect(),
+                    Ok(term_interp) => self.continue_concatenation(term_interp, sub_terms),
                     Err(failure) => vec![Err(failure)],
                 })
                 .collect()
         } else {
             all_results
         }
+    }
+
+    fn continue_concatenation<'prog>(
+        &'bnf self,
+        prev_interp: Interpretation<'prog, 'bnf>,
+        sub_terms: &'bnf [ebnf_ast::Term],
+    ) -> ParseResult<'prog, 'bnf> {
+        self.apply_concatenation(prev_interp.remaining_tokens, &sub_terms[1..])
+            .into_iter()
+            .map(move |further_result| match further_result {
+                Ok(further_interp) => Ok(Interpretation {
+                    val: ParseNode::Pair(
+                        Box::new(prev_interp.val.clone()),
+                        Box::new(further_interp.val),
+                    ),
+                    remaining_tokens: further_interp.remaining_tokens,
+                }),
+                Err(_) => further_result,
+            })
+            .collect()
     }
 
     fn apply_repetition<'prog>(
@@ -388,24 +418,7 @@ impl<'bnf> Parser {
             .map(|term_result| {
                 if let Ok(term_interp) = term_result {
                     if term_interp.remaining_tokens.len() != tokens.len() {
-                        self.apply_repetition(term_interp.remaining_tokens, sub_term)
-                            // this includes the interpretation of 0 further repetitions (= term_interp)
-                            .into_iter()
-                            // each further interpretation creates a unique pair of 'this' and 'the further interpretation'
-                            .map(move |further_result| {
-                                if let Ok(further_interp) = further_result {
-                                    Ok(Interpretation {
-                                        val: ParseNode::Pair(
-                                            Box::new(term_interp.val.clone()),
-                                            Box::new(further_interp.val),
-                                        ),
-                                        remaining_tokens: further_interp.remaining_tokens,
-                                    })
-                                } else {
-                                    further_result
-                                }
-                            })
-                            .collect()
+                        self.continue_repetition(term_interp, sub_term)
                     } else {
                         vec![Err(Failure::EmptyEvaluation)]
                     }
@@ -419,6 +432,31 @@ impl<'bnf> Parser {
                 val: ParseNode::EmptyNode,
                 remaining_tokens: tokens,
             })))
+            .collect()
+    }
+
+    fn continue_repetition<'prog>(
+        &'bnf self,
+        prev_interp: Interpretation<'prog, 'bnf>,
+        sub_term: &'bnf ebnf_ast::Term,
+    ) -> ParseResult<'prog, 'bnf> {
+        self.apply_repetition(prev_interp.remaining_tokens, sub_term)
+            // this includes the interpretation of 0 further repetitions (= prev_interp)
+            .into_iter()
+            // each further interpretation creates a unique pair of 'this' and 'the further interpretation'
+            .map(move |further_result| {
+                if let Ok(further_interp) = further_result {
+                    Ok(Interpretation {
+                        val: ParseNode::Pair(
+                            Box::new(prev_interp.val.clone()),
+                            Box::new(further_interp.val),
+                        ),
+                        remaining_tokens: further_interp.remaining_tokens,
+                    })
+                } else {
+                    further_result
+                }
+            })
             .collect()
     }
 

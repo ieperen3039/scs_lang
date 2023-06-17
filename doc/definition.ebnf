@@ -1,4 +1,4 @@
-scs_program             = [ _shebang ], _, [ version_declaration ], { _, ( _definition | include_declaration | alias_declaration ) }, [ _, function_interface, _, function_block ] ;
+scs_program             = [ _shebang ], _, [ version_declaration ], { _, ( _definition | include_declaration | alias_declaration ) }, [ _, function_interface, _, function_block ], _;
 
 version_declaration     = _keyword_version, _, version_dialect, _, [ version ];
 version_dialect         = _name;
