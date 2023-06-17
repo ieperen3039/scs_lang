@@ -13,7 +13,7 @@ use super::ebnf_ast;
 type ParseResult<'prog, 'bnf> = Vec<Result<Interpretation<'prog, 'bnf>, Failure<'bnf>>>;
 
 const MAX_NUM_TOKENS_BACKTRACE_ON_ERROR: i32 = 5;
-const MAX_NUM_TOKENS_BACKTRACE_ON_SUCCESS: usize = 50;
+const MAX_NUM_TOKENS_BACKTRACE_ON_SUCCESS: usize = 100;
 const MAX_ERRORS_PER_RULE: usize = 50;
 
 // the entire resulting syntax tree consists of these nodes
@@ -209,10 +209,6 @@ impl<'bnf> Parser {
     ) -> ParseResult<'prog, 'bnf> {
         let is_transparent = rule.identifier.as_bytes()[0] == b'_';
 
-        if !is_transparent {
-            self.log(format!("<{}>", rule.identifier));
-        }
-
         let result_of_term = self.apply_term(tokens, &rule.pattern);
 
         if is_transparent {
@@ -255,25 +251,6 @@ impl<'bnf> Parser {
             }
         }
 
-        for val in &interpretations {
-            self.log(format!("<val>{}</val>", sanitize(format!("{:?}", val))));
-        }
-
-        // if !interpretations.is_empty() && !failures.is_empty() {
-        //     self.log(format!(
-        //         "<err>and {} failed interpretations</err>",
-        //         failures.len()
-        //     ));
-        // } else if failures.len() == 1 {
-        //     self.log(format!(
-        //         "<err>{}</err>",
-        //         sanitize(format!(
-        //             "{:?}",
-        //             failures.front().unwrap().as_ref().unwrap_err()
-        //         ))
-        //     ));
-        // }
-
         let mut results = Vec::new();
 
         for node in interpretations {
@@ -295,8 +272,6 @@ impl<'bnf> Parser {
 
         // make sure the longest solutions are first
         results.sort_unstable_by(compare_result);
-
-        self.log(format!("</{}>", rule.identifier));
 
         results
     }
@@ -353,11 +328,6 @@ impl<'bnf> Parser {
             combined_results.append(&mut results);
 
             if least_remaining + MAX_NUM_TOKENS_BACKTRACE_ON_SUCCESS < tokens.len() {
-                self.log(format!(
-                    "<shortcut>found solution {} / {}</shortcut>",
-                    least_remaining,
-                    tokens.len(),
-                ));
                 return combined_results;
             }
         }
