@@ -118,7 +118,7 @@ _integer_number = "/\d+/";
 _floating_point_number = "/0-9[0-9_]*.[0-9]*/";
 (* _hexadecimal_number = "/0x[0-9A-F_]+/"; *)
 (* _binary_number = "/0b[01_]+*/"; *)
-_file_name = '/[^\\\/"]+/';
+_file_name = '/[^\\\/"\n]+/';
 _shebang = "/#!.*/";
 
 (* whitespace *)

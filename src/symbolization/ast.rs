@@ -1,13 +1,13 @@
 use std::{rc::Rc, collections::HashMap};
 
-type TypeRef = Rc<TypeDefinition>;
-type FunctionRef = Rc<FunctionDefinition>;
-type VarRef = Rc<VariableDeclaration>;
+pub type TypeRef = Rc<TypeDefinition>;
+pub type FunctionRef = Rc<FunctionDefinition>;
+pub type VarRef = Rc<VariableDeclaration>;
 
 pub struct Program {
     pub types: HashMap<String, TypeRef>,
-    pub functions: HashMap<String, FunctionDefinition>,
-    pub main: FunctionBlock,
+    pub functions: HashMap<String, FunctionRef>,
+    pub main: FunctionRef,
 }
 
 pub enum TypeDefinition {

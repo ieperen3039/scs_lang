@@ -1,7 +1,16 @@
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+
+use simple_error::SimpleError;
+
 use crate::parsing::{ebnf_parser, parser};
+use crate::symbolization::ast;
+use crate::symbolization::syntax_tree_converter;
 
 pub struct ScsCompiler {
     parser: parser::Parser,
+    file_cache: HashMap<PathBuf, ast::Program>,
+    parse_stack: Vec<PathBuf>,
 }
 
 impl ScsCompiler {
@@ -23,27 +32,70 @@ impl ScsCompiler {
 
         Some(ScsCompiler {
             parser: parser.unwrap(),
+            file_cache: HashMap::new(),
+            parse_stack: Vec::new(),
         })
     }
 
-    pub fn compile<'prog, 'bnf>(
-        &'bnf self,
-        program: &'prog str,
-    ) -> Option<parser::RuleNode<'prog, 'bnf>> {
-        let parse_result = self.parser.parse_program(program);
+    pub fn compile(&mut self, source_file: &Path) -> Option<&ast::Program> {
+        let this_path =
+            std::env::current_dir().expect("Could not get this program's current directory");
 
-        if let Err(err) = parse_result {
-            print!(
-                "Error parsing program: \n{}",
-                err.into_iter()
-                    .map(|err| err.error_string(program) + "\n---\n\n")
-                    .collect::<String>()
-            );
-            None
+        if self.file_cache.contains_key(source_file) {
+            // already compiled
+            return self.file_cache.get(source_file);
         }
-        else
-        {
-            parse_result.ok()
+
+        if self.parse_stack.iter().any(|file| file == source_file) {
+            print!("Recursive include : {:?}", self.parse_stack);
+            return None;
         }
+
+        let file_contents = std::fs::read_to_string(source_file)
+            .map_err(SimpleError::from)
+            .ok()?;
+        let program_string = file_contents.replace("\r\n", "\n");
+
+        let parse_result = self.parser.parse_program(&program_string);
+
+        let syntax_tree = parse_result
+            .map_err(|err| {
+                print!(
+                    "Error parsing file {}: \n{}",
+                    source_file.to_string_lossy(),
+                    err.into_iter()
+                        .map(|err| err.error_string(&program_string) + "\n---\n\n")
+                        .collect::<String>()
+                );
+                err
+            })
+            .ok()?;
+
+        let files_to_compile =
+            syntax_tree_converter::extract_includes(&syntax_tree, &this_path).into_iter();
+
+        let mut types: HashMap<String, ast::TypeRef> = HashMap::new();
+        let mut functions: HashMap<String, ast::FunctionRef> = HashMap::new();
+
+        while let Some(include_file) = files_to_compile.next() {
+            let include_file_name = include_file.to_string_lossy().to_string();
+            let mut include_program = self.compile(&include_file)?;
+
+            for (k, v) in include_program.types.drain() {
+                types.insert(k, v);
+            }
+
+            for (k, v) in include_program.functions.drain() {
+                functions.insert(k, v);
+            }
+
+            functions.insert( include_file_name, include_program.main );
+        }
+
+        let program_ast: ast::Program;
+
+        self.file_cache.insert(source_file.to_path_buf(), program_ast);
+
+        todo!()
     }
 }
