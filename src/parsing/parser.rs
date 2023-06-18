@@ -299,7 +299,9 @@ impl<'bnf> Parser {
         tokens: &'prog str,
         sub_terms: &'bnf [ebnf_ast::Term],
     ) -> ParseResult<'prog, 'bnf> {
-        if sub_terms.len() > 2 { return self.apply_alternation_with_sortcut(tokens, sub_terms); }
+        if sub_terms.len() > 2 && tokens.len() > MAX_NUM_TOKENS_BACKTRACE_ON_SUCCESS { 
+            return self.apply_alternation_with_sortcut(tokens, sub_terms); 
+        }
 
         let mut combined_results = Vec::new();
         for term in sub_terms {
