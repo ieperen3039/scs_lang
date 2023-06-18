@@ -31,9 +31,9 @@ fn main() {
 
     let xml_output_file = arg_parser.get_parameter("--xml").map(std::fs::File::create).map(Result::ok).flatten();
 
-    let compiler = ScsCompiler::build(&definition, xml_output_file).unwrap();
+    let mut compiler = ScsCompiler::build(&definition, xml_output_file).unwrap();
     if let Some(result) = compiler.compile(&base_directory.join(program_file)) {
-        print!("{:?}", result);
+        print!("{:?}", result.main.name);
     }
 
 }

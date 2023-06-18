@@ -58,8 +58,9 @@ impl ScsCompiler {
 
         let parse_result = self.parser.parse_program(&program_string);
 
-        let syntax_tree = parse_result
-            .map_err(|err| {
+        let syntax_tree = match parse_result {
+            Ok(node) => node,
+            Err(err) => {
                 print!(
                     "Error parsing file {}: \n{}",
                     source_file.to_string_lossy(),
@@ -67,11 +68,11 @@ impl ScsCompiler {
                         .map(|err| err.error_string(&program_string) + "\n---\n\n")
                         .collect::<String>()
                 );
-                err
-            })
-            .ok()?;
+                return None;
+            }
+        };
 
-        let files_to_compile =
+        let mut files_to_compile =
             syntax_tree_converter::extract_includes(&syntax_tree, &this_path).into_iter();
 
         let mut types: HashMap<String, ast::TypeRef> = HashMap::new();
@@ -79,22 +80,23 @@ impl ScsCompiler {
 
         while let Some(include_file) = files_to_compile.next() {
             let include_file_name = include_file.to_string_lossy().to_string();
-            let mut include_program = self.compile(&include_file)?;
+            let include_program = self.compile(&include_file)?;
 
-            for (k, v) in include_program.types.drain() {
+            for (k, v) in include_program.types.clone() {
                 types.insert(k, v);
             }
 
-            for (k, v) in include_program.functions.drain() {
+            for (k, v) in include_program.functions.clone() {
                 functions.insert(k, v);
             }
 
-            functions.insert( include_file_name, include_program.main );
+            functions.insert(include_file_name, include_program.main.clone());
         }
 
         let program_ast: ast::Program;
 
-        self.file_cache.insert(source_file.to_path_buf(), program_ast);
+        self.file_cache
+            .insert(source_file.to_path_buf(), program_ast);
 
         todo!()
     }
