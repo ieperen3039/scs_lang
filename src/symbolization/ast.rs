@@ -7,9 +7,12 @@ pub type VarRef = Rc<VariableDeclaration>;
 pub struct Program {
     pub types: HashMap<String, TypeRef>,
     pub functions: HashMap<String, FunctionRef>,
-    pub main: FunctionRef,
+    pub main: Option<FunctionRef>,
 }
 
+// -- types --
+
+#[derive(Hash, Eq, PartialEq)]
 pub enum TypeDefinition {
     NativeType(TypeName),
     DerivedType(DerivedTypeDefinition),
@@ -17,26 +20,32 @@ pub enum TypeDefinition {
     Function(FunctionType),
 }
 
+#[derive(Hash, Eq, PartialEq)]
 pub struct DerivedTypeDefinition {
     pub type_name: TypeName,
-    pub derived_from: TypeRef,
+    pub derived_from: Rc<TypeDefinition>,
 }
 
+#[derive(Hash, Eq, PartialEq)]
 pub enum TypeName {
     Plain(String),
-    Generic { name: String, generic: TypeRef },
+    Generic { name: String, generic: Rc<TypeName> },
     Array(String),
 }
 
+#[derive(Hash, Eq, PartialEq)]
 pub struct FunctionType {
     parameters: Vec<TypeRef>,
     return_type: TypeRef,
 }
 
+#[derive(Hash, Eq, PartialEq)]
 pub struct EnumDefinition {
     pub name: String,
     pub values: Vec<String>,
 }
+
+// -- implementations -- 
 
 pub struct FunctionDefinition {
     pub name: String,

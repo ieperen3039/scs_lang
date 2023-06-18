@@ -5,7 +5,7 @@ use simple_error::SimpleError;
 
 use crate::parsing::{ebnf_parser, parser};
 use crate::symbolization::ast;
-use crate::symbolization::syntax_tree_converter;
+use crate::symbolization::meta_program;
 
 pub struct ScsCompiler {
     parser: parser::Parser,
@@ -73,7 +73,7 @@ impl ScsCompiler {
         };
 
         let mut files_to_compile =
-            syntax_tree_converter::extract_includes(&syntax_tree, &this_path).into_iter();
+            meta_program::extract_includes(&syntax_tree, &this_path).into_iter();
 
         let mut types: HashMap<String, ast::TypeRef> = HashMap::new();
         let mut functions: HashMap<String, ast::FunctionRef> = HashMap::new();

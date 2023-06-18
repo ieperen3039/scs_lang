@@ -19,14 +19,14 @@ const MAX_ERRORS_PER_RULE: usize = 50;
 // the entire resulting syntax tree consists of these nodes
 #[derive(Eq, Clone)]
 pub struct RuleNode<'prog, 'bnf> {
-    pub rule: &'bnf str,
+    pub rule_name: &'bnf str,
     pub tokens: &'prog str,
     pub sub_rules: Vec<RuleNode<'prog, 'bnf>>,
 }
 
 impl<'prog, 'bnf> Hash for RuleNode<'prog, 'bnf> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.rule.hash(state);
+        self.rule_name.hash(state);
         self.sub_rules.hash(state);
 
         if self.sub_rules.is_empty() {
@@ -38,9 +38,9 @@ impl<'prog, 'bnf> Hash for RuleNode<'prog, 'bnf> {
 impl<'prog, 'bnf> PartialEq for RuleNode<'prog, 'bnf> {
     fn eq(&self, other: &Self) -> bool {
         if self.sub_rules.is_empty() {
-            other.sub_rules.is_empty() && self.rule == other.rule && self.tokens == other.tokens
+            other.sub_rules.is_empty() && self.rule_name == other.rule_name && self.tokens == other.tokens
         } else {
-            self.rule == other.rule && self.sub_rules == other.sub_rules
+            self.rule_name == other.rule_name && self.sub_rules == other.sub_rules
         }
     }
 }
@@ -48,9 +48,9 @@ impl<'prog, 'bnf> PartialEq for RuleNode<'prog, 'bnf> {
 impl<'prog, 'bnf> std::fmt::Debug for RuleNode<'prog, 'bnf> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.sub_rules.is_empty() {
-            f.write_fmt(format_args!("{{{}, \"{}\"}}", self.rule, self.tokens))
+            f.write_fmt(format_args!("{{{}, \"{}\"}}", self.rule_name, self.tokens))
         } else {
-            f.write_fmt(format_args!("{{{}, {:?}}}", self.rule, self.sub_rules))
+            f.write_fmt(format_args!("{{{}, {:?}}}", self.rule_name, self.sub_rules))
         }
     }
 }
@@ -227,7 +227,7 @@ impl<'bnf> Parser {
                         0 => any_empty_result = true,
                         num_tokens => {
                             interpretations.insert(RuleNode {
-                                rule: &rule.identifier,
+                                rule_name: &rule.identifier,
                                 tokens: &tokens[..num_tokens],
                                 sub_rules: unwrap_to_rulenodes(interpretation.val),
                             });

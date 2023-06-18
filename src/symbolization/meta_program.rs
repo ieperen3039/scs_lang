@@ -4,22 +4,12 @@ use crate::parsing::parser::RuleNode;
 
 use super::ast::Program;
 
-struct SyntaxConverter {
-    
-}
-
-pub fn convert_to_program(tree: RuleNode<'_, '_>) -> Program {
-    assert_eq!(tree.rule, "scs_program");
-
-    todo!()
-}
-
 pub fn extract_includes(tree: &RuleNode<'_, '_>, file_path : &std::path::Path) -> Vec<PathBuf> {
-    assert_eq!(tree.rule, "scs_program");
+    assert_eq!(tree.rule_name, "scs_program");
     tree.sub_rules.iter()
-        .filter(|r| r.rule == "include_declaration")
+        .filter(|r| r.rule_name == "include_declaration")
         .flat_map(|r| &r.sub_rules)
-        .filter(|r| r.rule == "include_file")
+        .filter(|r| r.rule_name == "include_file")
         .map(|r| to_path(file_path, &r.sub_rules))
         .collect()
 }

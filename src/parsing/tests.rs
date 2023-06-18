@@ -24,16 +24,16 @@ fn simple_parser() {
     assert_eq!(
         program_ast,
         RuleNode {
-            rule: "addition",
+            rule_name: "addition",
             tokens: "1+2",
             sub_rules: vec![
                 RuleNode {
-                    rule: "number",
+                    rule_name: "number",
                     tokens: "1",
                     sub_rules: Vec::new()
                 },
                 RuleNode {
-                    rule: "number",
+                    rule_name: "number",
                     tokens: "2",
                     sub_rules: Vec::new()
                 },
@@ -64,16 +64,16 @@ fn simple_parser_with_simple_ignore() {
     assert_eq!(
         program_ast,
         RuleNode {
-            rule: "addition",
+            rule_name: "addition",
             tokens: "1 + 2",
             sub_rules: vec![
                 RuleNode {
-                    rule: "number",
+                    rule_name: "number",
                     tokens: "1",
                     sub_rules: Vec::new()
                 },
                 RuleNode {
-                    rule: "number",
+                    rule_name: "number",
                     tokens: "2",
                     sub_rules: Vec::new()
                 },
@@ -110,49 +110,49 @@ fn complex_parser_with_complex_ignore() {
     assert_eq!(
         program_ast,
         RuleNode {
-            rule: "sentence",
+            rule_name: "sentence",
             tokens: " you must go there, and I come with you! ",
             sub_rules: vec![
                 RuleNode {
-                    rule: "demand",
+                    rule_name: "demand",
                     tokens: "you must go there",
                     sub_rules: vec![
                         RuleNode {
-                            rule: "person",
+                            rule_name: "person",
                             tokens: "you",
                             sub_rules: Vec::new()
                         },
                         RuleNode {
-                            rule: "action",
+                            rule_name: "action",
                             tokens: "go",
                             sub_rules: Vec::new()
                         },
                         RuleNode {
-                            rule: "how",
+                            rule_name: "how",
                             tokens: "there",
                             sub_rules: Vec::new()
                         }
                     ]
                 },
                 RuleNode {
-                    rule: "demand",
+                    rule_name: "demand",
                     tokens: "I come with you",
                     sub_rules: vec![
                         RuleNode {
-                            rule: "person",
+                            rule_name: "person",
                             tokens: "I",
                             sub_rules: Vec::new()
                         },
                         RuleNode {
-                            rule: "action",
+                            rule_name: "action",
                             tokens: "come",
                             sub_rules: Vec::new()
                         },
                         RuleNode {
-                            rule: "how",
+                            rule_name: "how",
                             tokens: "with you",
                             sub_rules: vec![RuleNode {
-                                rule: "person",
+                                rule_name: "person",
                                 tokens: "you",
                                 sub_rules: Vec::new()
                             },]
@@ -185,16 +185,16 @@ fn simple_parser_with_regex() {
     assert_eq!(
         program_ast,
         RuleNode {
-            rule: "addition",
+            rule_name: "addition",
             tokens: "1+2",
             sub_rules: vec![
                 RuleNode {
-                    rule: "number",
+                    rule_name: "number",
                     tokens: "1",
                     sub_rules: Vec::new()
                 },
                 RuleNode {
-                    rule: "number",
+                    rule_name: "number",
                     tokens: "2",
                     sub_rules: Vec::new()
                 },
@@ -232,53 +232,53 @@ fn test_implicit_operator()
     assert_eq!(
         program_ast,
         RuleNode {
-            rule: "formula",
+            rule_name: "formula",
             tokens: "1 + 2 - 3 4 + 5;",
             sub_rules: vec![
                 RuleNode {
-                    rule: "number",
+                    rule_name: "number",
                     tokens: "1",
                     sub_rules: Vec::new()
                 },
                 RuleNode {
-                    rule: "chain_plus",
+                    rule_name: "chain_plus",
                     tokens: "+ 2",
                     sub_rules: vec![
                         RuleNode {
-                            rule: "number",
+                            rule_name: "number",
                             tokens: "2",
                             sub_rules: Vec::new()
                         },
                     ]
                 },
                 RuleNode {
-                    rule: "chain_minus",
+                    rule_name: "chain_minus",
                     tokens: "- 3",
                     sub_rules: vec![
                         RuleNode {
-                            rule: "number",
+                            rule_name: "number",
                             tokens: "3",
                             sub_rules: Vec::new()
                         },
                     ]
                 },
                 RuleNode {
-                    rule: "chain_multiply",
+                    rule_name: "chain_multiply",
                     tokens: "4",
                     sub_rules: vec![
                         RuleNode {
-                            rule: "number",
+                            rule_name: "number",
                             tokens: "4",
                             sub_rules: Vec::new()
                         },
                     ]
                 },
                 RuleNode {
-                    rule: "chain_plus",
+                    rule_name: "chain_plus",
                     tokens: "+ 5",
                     sub_rules: vec![
                         RuleNode {
-                            rule: "number",
+                            rule_name: "number",
                             tokens: "5",
                             sub_rules: Vec::new()
                         },
@@ -325,5 +325,5 @@ fn try_parse_example_scs() {
     
     let program_ast = parse_result.unwrap();
 
-    assert!(program_ast.rule == "scs_program")
+    assert!(program_ast.rule_name == "scs_program")
 }

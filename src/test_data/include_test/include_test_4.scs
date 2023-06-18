@@ -1,0 +1,3 @@
+use "include_test_5"
+
+() : void {}
