@@ -1,36 +1,57 @@
-use std::{rc::Rc, collections::HashMap};
+use std::{collections::HashMap, rc::Rc};
 
 pub type TypeRef = Rc<TypeDefinition>;
 pub type FunctionRef = Rc<FunctionDefinition>;
 pub type VarRef = Rc<VariableDeclaration>;
 
+pub type Identifier = Rc<str>;
+
 pub struct Program {
-    pub types: HashMap<String, TypeRef>,
-    pub functions: HashMap<String, FunctionRef>,
+    pub definitions: Scope,
     pub main: Option<FunctionRef>,
+}
+
+pub struct Scope {
+    pub name: Identifier,
+    pub types: HashMap<Identifier, TypeRef>,
+    pub functions: HashMap<Identifier, FunctionRef>,
+    pub scopes: HashMap<Identifier, Scope>,
+}
+
+pub enum Definition {
+    Scope(Scope),
+    Type(TypeRef),
+    Function(FunctionRef),
 }
 
 // -- types --
 
 #[derive(Hash, Eq, PartialEq)]
 pub enum TypeDefinition {
-    NativeType(TypeName),
-    DerivedType(DerivedTypeDefinition),
+    Native(Identifier),
+    Derived(DerivedType),
+    Array(Identifier),
     Enum(EnumDefinition),
     Function(FunctionType),
 }
 
 #[derive(Hash, Eq, PartialEq)]
-pub struct DerivedTypeDefinition {
-    pub type_name: TypeName,
+pub struct DerivedType {
+    pub name: Identifier,
+    pub generic_parameters : Vec<TypeDefinition>,
     pub derived_from: Rc<TypeDefinition>,
 }
 
-#[derive(Hash, Eq, PartialEq)]
-pub enum TypeName {
-    Plain(String),
-    Generic { name: String, generic: Rc<TypeName> },
-    Array(String),
+impl TypeDefinition {
+    pub fn get_name(&self) -> Identifier {
+        match self {
+            TypeDefinition::Native(name) => name,
+            TypeDefinition::Derived(DerivedType { name, .. }) => name,
+            TypeDefinition::Array(name) => name,
+            TypeDefinition::Enum(EnumDefinition { name, .. }) => name,
+            TypeDefinition::Function(_) => "fn",
+        }
+    }
 }
 
 #[derive(Hash, Eq, PartialEq)]
@@ -41,28 +62,28 @@ pub struct FunctionType {
 
 #[derive(Hash, Eq, PartialEq)]
 pub struct EnumDefinition {
-    pub name: String,
-    pub values: Vec<String>,
+    pub name: Identifier,
+    pub values: Vec<Identifier>,
 }
 
-// -- implementations -- 
+// -- implementations --
 
 pub struct FunctionDefinition {
-    pub name: String,
+    pub name: Identifier,
     pub parameters: Vec<Parameter>,
     pub return_type: TypeRef,
-    pub body : FunctionBlock,
+    pub body: FunctionBlock,
     pub is_static: bool,
 }
 
 pub struct Parameter {
-    pub name : VarRef,
+    pub name: VarRef,
     pub expansion: bool,
 }
 
 pub struct VariableDeclaration {
     pub type_name: TypeRef,
-    pub name: String,
+    pub name: Identifier,
 }
 
 pub struct FunctionBlock {
@@ -77,7 +98,7 @@ pub struct Statement {
 
 pub enum Expression {
     StaticFunctionCall {
-        namespace: String,
+        namespace: Identifier,
         function: MethodCall,
     },
     FunctionBlock(FunctionBlock),
