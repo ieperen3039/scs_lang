@@ -15,13 +15,13 @@ use "filesystem"
     input_file
         :? File.open // both-application
         ?= file_open_error // negative-assign
-        read_to_string // both-method
-        >> split_on("\n") // positive-method
+        readToString // both-method
+        >> splitOn("\n") // positive-method
         := input_string; // both-assign
 
     file_open_error
-        :? (arg) {  // both-application to lamda
-            io.format(fmt: "Could not open file {}", args: arg) 
+        :? (err) {  // both-application to lamda
+            io.format(fmt: "Could not open file {}", args: err) 
         }
         := return;
 

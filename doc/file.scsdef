@@ -5,41 +5,34 @@ fs {
     type AbsoluteFilePath = FilePath
     type RelativeFilePath = FilePath
 
-    fn static directoryOfFile: AbsoluteFilePath {
+    fn directoryOfFile(): AbsoluteFilePath {
         system.getShellType
-            call(
+            run(
                 Batch: "set directoryOfThis=%cd%",
                 Bash: "directoryOfThis=$PWD"
             )
+            ?= _ // discard any error
             readVariable("directoryOfThis")
     }
 
-    impl FilePath {
-        fn append(RelativeFilePath): FilePath native
-        
-        fn copyTo(AbsoluteFilePath newPath): Optional<AbsoluteFilePath> {
-            system.getShellType
-                run(
-                    Batch: "cp {this} {newPath}",
-                    Bash: "cp {this} {newPath}"
-                )
-                equalTo(0)
-                ifTrue(newPath)
-                orElse(Optional.None)
-        }
+    fn append(FilePath this, RelativeFilePath): FilePath native
+    
+    fn copyTo(FilePath this, AbsoluteFilePath newPath): Optional<AbsoluteFilePath> {
+        system.getShellType
+            run(
+                Batch: "cp {this} {newPath}",
+                Bash: "cp {this} {newPath}"
+            )
+            >! newPath
     }
 
-    impl AbsoluteFilePath {
-        fn getParent: AbsoluteFilePath native
+    fn getParent(AbsoluteFilePath): AbsoluteFilePath native
 
-        fn append(RelativeFilePath path): AbsoluteFilePath {
-            this FilePath.append(path)
-        }
+    fn append(AbsoluteFilePath this, RelativeFilePath path): AbsoluteFilePath {
+        this ::<FilePath> append(path)
     }
     
-    impl RelativeFilePath {
-        fn append(RelativeFilePath): RelativeFilePath {
-            this FilePath.append(path)
-        }
+    fn append(RelativeFilePath this, RelativeFilePath path): RelativeFilePath {
+        this ::<FilePath> append(path)
     }
 }

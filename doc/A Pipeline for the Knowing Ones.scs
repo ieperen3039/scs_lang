@@ -26,14 +26,15 @@
 
 // ---- the implicit universal pipedef file ---- 
 
-type boolean = native {
-    fn equalTo(boolean other) : boolean native
+type Result<T, E> = native
+
+type boolean = Result<void, void> {
     fn invert : boolean native // we do not define '!' because it looks weird in SCS
     fn if<T>(fn<T> true, fn<T> false) : T native
-    fn ifTrue<T>(fn<T> then) : Optional<T> native // see Optional<T>.orElse(T)
-    fn ifFalse<T>(fn<T> then) : Optional<T> native // { this invert ifTrue(then) } // still works with orElse
+    fn ifTrue<T>(fn<T> then) : Result<T, void> native
+    fn ifFalse<T>(fn<T> then) : Result<T, void> native
 }
-type boolean[] = boolean[] {
+impl boolean[] {
     fn any: boolean native
     fn all: boolean native
 }
@@ -58,12 +59,8 @@ type LogicBuilder<T> = native {
     fn not: LogicBuilder<T> native
     fn equalTo(T other): boolean native
 }
-type Optional<T> = native {
-    fn ifExists<R>(fn<(T)R> then) : Optional<R> native
-    fn orPanic: T native
-    fn orElse(fn<T> then): T native
-    fn static None : Optional<T> native // returns the 'not' optional
-}
+
+type Optional<T> = Result<T, void>;
 
 fn parallel(fn<T>[] executions) : T[] {
     // evaluating the array of functions as an array of T executes the functions

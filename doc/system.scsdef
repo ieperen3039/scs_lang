@@ -1,4 +1,3 @@
-
 enum ShellType [
     Batch,
     Bash
@@ -10,18 +9,13 @@ enum OperatingSystem [
     MacOS
 ]
 
-fn getOS : OperatingSystem native
-fn getShellType : ShellType native
+fn getOS() : OperatingSystem native
+fn getShellType() : ShellType native
 
 // functions to run terminal commands
 impl ShellType {
     // for enum member functions, the parameter `T ... a` evalutes to a series of parameters of type T, with the name of the variant as argument name.
     // inside the function, `a` will evaluate to the argument that corresponds to `this`, or when passed to another `T ... a`: expand to the original series of arguments.
-    fn run(String ... command): int native
-    fn readVariable(String variable_name) : String native
-    
-    fn call(String ... command) : ShellType {
-        run(command) > errorCode; // discarded
-        this > return; // this `> return` may be omitted, because the next token is a closing bracket
-    }
+    fn run(String ... command): Result<ShellType> native
+    fn readVariable(String variable_name) : Optional<String> native
 }
