@@ -1,0 +1,97 @@
+
+type void = native // zero-sized nothing-type
+
+type Result<P, N> = {
+    P pos;
+    N neg;
+}
+
+type Optional<T> = Result<T, void>
+type boolean = Result<void, void> 
+
+type int = native 
+type float = native 
+type String = native 
+
+type fn<R> = fn<()R>
+type fn = fn<()void>
+
+impl boolean {
+    fn if<T>(fn<T> true, fn<T> false) : T native
+}
+
+impl boolean[] {
+    fn any: boolean native
+    fn all: boolean native
+}
+impl int {
+    fn isLessThan(int other): boolean native
+    fn isLessOrEqualThan(int other): boolean native
+    fn isGreaterThan(int other): boolean native
+    fn isGreaterOrEqualThan(int other): boolean native
+    fn equalTo(int other) : boolean native
+    fn asFloat : float native
+}
+impl float {
+    fn isLessThan(float other): boolean native
+    fn isGreaterThan(float other): boolean native
+}
+impl String {
+    fn equalTo(String other): boolean native
+    fn is: LogicBuilder<String> native
+}
+
+impl Result<P, N> {
+    fn invert : Result<N, P> { Result(this.neg, this.pos) }
+    fn unwrap_or(P then) : P native
+    fn unwrap_pos : P { this.pos }
+    fn unwrap_neg : N { this.neg }
+    fn unwrap : P { this unwrap_pos }
+
+    op ">" : unwrap_pos
+    op "?" : unwrap_neg 
+}
+
+// any array of results can be collapsed
+impl Result<P, N>[] {
+    fn any: Optional<P> native
+    fn all: bool native
+    fn get_pos : P native
+    fn get_neg : N native
+
+    op ">" : get_pos
+    op "?" : get_neg 
+}
+
+impl <T> {
+    op ":" : this // a bit cheating with the names, but `:` returns `this`
+    op ">" : native // specifies scoping behaviour
+    op "?" : native // accepts arbitrary functions, and handles on them
+    op "=" : native // creates a new name in the scope
+    op "!"(R new_value) : R { new_value } // replaces with new value
+}
+
+impl <T>[] {
+    // filter does not actually change the size of the array.
+    // you'll have to use a 'positive-assign' to get the array of positive values.
+    fn filter(fn<(T)bool>) : Result<T, T> native
+    fn collect(fn<(T, T)T>) : T native
+    fn collect<Acc>(Acc, fn<(Acc, T)Acc>) : Acc native
+    // combines every two adjacent elements into a new element
+    fn multimap<R>(fn<(T, T)R>)
+    fn first : Optional<T> native
+    fn map(fn<(T)T>) : T[] native
+    fn append(T) : T[] native
+    fn append(T[] other) : T[] { other collect(this, append) }
+
+    op "*" : first
+    op ":" : map
+    op "+" : append
+}
+
+// each enum value is an object instance, the enum type is a type
+impl <E : enum> {
+    /* every variant of the enum results in an argument of type T, with the name of the variant as argument name */
+    fn switch<T>(T ... expression) : T native
+    fn equalTo(E other): boolean native
+}

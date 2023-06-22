@@ -1,11 +1,11 @@
 use "system"
 
 fs {
-    type FilePath = String
-    type AbsoluteFilePath = FilePath
-    type RelativeFilePath = FilePath
+    type FilePath : String
+    type AbsoluteFilePath : FilePath
+    type RelativeFilePath : FilePath
 
-    fn directoryOfFile(): AbsoluteFilePath {
+    fn directoryOfThis: AbsoluteFilePath {
         system.getShellType
             run(
                 Batch: "set directoryOfThis=%cd%",
@@ -15,24 +15,19 @@ fs {
             readVariable("directoryOfThis")
     }
 
-    fn append(FilePath this, RelativeFilePath): FilePath native
-    
-    fn copyTo(FilePath this, AbsoluteFilePath newPath): Optional<AbsoluteFilePath> {
-        system.getShellType
-            run(
-                Batch: "cp {this} {newPath}",
-                Bash: "cp {this} {newPath}"
-            )
-            >! newPath
+    impl FilePath {
+        fn append: This native
+        fn getParent: This native
     }
 
-    fn getParent(AbsoluteFilePath): AbsoluteFilePath native
-
-    fn append(AbsoluteFilePath this, RelativeFilePath path): AbsoluteFilePath {
-        this ::<FilePath> append(path)
-    }
-    
-    fn append(RelativeFilePath this, RelativeFilePath path): RelativeFilePath {
-        this ::<FilePath> append(path)
+    impl AbsoluteFilePath {
+        fn copyTo(AbsoluteFilePath newPath): Optional<AbsoluteFilePath> {
+            system.getShellType
+                run(
+                    Batch: "cp {this} {newPath}",
+                    Bash: "cp {this} {newPath}"
+                )
+                >! newPath
+        }
     }
 }

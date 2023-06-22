@@ -9,8 +9,8 @@ enum OperatingSystem [
     MacOS
 ]
 
-fn getOS() : OperatingSystem native
-fn getShellType() : ShellType native
+fn getOS : OperatingSystem native
+fn getShellType : ShellType native
 
 // functions to run terminal commands
 impl ShellType {
