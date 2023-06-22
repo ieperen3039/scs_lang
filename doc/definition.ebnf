@@ -41,8 +41,9 @@ untyped_parameter_list  = _name_list;
 return_type             = _type_name;
 
 (* statements *)
-function_block          = "{", _, { statement }, "}";
-statement               = _expression, { _, _mutator }, _, ";";
+(* it is a syntax error, but not a parse error, to not end with an all-assign *)
+function_block          = "{", _, statement, _, { ";", _, [ statement, _ ] }, "}";
+statement               = _expression, { _, _mutator }; 
 _expression             = identifier | static_function_call | lambda | array_initialisation | _literal;
 
 (* function call statements *)
