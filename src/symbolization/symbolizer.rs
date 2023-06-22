@@ -6,7 +6,18 @@ use crate::parsing::parser::RuleNode;
 
 use super::ast::*;
 
-struct ProgramScope {
+struct Scope {
+    pub scopes: HashMap<Identifier, Scope>,
+    pub types: Vec<TypeDeclaration>,
+}
+
+struct TypeDeclaration {
+    name: Identifier, 
+    generic_types : Vec<Identifier>,
+    derived_from : Option<Identifier>,
+}
+
+struct Symbolizer {
     pub aliasses : HashMap<Identifier, Identifier>,
     pub scope : Scope,
 }
@@ -14,7 +25,7 @@ struct ProgramScope {
 pub fn convert_to_program(name: &str, tree: RuleNode<'_, '_>) -> Result<Program, SimpleError> {
     debug_assert_eq!(tree.rule_name, "scs_program");
 
-    let mut master_definitions = ProgramScope {
+    let mut symbolizer = Symbolizer {
         aliasses: HashMap::new(),
         scope: Scope::new(name),
     };
@@ -24,7 +35,11 @@ pub fn convert_to_program(name: &str, tree: RuleNode<'_, '_>) -> Result<Program,
         match node.rule_name {
             "version_declaration" | "include_declaration" => {},
             "function_interface" | "function_block" => {},
-            _ => master_definitions.read_node(&node)?,
+            _ => {
+                let sub_node = symbolizer.read_definition(&node)?;
+                match sub_node {
+                }
+            }
         }
     }
 
@@ -35,28 +50,23 @@ impl Scope {
     pub fn new (name: &str) -> Scope
     {
         Scope {
-            name : Rc::from(name),
-            types: HashMap::new(),
-            functions: HashMap::new(),
             scopes: HashMap::new(),
+            types: Vec::new(),
         }
     }
 
     fn extend(&mut self, other: Scope) {
-        self.types.extend(other.types);
-        self.functions.extend(other.functions);
         self.scopes.extend(other.scopes);
+        self.types.extend(other.types);
     }
 
-    fn combine_with(mut self, other: Scope) -> Scope {
-        self.types.extend(other.types);
-        self.functions.extend(other.functions);
-        self.scopes.extend(other.scopes);
+    fn combined_with(mut self, other: Scope) -> Scope {
+        self.extend(other);
         self
     }
 }
 
-impl ProgramScope {
+impl Symbolizer {
     fn read_scope(&self, node: &RuleNode<'_, '_>) -> Result<Scope, SimpleError> {
         debug_assert_eq!(node.rule_name, "scope");
 
@@ -68,9 +78,6 @@ impl ProgramScope {
         for node in iter {
             let sub_node = self.read_definition(node)?;
             match sub_node {
-                Definition::Scope(s) => {scope.scopes.insert(s.name, s);},
-                Definition::Type(t) => { scope.types.insert(t.get_name(), t); },
-                Definition::Function(f) => {scope.functions.insert(f.name, f);},
             }
         }
 
@@ -95,8 +102,15 @@ impl ProgramScope {
         debug_assert_eq!(node.rule_name, "type_definition");
 
         let mut iter = node.sub_rules.iter();
-        let result = match iter.next() {
-            "base_type" => ,
+        let type_name = iter.next().ok_or(SimpleError::new(format!("Expected a type name")))?;
+
+        let derived_from = iter.next().ok_or(SimpleError::new(format!("Expected a derived type")))?;
+
+        let result = match type_name.rule_name {
+        }
+
+        let result = match type_name.rule_name {
+            "base_type" => self.scope,
             "array_type" => ,
             "native_decl" => ,
             "fn_type" => ,
@@ -111,14 +125,15 @@ impl ProgramScope {
     fn read_enum(&self, node: &RuleNode<'_, '_>) -> Result<EnumDefinition, SimpleError> {
         todo!()
     }
-
-    fn read_type(&self, node: &RuleNode<'_, '_>) -> Result<TypeDefinition, SimpleError> {
-        todo!()
-    }
 }
 
 fn expect_node<'r, 'p, 'd>(node: Option<&'r RuleNode<'p, 'd>>, expected : &str) -> Result<&'r RuleNode<'p, 'd>, SimpleError> {
     node
         .filter(|rule| rule.rule_name == expected)
         .ok_or(SimpleError::new(format!("Expected node {expected}")))
+}
+
+fn find_node<'r, 'p, 'd>(node: &'r Vec<RuleNode<'p, 'd>>, expected : &str) -> Option<&'r RuleNode<'p, 'd>,> {
+    node.iter()
+        .find(|rule| rule.rule_name == expected)
 }

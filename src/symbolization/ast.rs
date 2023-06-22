@@ -7,49 +7,35 @@ pub type VarRef = Rc<VariableDeclaration>;
 pub type Identifier = Rc<str>;
 
 pub struct Program {
-    pub definitions: Scope,
-    pub main: Option<FunctionRef>,
-}
-
-pub struct Scope {
-    pub name: Identifier,
     pub types: HashMap<Identifier, TypeRef>,
     pub functions: HashMap<Identifier, FunctionRef>,
-    pub scopes: HashMap<Identifier, Scope>,
-}
-
-pub enum Definition {
-    Scope(Scope),
-    Type(TypeRef),
-    Function(FunctionRef),
+    pub main: Option<FunctionRef>,
 }
 
 // -- types --
 
 #[derive(Hash, Eq, PartialEq)]
 pub enum TypeDefinition {
-    Native(Identifier),
-    Derived(DerivedType),
-    Array(Identifier),
+    Base(BaseType),
     Enum(EnumDefinition),
     Function(FunctionType),
 }
 
 #[derive(Hash, Eq, PartialEq)]
-pub struct DerivedType {
+pub struct BaseType {
     pub name: Identifier,
-    pub generic_parameters : Vec<TypeDefinition>,
-    pub derived_from: Rc<TypeDefinition>,
+    pub is_array: bool,
+    pub generic_parameters : Vec<BaseType>,
+    // if derived_from is None, then this is a native type
+    pub derived_from: Option<TypeRef>,
 }
 
 impl TypeDefinition {
     pub fn get_name(&self) -> Identifier {
-        match self {
-            TypeDefinition::Native(name) => name,
-            TypeDefinition::Derived(DerivedType { name, .. }) => name,
-            TypeDefinition::Array(name) => name,
+        match *self {
+            TypeDefinition::Base(BaseType { name, .. }) => name,
             TypeDefinition::Enum(EnumDefinition { name, .. }) => name,
-            TypeDefinition::Function(_) => "fn",
+            TypeDefinition::Function(_) => Rc::from("fn"),
         }
     }
 }

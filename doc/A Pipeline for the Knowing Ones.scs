@@ -28,17 +28,24 @@
 
 type Result<T, E> = native
 
-type boolean = Result<void, void> {
+type boolean = Result<void, void> 
+type int = native 
+type float = native 
+type String = native 
+type LogicBuilder<T> = native
+
+impl boolean {
     fn invert : boolean native // we do not define '!' because it looks weird in SCS
     fn if<T>(fn<T> true, fn<T> false) : T native
     fn ifTrue<T>(fn<T> then) : Result<T, void> native
     fn ifFalse<T>(fn<T> then) : Result<T, void> native
 }
+
 impl boolean[] {
     fn any: boolean native
     fn all: boolean native
 }
-type int = native {
+impl int {
     fn isLessThan(int other): boolean native
     fn isLessOrEqualThan(int other): boolean native
     fn isGreaterThan(int other): boolean native
@@ -46,21 +53,21 @@ type int = native {
     fn equalTo(int other) : boolean native
     fn asFloat : float native
 }
-type float = native {
+impl float {
     fn isLessThan(float other): boolean native
     fn isGreaterThan(float other): boolean native
 }
-type String = native {
+impl String{
     fn equalTo(String other): boolean native
     fn is: LogicBuilder<String> native
 }
 // a lazy-evaluated boolean expression
-type LogicBuilder<T> = native {
+impl LogicBuilder<T> {
     fn not: LogicBuilder<T> native
     fn equalTo(T other): boolean native
 }
 
-type Optional<T> = Result<T, void>;
+type Optional<T> = Result<T, void>
 
 fn parallel(fn<T>[] executions) : T[] {
     // evaluating the array of functions as an array of T executes the functions
