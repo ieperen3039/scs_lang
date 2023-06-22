@@ -6,6 +6,8 @@ pub type VarRef = Rc<VariableDeclaration>;
 
 pub type Identifier = Rc<str>;
 
+//#[derive(Hash, Eq, PartialEq)]
+
 pub struct Program {
     pub types: HashMap<Identifier, TypeRef>,
     pub functions: HashMap<Identifier, FunctionRef>,
@@ -14,20 +16,21 @@ pub struct Program {
 
 // -- types --
 
-#[derive(Hash, Eq, PartialEq)]
 pub enum TypeDefinition {
     Base(BaseType),
     Enum(EnumDefinition),
     Function(FunctionType),
 }
 
-#[derive(Hash, Eq, PartialEq)]
 pub struct BaseType {
     pub name: Identifier,
-    pub is_array: bool,
-    pub generic_parameters : Vec<BaseType>,
-    // if derived_from is None, then this is a native type
-    pub derived_from: Option<TypeRef>,
+    pub generic_parameters : Vec<Identifier>,
+    pub fields : Vec<TypeFields>,
+}
+
+pub struct TypeFields {
+    pub name : Identifier,
+    pub type_name : Identifier,
 }
 
 impl TypeDefinition {
@@ -40,13 +43,11 @@ impl TypeDefinition {
     }
 }
 
-#[derive(Hash, Eq, PartialEq)]
 pub struct FunctionType {
     parameters: Vec<TypeRef>,
     return_type: TypeRef,
 }
 
-#[derive(Hash, Eq, PartialEq)]
 pub struct EnumDefinition {
     pub name: Identifier,
     pub values: Vec<Identifier>,
@@ -54,10 +55,16 @@ pub struct EnumDefinition {
 
 // -- implementations --
 
+pub struct TypeUse {
+    pub definition : TypeRef,
+    pub as_array: bool,
+    pub generic_parameters : Vec<TypeRef>,
+}
+
 pub struct FunctionDefinition {
     pub name: Identifier,
     pub parameters: Vec<Parameter>,
-    pub return_type: TypeRef,
+    pub return_type: TypeUse,
     pub body: FunctionBlock,
     pub is_static: bool,
 }
@@ -68,7 +75,7 @@ pub struct Parameter {
 }
 
 pub struct VariableDeclaration {
-    pub type_name: TypeRef,
+    pub type_name: TypeUse,
     pub name: Identifier,
 }
 

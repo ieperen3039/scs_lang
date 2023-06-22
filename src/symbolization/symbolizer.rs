@@ -8,13 +8,7 @@ use super::ast::*;
 
 struct Scope {
     pub scopes: HashMap<Identifier, Scope>,
-    pub types: Vec<TypeDeclaration>,
-}
-
-struct TypeDeclaration {
-    name: Identifier, 
-    generic_types : Vec<Identifier>,
-    derived_from : Option<Identifier>,
+    pub types: HashMap<Identifier, TypeRef>,
 }
 
 struct Symbolizer {
@@ -51,7 +45,7 @@ impl Scope {
     {
         Scope {
             scopes: HashMap::new(),
-            types: Vec::new(),
+            types: HashMap::new(),
         }
     }
 
@@ -76,37 +70,39 @@ impl Symbolizer {
         let mut scope = Scope::new(scope_name.tokens);
         
         for node in iter {
-            let sub_node = self.read_definition(node)?;
-            match sub_node {
+            match node.rule_name {
+                "scope" => {
+                    let sub_scope = self.read_scope(node)?;
+                    scope.scopes.insert(Rc::from(node.tokens), sub_scope);
+                }, 
+                "type_definition" => {
+                    let type_def = self.read_type(node)?;
+                    scope.types.insert(type_def.get_name(), Rc::from(type_def));
+                }, 
+                "enum_definition" => {
+                    let enum_def = self.read_enum(node)?;
+                    scope.types.insert(enum_def.get_name(), Rc::from(enum_def));
+                }, 
+                "implementation" => self.read_implementation(node)?, 
+                "function_definition" => Definition::Function(self.read_function(node)?),
+                _ => {},
             }
         }
 
         todo!()
     }
-
-    fn read_definition(&self, node: &RuleNode<'_, '_>) -> Result<Definition, SimpleError> {
-        let result = match node.rule_name {
-            "scope" => Definition::Scope(self.read_scope(node)?) , 
-            "type_definition" => Definition::Type(self.read_type(node)?), 
-            "enum_definition" => Definition::Type(self.read_enum(node)?), 
-            "implementation" => Definition::Function(self.read_implementation(node)?), 
-            "function_definition" => Definition::Function(self.read_function(node)?),
-            _ => {},
-        };
-
-        Ok(result)
-    }
-
-    // (base_type | array_type | fn_type | native_decl), { function_definition };
-    fn read_type(&self, node: &RuleNode<'_, '_>) -> Result<TypeDefinition, SimpleError> {
+    
+    // base_type, [ type_name | native_decl ], { function_definition };
+    fn read_type(&self, node: &RuleNode<'_, '_>) -> Result<BaseType, SimpleError> {
         debug_assert_eq!(node.rule_name, "type_definition");
 
         let mut iter = node.sub_rules.iter();
+        let base_type = expect_node(iter.next(), "base_type");
         let type_name = iter.next().ok_or(SimpleError::new(format!("Expected a type name")))?;
 
-        let derived_from = iter.next().ok_or(SimpleError::new(format!("Expected a derived type")))?;
-
         let result = match type_name.rule_name {
+            type_name => ,
+            native_decl => 
         }
 
         let result = match type_name.rule_name {
