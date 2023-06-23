@@ -1,13 +1,13 @@
 
 type void = native // zero-sized nothing-type
 
-type Result<P, N> = {
-    P pos;
-    N neg;
+variant Result<P, N> {
+    P pos,
+    N neg,
 }
 
 type Optional<T> = Result<T, void>
-type boolean = Result<void, void> 
+type boolean = Result<void, void>
 
 type int = native 
 type float = native 
@@ -42,56 +42,83 @@ impl String {
 }
 
 impl Result<P, N> {
-    fn invert : Result<N, P> { Result(this.neg, this.pos) }
-    fn unwrap_or(P then) : P native
-    fn unwrap_pos : P { this.pos }
-    fn unwrap_neg : N { this.neg }
-    fn unwrap : P { this unwrap_pos }
+    fn invert : Result<N, P> { this on_pos ?* Result.neg !* Result.pos }
+    fn unwrap_pos_or(P then) : P native
+    fn unwrap_neg_or(N then) : N native
 
-    op ">" : unwrap_pos
-    op "?" : unwrap_neg 
+    fn on_pos<R>(fn<(P)R>) : Result<R, N> native
+    fn on_neg<R>(fn<(N)R>) : Result<P, R> native
+
+    op "?" : on_pos
+    op "!" : on_neg 
 }
 
 // any array of results can be collapsed
 impl Result<P, N>[] {
     fn any: Optional<P> native
-    fn all: bool native
-    fn get_pos : P native
-    fn get_neg : N native
-
-    op ">" : get_pos
-    op "?" : get_neg 
+    fn all: boolean native
+    fn split : Result<P[], N[]> native
 }
 
 impl <T> {
-    op ":" : this // a bit cheating with the names, but `:` returns `this`
-    op ">" : native // specifies scoping behaviour
-    op "?" : native // accepts arbitrary functions, and handles on them
-    op "=" : native // creates a new name in the scope
-    op "!"(R new_value) : R { new_value } // replaces with new value
+    fn equalTo<T>(T other) : boolean native
+
+    fn _apply_on_fn<R>(fn<(T)R> mapping) : R { mapping(this) }
+    fn _replace_with<R>(R new_value) : R { new_value }
+     // creates a new name in the scope
+    fn _assign_to_variable(...) : void native
+
+    op "=" : _assign_to_variable
+    op "*" : _apply_on_fn 
+    op ";" : _replace_with
 }
 
 impl <T>[] {
-    // filter does not actually change the size of the array.
+    // partition does not change the size of the array.
     // you'll have to use a 'positive-assign' to get the array of positive values.
-    fn filter(fn<(T)bool>) : Result<T, T> native
-    fn collect(fn<(T, T)T>) : T native
-    fn collect<Acc>(Acc, fn<(Acc, T)Acc>) : Acc native
-    // combines every two adjacent elements into a new element
-    fn multimap<R>(fn<(T, T)R>)
+    fn partition(fn<(T)boolean> predicate) : Result<T, T> native
+    fn collect(fn<(T, T)T> collector) : T native
+    fn collect<Acc>(Acc accumulator, fn<(Acc, T)Acc> collector) : Acc native
+    fn map<R>(fn<(T)R> mapping) : R[] native
+    // combines every two adjacent elements into a new element (resutling in an array of 1 less length)
+    fn multimap<R>(fn<(T, T)R> mapping) : T[] native
     fn first : Optional<T> native
-    fn map(fn<(T)T>) : T[] native
-    fn append(T) : T[] native
+    fn append(T new_element) : T[] native
+
+    fn filter(fn<(T)boolean> predicate) : T[] { this > partition(predicate) split }
     fn append(T[] other) : T[] { other collect(this, append) }
 
     op "*" : first
-    op ":" : map
+    op ">" : map
     op "+" : append
 }
 
-// each enum value is an object instance, the enum type is a type
-impl <E : enum> {
-    /* every variant of the enum results in an argument of type T, with the name of the variant as argument name */
+//  the enum type is a type, each enum value is an object instance
+impl enum {
+    /* every element of the enum expands to an argument of type T, with the name of the element as argument name */
     fn switch<T>(T ... expression) : T native
-    fn equalTo(E other): boolean native
+    fn equalTo(enum other): boolean native
 }
+
+// both the variant type and the variant elements are types
+// the variant elements are separately instantiable and name-able
+impl variant<E...> {
+    /* every element of the variant expands to an argument of type T, with the name of the element as argument name */
+    fn switch<T>(T ... expression) : T native
+    fn as(E expected): Optional<E> native
+}
+
+impl variant<E...>[] {
+    fn split : (E[]...)[] native
+}
+
+impl fn<(P)R> {
+    fn _chain<R2>(fn<(R)R2> next_function) : fn<(P)R2> native
+    // { 
+    //     (input) { 
+    //         input * this * next_function
+    //     } 
+    // }
+
+    op "+" : _chain
+} 

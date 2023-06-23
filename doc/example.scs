@@ -13,19 +13,29 @@ use "filesystem"
 (FileName input_file) : Result<String, String>
 {
     input_file
-        :? File.open // both-application
-        ?= file_open_error // negative-assign
-        readToString // both-method
-        >> splitOn("\n") // positive-method
-        := input_string; // both-assign
+        * File.open // application
+        != file_open_error // negative-assign
+        readToString // method
+        splitOn("\n") // method
+        // map each string to upper case
+        * toUpper // map
+        // remove all "NA" lines
+        // String.equalTo(...) will be interpreted as (this) { this equalTo(...) }
+        filter(String.equalTo("NA") + Result.invert) 
+        // filter((line) { line equalTo("") invert }) 
+        ?* replace(",", ";")
+        // collect all selected lines into lloc
+        // and discard the neg-value
+        ?= lloc; 
 
     file_open_error
-        :? (err) {  // both-application to lamda
+        * (err) {  // application to lamda
             io.format(fmt: "Could not open file {}", args: err) 
         }
-        := return;
+        = return;
 
-    input_string
-        >> reduce(String.concat)
-        := return;
+    lloc
+        multimap((a, b) { a + "," })
+        reduce(String.concat)
+        = return;
 }
