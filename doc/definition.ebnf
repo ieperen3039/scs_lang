@@ -18,16 +18,17 @@ file                    = _file_name;
 _definition             = scope | type_definition | enum_definition | implementation | function_definition;
 scope_name              = identifier;
 scope                   = scope_name, _, "{", { _definition, _ }, _, "}";
-_scope_call             = { scope_name, _, "." };
-type_definition         = _keyword_type, _, base_type, _, [ ( ":", _, type_name, _ ) | ( native_decl, _ ) ], ["[", _, { function_definition, _ }, "]" ];
-type_name               = _type_name;
-_type_name              = _scope_call, ( base_type | array_type | fn_type );
+_scope_call             = scope_name, { ".", scope_name };
+type_definition         = _keyword_type, _, base_type, _, [ ( ":", _, derived_type, _ ) | ( native_decl, _ ) ], ["{", { _, field_declaration }, _, "}" ];
+field_declaration       = _type_name, _, identifier, _, ";";
+derived_type            = [ _scope_call ], base_type;
+_type_name              = [ _scope_call ], ( base_type | array_type | fn_type );
 base_type               = identifier, _, [ generic_types ];
 generic_types           = "<", _, _type_list, _, ">";
 array_type              = (base_type | fn_type ), "[", _, "]";
 fn_type                 = _keyword_fn, _, [ "<", _, [ "(", _, { unnamed_parameter_list, _ }, ")", _ ], return_type, _, ">" ];
 enum_definition         = _keyword_enum, _, identifier, _, "[", _, { identifier, _, ",", _ }, "]";
-implementation          = _keyword_start_implementation, _, type_name, _, "{", _, { function_definition, _ }, "}";
+implementation          = _keyword_start_implementation, _, _type_name, _, "{", _, { function_definition, _ }, "}";
 
 (* function definitions and parameters *)
 function_definition     = function_signature, _, ( function_block | native_decl );
@@ -35,39 +36,33 @@ function_signature      = _keyword_fn, _, function_name, _, [ generic_types, _ ]
 function_name           = _name;
 function_interface      = "(", _, [ parameter_list, _ ], ")", _, ":", _, return_type;
 parameter_list          = parameter, { _, ",", _, parameter };
-parameter               = type_name, _, [ expansion_decl, _ ], identifier;
+parameter               = _type_name, _, [ expansion_decl, _ ], identifier;
 unnamed_parameter_list  = _type_list;
 untyped_parameter_list  = _name_list;
 return_type             = _type_name;
 
 (* statements *)
-(* it is a syntax error, but not a parse error, to not end with an all-assign *)
 function_block          = "{", _, statement, _, { ";", _, [ statement, _ ] }, "}";
 statement               = _expression, { _, _mutator }; 
 _expression             = identifier | static_function_call | lambda | array_initialisation | _literal;
 
 (* function call statements *)
-static_function_call    = _scope_call, _function_call_tail;
+static_function_call    = [ _scope_call ], _function_call_tail;
 method_call             = _function_call_tail;
 _function_call_tail     = function_name, _, [ "(", [ _, _argument_list ], _, ")" ];
 _argument_list          = single_argument | ( named_argument, { _, ",", _, named_argument } );
 single_argument         = _expression;
 named_argument          = identifier, _, ":", _, _expression;
-_type_list              = type_name, { _, ",", _, type_name };
+_type_list              = _type_name, { _, ",", _, _type_name };
 _name_list              = identifier, { _, ",", _, identifier };
 _static_callable        = ( _scope_call, identifier ) | lambda;
 
 (* mutators, selectors and usage indicators *)
-_selector_symbol        = selector_both | selector_positive | selector_negative;
-_usage_symbol           = usage_method | usage_application | usage_stop_new | usage_assign;
-
-_mutator                = _mutator_method | _mutator_application | _mutator_stop_new | _mutator_assign | implicit_method;
-_mutator_method         = _selector_symbol, usage_method, _, method_call;
-_mutator_application    = _selector_symbol, usage_application, _, _static_callable;
-_mutator_stop_new       = _selector_symbol, usage_stop_new, _, _expression;
-_mutator_cast           = _selector_symbol, usage_cast, _, type_name, _, _cast_end;
-_mutator_assign         = _selector_symbol, usage_assign, _, ( return_decl | [ type_name ], _, identifier);
-implicit_method         = method_call;
+_mutator                = method_call | method_to_function_call | operator;
+method_to_function_call = _type_name, ".", _function_call_tail;
+operator                = "/\S+/";
+_mutator_cast           = usage_cast, _, _type_name, _, _cast_end;
+_mutator_assign         = usage_assign, _, ( return_decl | ( [ _type_name ], _, identifier) );
 
 (* other statements *)
 array_initialisation    = "[", [ _, _expression, { _, ",", _, _expression } ], _, "]";
@@ -86,13 +81,6 @@ integer_literal = _integer_number;
 floating_point_literal = _floating_point_number;
 
 (* symbol definitions *)
-selector_both = ":";
-selector_positive = ">";
-selector_negative = "?";
-
-usage_method = ">";
-usage_application = "?";
-usage_stop_new = "!";
 usage_assign = "=";
 usage_cast = ":<";
 _cast_end = ">";
