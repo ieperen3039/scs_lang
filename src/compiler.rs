@@ -4,11 +4,12 @@ use std::path::{Path, PathBuf};
 use simple_error::SimpleError;
 
 use crate::parsing::{ebnf_parser, parser};
-use crate::symbolization::ast;
-use crate::symbolization::meta_program;
+use crate::symbolization::ast::{self, Scope, Program};
+use crate::symbolization::{meta_program, symbolizer};
 
 pub struct ScsCompiler {
     parser: parser::Parser,
+    symbolizer: symbolizer::Symbolizer,
     file_cache: HashMap<PathBuf, ast::Program>,
     parse_stack: Vec<PathBuf>,
 }
@@ -75,28 +76,24 @@ impl ScsCompiler {
         let mut files_to_compile =
             meta_program::extract_includes(&syntax_tree, &this_path).into_iter();
 
-        let mut types: HashMap<String, ast::TypeRef> = HashMap::new();
-        let mut functions: HashMap<String, ast::FunctionRef> = HashMap::new();
+        let mut program = Program {
+            definitions: Scope::new(&source_file.to_string_lossy()),
+            main: None,
+        };
 
         while let Some(include_file) = files_to_compile.next() {
             let include_file_name = include_file.to_string_lossy().to_string();
             let include_program = self.compile(&include_file)?;
 
-            for (k, v) in include_program.types.clone() {
-                types.insert(k, v);
-            }
-
-            for (k, v) in include_program.functions.clone() {
-                functions.insert(k, v);
-            }
-
-            functions.insert(include_file_name, include_program.main.clone());
+            program.definitions.extend(include_program.definitions);
         }
 
-        let program_ast: ast::Program;
+
+
+        // start parsing the definitions?
 
         self.file_cache
-            .insert(source_file.to_path_buf(), program_ast);
+            .insert(source_file.to_path_buf(), program);
 
         todo!()
     }

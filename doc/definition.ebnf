@@ -23,8 +23,8 @@ type_definition         = _keyword_type, _, base_type, _, [ ( ":", _, derived_ty
 field_declaration       = _type_name, _, identifier, _, ";";
 derived_type            = [ _scope_call ], base_type;
 _type_name              = [ _scope_call ], ( base_type | array_type | fn_type );
-base_type               = identifier, _, [ generic_types ];
-generic_types           = "<", _, _type_list, _, ">";
+base_type               = identifier, _, [ generic_types_decl ];
+generic_types_decl      = "<", _, identifier, { _, identifier }, _, ">";
 array_type              = (base_type | fn_type ), "[", _, "]";
 fn_type                 = _keyword_fn, _, [ "<", _, [ "(", _, { unnamed_parameter_list, _ }, ")", _ ], return_type, _, ">" ];
 enum_definition         = _keyword_enum, _, identifier, _, "[", _, { identifier, _, ",", _ }, "]";
@@ -32,7 +32,7 @@ implementation          = _keyword_start_implementation, _, _type_name, _, "{", 
 
 (* function definitions and parameters *)
 function_definition     = function_signature, _, ( function_block | native_decl );
-function_signature      = _keyword_fn, _, function_name, _, [ generic_types, _ ], function_interface;
+function_signature      = _keyword_fn, _, function_name, _, [ generic_types_decl, _ ], function_interface;
 function_name           = _name;
 function_interface      = "(", _, [ parameter_list, _ ], ")", _, ":", _, return_type;
 parameter_list          = parameter, { _, ",", _, parameter };

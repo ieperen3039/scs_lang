@@ -1,51 +1,75 @@
 use std::{collections::HashMap, rc::Rc};
 
-pub type TypeRef = Rc<TypeDefinition>;
-pub type FunctionRef = Rc<FunctionDefinition>;
-pub type VarRef = Rc<VariableDeclaration>;
-
 pub type Identifier = Rc<str>;
 
 //#[derive(Hash, Eq, PartialEq)]
 
 pub struct Program {
-    pub types: HashMap<Identifier, TypeRef>,
-    pub functions: HashMap<Identifier, FunctionRef>,
-    pub main: Option<FunctionRef>,
+    pub definitions: Scope,
+    pub main: Option<Rc<FunctionDefinition>>,
+}
+
+pub struct Scope {
+    pub scopes: HashMap<Identifier, Scope>,
+    pub types: HashMap<Identifier, Rc<TypeDefinition>>,
+    pub functions: HashMap<Identifier, Rc<FunctionDefinition>>,
+}
+
+// -- weak references
+
+pub enum TypeRef {
+    Struct(StructRef),
+    Array(Box<TypeRef>),
+    Function(FunctionRef),
+}
+
+pub struct StructRef {
+    pub name: Identifier,
+    // implementation / our selection of types to use as generic parameters
+    pub generic_parameters : Vec<TypeRef>,
+}
+
+pub struct FunctionRef {
+    pub parameters: Vec<Rc<TypeDefinition>>,
+    pub return_type: Rc<TypeDefinition>,
 }
 
 // -- types --
 
 pub enum TypeDefinition {
-    Base(BaseType),
+    Struct(StructDefinition),
     Enum(EnumDefinition),
-    Function(FunctionType),
-}
-
-pub struct BaseType {
-    pub name: Identifier,
-    pub generic_parameters : Vec<Identifier>,
-    pub fields : Vec<TypeFields>,
-}
-
-pub struct TypeFields {
-    pub name : Identifier,
-    pub type_name : Identifier,
+    Variant(VariantDefinition),
 }
 
 impl TypeDefinition {
     pub fn get_name(&self) -> Identifier {
         match *self {
-            TypeDefinition::Base(BaseType { name, .. }) => name,
+            TypeDefinition::Struct(StructDefinition { name, .. }) => name,
             TypeDefinition::Enum(EnumDefinition { name, .. }) => name,
-            TypeDefinition::Function(_) => Rc::from("fn"),
+            TypeDefinition::Variant(VariantDefinition { name, .. }) => name,
         }
     }
 }
 
-pub struct FunctionType {
-    parameters: Vec<TypeRef>,
-    return_type: TypeRef,
+pub struct StructDefinition {
+    pub name: Identifier,
+    // a struct can only be derived from structs
+    pub derived_from : Option<Rc<TypeDefinition>>,
+    // there are generic declarations; brand new identifiers
+    pub generic_parameters : Vec<Identifier>,
+    pub fields : Vec<StructField>,
+}
+
+pub struct StructField {
+    pub name : Identifier,
+    // type reference (we use an implementation of the type), not an Rc to a type definition
+    pub type_name : TypeRef,
+}
+
+pub struct VariantDefinition {
+    pub name: Identifier,
+    pub values: Vec<Identifier>,
 }
 
 pub struct EnumDefinition {
@@ -55,27 +79,21 @@ pub struct EnumDefinition {
 
 // -- implementations --
 
-pub struct TypeUse {
-    pub definition : TypeRef,
-    pub as_array: bool,
-    pub generic_parameters : Vec<TypeRef>,
-}
-
 pub struct FunctionDefinition {
     pub name: Identifier,
     pub parameters: Vec<Parameter>,
-    pub return_type: TypeUse,
+    pub return_type: TypeRef,
     pub body: FunctionBlock,
     pub is_static: bool,
 }
 
 pub struct Parameter {
-    pub name: VarRef,
+    pub name: Rc<VariableDeclaration>,
     pub expansion: bool,
 }
 
 pub struct VariableDeclaration {
-    pub type_name: TypeUse,
+    pub type_name: TypeRef,
     pub name: Identifier,
 }
 
@@ -86,7 +104,7 @@ pub struct FunctionBlock {
 pub struct Statement {
     pub base_element: Expression,
     pub modifiers: Vec<MethodCall>,
-    pub return_variable: Option<VarRef>, // None if return statement
+    pub return_variable: Option<Rc<VariableDeclaration>>, // None if return statement
 }
 
 pub enum Expression {
@@ -106,6 +124,6 @@ pub enum Literal {
 }
 
 pub struct MethodCall {
-    name: FunctionRef,
-    arguments: Vec<VarRef>,
+    name: Rc<FunctionDefinition>,
+    arguments: Vec<Rc<VariableDeclaration>>,
 }
