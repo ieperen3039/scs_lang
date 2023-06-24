@@ -5,11 +5,10 @@ use simple_error::SimpleError;
 
 use crate::parsing::{ebnf_parser, parser};
 use crate::symbolization::ast::{self, Scope, Program};
-use crate::symbolization::{meta_program, symbolizer};
+use crate::symbolization::{meta_program};
 
 pub struct ScsCompiler {
     parser: parser::Parser,
-    symbolizer: symbolizer::Symbolizer,
     file_cache: HashMap<PathBuf, ast::Program>,
     parse_stack: Vec<PathBuf>,
 }

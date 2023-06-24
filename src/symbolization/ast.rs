@@ -25,6 +25,7 @@ pub enum TypeRef {
 
 pub struct StructRef {
     pub name: Identifier,
+    pub scope : Vec<Identifier>,
     // implementation / our selection of types to use as generic parameters
     pub generic_parameters : Vec<TypeRef>,
 }
@@ -64,7 +65,7 @@ pub struct StructDefinition {
 pub struct StructField {
     pub name : Identifier,
     // type reference (we use an implementation of the type), not an Rc to a type definition
-    pub type_name : TypeRef,
+    pub r#type : TypeRef,
 }
 
 pub struct VariantDefinition {
