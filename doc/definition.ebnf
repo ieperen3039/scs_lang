@@ -16,7 +16,7 @@ file                    = _file_name;
 
 (* scopes and definitions *)
 _definition             = scope | type_definition | enum_definition | implementation | function_definition;
-scope_name              = identifier;
+scope_name              = _name;
 scope                   = scope_name, _, "{", { _definition, _ }, _, "}";
 _scope_reference        = scope_name, { ".", scope_name };
 type_definition         = _keyword_type, _, base_type_decl, _, [ ( ":", _, derived_type, _ ) | ( native_decl, _ ) ], ["{", { _, field_declaration }, _, "}" ];
@@ -34,8 +34,9 @@ generic_types_decl      = "<", _, identifier, { _, identifier }, _, ">";
 (* instantiates generic types *)
 generic_types_inst      = "<", _, type_ref, { _, type_ref }, _, ">";
 (* function does not actually use generics, only syntactically *)
-fn_type                 = _keyword_fn, _, [ "<", _, [ "(", _, { unnamed_parameter_list, _ }, ")", _ ], return_type, _, ">" ];
-enum_definition         = _keyword_enum, _, identifier, _, "[", _, { identifier, _, ",", _ }, "]";
+fn_type                 = _keyword_fn, _, [ "<", _, [ "(", _, unnamed_parameter_list, _, ")", _ ], return_type, _, ">" ];
+enum_definition         = _keyword_enum, _, enum_value_decl, _, "[", _, { enum_value_decl, _, ",", _ }, "]";
+enum_value_decl         = _name;
 (* generics are not instantiated, hence a base_type_decl *)
 implementation          = _keyword_start_implementation, _, base_type_decl, { _, array_symbol }, _, "{", _, { function_definition, _ }, "}";
 

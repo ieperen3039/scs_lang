@@ -31,8 +31,8 @@ pub struct StructRef {
 }
 
 pub struct FunctionRef {
-    pub parameters: Vec<Rc<TypeDefinition>>,
-    pub return_type: Rc<TypeDefinition>,
+    pub parameters: Vec<TypeRef>,
+    pub return_type: Box<TypeRef>,
 }
 
 // -- types --
