@@ -25,7 +25,7 @@ pub fn convert_to_program(name: &str, tree: RuleNode<'_, '_>) -> Result<Program,
             "version_declaration" | "include_declaration" => {},
             "function_interface" | "function_block" => {},
             _ => {
-                symbolizer.read_definition_to_scope(&node, &mut symbolizer.scope)?;
+                symbolizer.read_definitions(&node, &mut symbolizer.scope)?;
             }
         }
     }
@@ -34,45 +34,38 @@ pub fn convert_to_program(name: &str, tree: RuleNode<'_, '_>) -> Result<Program,
 }
 
 impl Symbolizer {
-    fn read_scope(&self, node: &RuleNode<'_, '_>) -> Result<Scope, SimpleError> {
+    fn read_scope_definitions(&self, node: &RuleNode<'_, '_>) -> Result<Scope, SimpleError> {
         debug_assert_eq!(node.rule_name, "scope");
 
-        let mut iter = node.sub_rules.iter();
         let scope_name = expect_node(&node.sub_rules, "scope_name")?;
 
         let mut scope = Scope::new(scope_name.tokens);
         
         for node in &node.sub_rules {
-            self.read_definition_to_scope(node, &mut scope)?;
+            self.read_definitions(node, &mut scope)?;
         }
-
-        todo!()
+        
+        Ok(scope)
     }
 
-    fn read_definition_to_scope(&self, node: &RuleNode<'_, '_>, scope: &mut Scope) -> Result<(), SimpleError> {
-        Ok(match node.rule_name {
+    fn read_definitions(&self, node: &RuleNode<'_, '_>, scope: &mut Scope) -> Result<(), SimpleError> {
+        match node.rule_name {
             "scope" => {
-                let sub_scope = self.read_scope(node)?;
+                let sub_scope = self.read_scope_definitions(node)?;
                 scope.scopes.insert(as_identifier(node), sub_scope);
             }, 
             "type_definition" => {
-                let type_def = self.read_type_definition(scope, node)?;
+                let type_def = self.read_type_definition(&*scope, node)?;
                 scope.types.insert(type_def.name, Rc::from(TypeDefinition::Struct(type_def)));
             }, 
             "enum_definition" => {
                 let enum_def = self.read_enum(node)?;
                 scope.types.insert(enum_def.name, Rc::from(TypeDefinition::Enum(enum_def)));
             }, 
-            "implementation" => {
-                let fn_def = self.read_member_function(node)?;
-                scope.functions.insert(fn_def.name, Rc::from(fn_def));
-            }, 
-            "function_definition" =>{
-                let fn_def = self.read_function(node)?;
-                scope.functions.insert(fn_def.name, Rc::from(fn_def));
-            },
             _ => {},
-        })
+        }
+
+        Ok(())
     }
     
     // base_type, [ derived_type | native_decl ], { field_declaration };
@@ -238,6 +231,39 @@ impl Symbolizer {
             .collect();
 
         Ok(EnumDefinition { name: as_identifier(name_node), values: value_names })
+    }
+
+    fn read_scope_functions(&self, node: &RuleNode<'_, '_>, super_scope: &mut Scope) -> Result<(), SimpleError> {
+        debug_assert_eq!(node.rule_name, "scope");
+
+        let this_scope_name = as_identifier(expect_node(&node.sub_rules, "scope_name")?);
+        let mut this_scope = super_scope.scopes.get(&this_scope_name)
+            .ok_or_else(|| SimpleError::new(format!("Could not find scope {this_scope_name}")))?;
+        
+        for node in &node.sub_rules {
+            self.read_declarations(node, this_scope)?;
+        }
+        
+        Ok(())
+    }
+
+    fn read_declarations(&self, node: &RuleNode<'_, '_>, mut this_scope: &Scope) -> Result<(), SimpleError> {
+        match node.rule_name {
+            "scope" => {
+                let sub_scope = self.read_scope_functions(node, &mut this_scope)?;
+            }, 
+            "implementation" => {
+                let fn_def = self.read_member_function(node)?;
+                this_scope.functions.insert(fn_def.name, Rc::from(fn_def));
+            }, 
+            "function_definition" =>{
+                let fn_def = self.read_function(node)?;
+                this_scope.functions.insert(fn_def.name, Rc::from(fn_def));
+            },
+            _ => {},
+        }
+
+        Ok(())
     }
 
     fn read_member_function(&self, node: &RuleNode<'_, '_>) -> Result<FunctionDefinition, SimpleError> {
