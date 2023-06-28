@@ -1,4 +1,5 @@
-scs_program             = [ _shebang ], _, [ version_declaration, _ ], { ( _definition | include_declaration ), _ }, [ function_interface, _, function_block ], _;
+scs_program             = [ _shebang ], _, [ version_declaration, _ ], { ( _definition | include_declaration ), _ }, [ program_interface, _, function_block ], _;
+program_interface       = _function_interface;
 
 (* version *)
 version_declaration     = _keyword_version, _, version_dialect, [ _, version ];
@@ -42,9 +43,9 @@ implementation          = _keyword_start_implementation, _, base_type_decl, { _,
 
 (* function definitions and parameters *)
 function_definition     = function_signature, _, ( function_block | native_decl );
-function_signature      = _keyword_fn, _, function_name, _, [ generic_types_decl, _ ], function_interface;
+function_signature      = _keyword_fn, _, function_name, _, [ generic_types_decl, _ ], _function_interface;
 function_name           = _name;
-function_interface      = "(", _, [ parameter_list, _ ], ")", _, ":", _, return_type;
+_function_interface      = "(", _, [ parameter_list, _ ], ")", _, ":", _, return_type;
 parameter_list          = parameter, { _, ",", _, parameter };
 parameter               = type_ref, _, [ expansion_decl, _ ], identifier;
 unnamed_parameter_list  = _type_list;

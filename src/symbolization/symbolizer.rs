@@ -59,7 +59,7 @@ impl Symbolizer {
                 scope.scopes.insert(as_identifier(node), sub_scope);
             }
             "type_definition" => {
-                let type_def = self.read_type_definition(&*scope, node)?;
+                let type_def = self.read_type_definition(node)?;
                 scope
                     .types
                     .insert(type_def.name, Rc::from(TypeDefinition::Struct(type_def)));
@@ -79,7 +79,6 @@ impl Symbolizer {
     // base_type, [ derived_type | native_decl ], { field_declaration };
     fn read_type_definition(
         &self,
-        scope: &Scope,
         node: &RuleNode<'_, '_>,
     ) -> Result<StructDefinition, SimpleError> {
         debug_assert_eq!(node.rule_name, "type_definition");
@@ -139,8 +138,6 @@ impl Symbolizer {
                 SimpleError::new(format!("type {} could not be found", type_node.tokens))
             })?;
 
-        // TODO instantiate generic types
-
         let mut generic_types = Vec::new();
         if let Some(generic_types_node) = find_node(&type_node.sub_rules, "generic_types_decl") {
             for generic_type_node in generic_types_node.sub_rules {
@@ -163,9 +160,8 @@ impl Symbolizer {
             let name_node = expect_node(&base_type_node.sub_rules, "identifier")?;
 
             let generic_parameters = {
-                if let Some(generic_types_node) =
-                    find_node(&base_type_node.sub_rules, "generic_types_inst")
-                {
+                let generic_types_node = find_node(&base_type_node.sub_rules, "generic_types_inst");
+                if let Some(generic_types_node) = generic_types_node {
                     self.read_generic_types_inst(generic_types_node)?
                 } else {
                     Vec::new()
@@ -183,9 +179,9 @@ impl Symbolizer {
 
             let parameters = {
                 let mut parameters = Vec::new();
-                if let Some(parameter_list_node) =
-                    find_node(&fn_type_node.sub_rules, "unnamed_parameter_list")
-                {
+                let parameter_list_node =
+                    find_node(&fn_type_node.sub_rules, "unnamed_parameter_list");
+                if let Some(parameter_list_node) = parameter_list_node {
                     for parameter_node in parameter_list_node.sub_rules {
                         parameters.push(self.read_type_ref(parameter_list_node)?);
                     }
@@ -325,6 +321,70 @@ impl Symbolizer {
     }
 
     fn read_function(&self, node: &RuleNode<'_, '_>) -> Result<FunctionDefinition, SimpleError> {
+        debug_assert_eq!(node.rule_name, "function_definition");
+        // function_definition     = function_signature, ( function_block | native_decl );
+        // function_signature      = function_name, [ generic_types_decl ], [ parameter_list ], return_type;
+        let signature_node = expect_node(&node.sub_rules, "function_signature")?;
+
+        let name_node = expect_node(&signature_node.sub_rules, "function_name")?;
+
+        let generic_parameters = {
+            let generic_types_node = find_node(&signature_node.sub_rules, "generic_types_decl");
+            if let Some(generic_types_node) = generic_types_node {
+                self.read_generic_types_decl(generic_types_node)?
+            } else {
+                Vec::new()
+            }
+        };
+
+        let parameters: Vec<Parameter> = {
+            let parameter_node = find_node(&signature_node.sub_rules, "parameter_list");
+            if let Some(parameter_node) = parameter_node {
+                self.read_parameter_list(parameter_node)
+            } else {
+                Vec::new()
+            }
+        };
+
+        let return_type = {
+            let return_type_node = expect_node(&signature_node.sub_rules, "return_type")?;
+            debug_assert_eq!(return_type_node.sub_rules.len(), 1);
+            self.read_type_ref(return_type_node.sub_rules.first().unwrap())?
+        };
+
+        let function_block_node = find_node(&node.sub_rules, "function_block");
+        let function_body = {
+            if let Some(function_block_node) = function_block_node {
+                self.read_function_block(function_block_node, parameters)?
+            } else {
+                expect_node(&signature_node.sub_rules, "native_decl")?;
+                FunctionBlock {
+                    statements: Vec::new(),
+                }
+            }
+        };
+
+        Ok(FunctionDefinition {
+            name: as_identifier(name_node),
+            generic_parameters,
+            parameters,
+            return_type,
+            body: function_body,
+            is_static: true,
+            // technically, only when the "native_decl" node is found
+            is_external: function_block_node.is_none(),
+        })
+    }
+
+    fn read_function_block(
+        &self,
+        function_block_node: &RuleNode<'_, '_>,
+        parameters: Vec<Parameter>,
+    ) -> Result<FunctionBlock, SimpleError> {
+        todo!()
+    }
+
+    fn read_parameter_list(&self, parameter_node: &RuleNode<'_, '_>) -> Vec<Parameter> {
         todo!()
     }
 }

@@ -82,10 +82,13 @@ pub struct EnumDefinition {
 
 pub struct FunctionDefinition {
     pub name: Identifier,
+    // there are generic declarations; brand new identifiers
+    pub generic_parameters : Vec<Identifier>,
     pub parameters: Vec<Parameter>,
     pub return_type: TypeRef,
     pub body: FunctionBlock,
     pub is_static: bool,
+    pub is_external: bool,
 }
 
 pub struct Parameter {
