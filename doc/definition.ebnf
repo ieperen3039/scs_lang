@@ -53,8 +53,9 @@ untyped_parameter_list  = _name_list;
 return_type             = type_ref;
 
 (* statements *)
-function_block          = "{", _, statement, _, { ";", _, [ statement, _ ] }, "}";
+function_block          = "{", _, statement, _, { statement_separator, _, [ statement, _ ] }, "}";
 statement               = _expression, { _, _mutator }; 
+statement_separator     = ";";
 _expression             = identifier | static_function_call | lambda | array_initialisation | _literal;
 
 (* function call statements *)

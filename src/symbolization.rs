@@ -5,3 +5,4 @@ pub mod symbolizer;
 #[cfg(test)]
 mod tests;
 pub mod ast_util;
+mod function_parser;

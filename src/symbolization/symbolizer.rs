@@ -2,16 +2,16 @@ use std::{collections::HashMap, rc::Rc};
 
 use simple_error::SimpleError;
 
-use crate::parsing::parser::RuleNode;
+use crate::parsing::rule_nodes::RuleNode;
 
-use super::ast::*;
+use super::{ast::*, function_parser};
 
 pub struct Symbolizer {
     pub aliasses: HashMap<Identifier, Identifier>,
     pub scope: Scope,
 }
 
-pub fn convert_to_program(name: &str, tree: RuleNode<'_, '_>) -> Result<Program, SimpleError> {
+pub fn convert_to_program(name: &str, tree: RuleNode) -> Result<Program, SimpleError> {
     debug_assert_eq!(tree.rule_name, "scs_program");
 
     let mut symbolizer = Symbolizer {
@@ -34,10 +34,10 @@ pub fn convert_to_program(name: &str, tree: RuleNode<'_, '_>) -> Result<Program,
 }
 
 impl Symbolizer {
-    fn read_scope_definitions(&self, node: &RuleNode<'_, '_>) -> Result<Scope, SimpleError> {
+    fn read_scope_definitions(&self, node: &RuleNode) -> Result<Scope, SimpleError> {
         debug_assert_eq!(node.rule_name, "scope");
 
-        let scope_name = expect_node(&node.sub_rules, "scope_name")?;
+        let scope_name = node.expect_node("scope_name")?;
 
         let mut scope = Scope::new(scope_name.tokens);
 
@@ -56,7 +56,7 @@ impl Symbolizer {
         match node.rule_name {
             "scope" => {
                 let sub_scope = self.read_scope_definitions(node)?;
-                scope.scopes.insert(as_identifier(node), sub_scope);
+                scope.scopes.insert(node.as_identifier(), sub_scope);
             }
             "type_definition" => {
                 let type_def = self.read_type_definition(node)?;
@@ -84,11 +84,11 @@ impl Symbolizer {
         debug_assert_eq!(node.rule_name, "type_definition");
 
         // base_type = identifier, [ generic_types_decl ];
-        let base_type_node = expect_node(&node.sub_rules, "base_type_decl")?;
+        let base_type_node = node.expect_node("base_type_decl")?;
 
         let generic_types = {
             if let Some(generic_types_node) =
-                find_node(&base_type_node.sub_rules, "generic_types_decl")
+                base_type_node.find_node("generic_types_decl")
             {
                 self.read_generic_types_decl(generic_types_node)?
             } else {
@@ -97,21 +97,21 @@ impl Symbolizer {
         };
 
         let base_type_name =
-            expect_node(&base_type_node.sub_rules, "identifier").map(as_identifier)?;
+        base_type_node.expect_node("identifier").map(RuleNode::as_identifier)?;
 
-        let derived_from = find_node(&node.sub_rules, "derived_type")
+        let derived_from = node.find_node("derived_type")
             .map(|node| self.get_real_type_reference(node))
             .transpose()?;
 
-        let field_nodes = find_nodes(&node.sub_rules, "field_declaration");
+        let field_nodes = node.find_nodes("field_declaration");
 
         let mut fields = Vec::new();
         for field_node in field_nodes {
-            let identifier_node = expect_node(&field_node.sub_rules, "identifier")?;
-            let type_node = expect_node(&field_node.sub_rules, "type_name")?;
+            let identifier_node = field_node.expect_node("identifier")?;
+            let type_node = field_node.expect_node("type_name")?;
             let type_ref = self.read_type_ref(type_node)?;
             fields.push(StructField {
-                name: as_identifier(identifier_node),
+                name: identifier_node.as_identifier(),
                 r#type: type_ref,
             })
         }
@@ -128,8 +128,8 @@ impl Symbolizer {
         &self,
         node: &RuleNode<'_, '_>,
     ) -> Result<Rc<TypeDefinition>, SimpleError> {
-        let type_node = expect_node(&node.sub_rules, "base_type_impl")?;
-        let type_identifer_node = expect_node(&type_node.sub_rules, "identifier")?;
+        let type_node = node.expect_node("base_type_impl")?;
+        let type_identifer_node = type_node.expect_node("identifier")?;
         let search_scope = self.read_scope_reference(node)?;
 
         let derived_type = search_scope
@@ -139,10 +139,10 @@ impl Symbolizer {
             })?;
 
         let mut generic_types = Vec::new();
-        if let Some(generic_types_node) = find_node(&type_node.sub_rules, "generic_types_decl") {
+        if let Some(generic_types_node) = type_node.find_node("generic_types_decl") {
             for generic_type_node in generic_types_node.sub_rules {
                 debug_assert_eq!(generic_type_node.rule_name, "identifier");
-                generic_types.push(as_identifier(&generic_type_node));
+                generic_types.push(&generic_type_node.as_identifier());
             }
         }
 
@@ -151,16 +151,16 @@ impl Symbolizer {
 
     // (( [ _scope_reference ], base_type_decl ) | fn_type ) , { array_symbol };
     fn read_type_ref(&self, node: &RuleNode<'_, '_>) -> Result<TypeRef, SimpleError> {
-        if let Some(base_type_node) = find_node(&node.sub_rules, "base_type_decl") {
-            let scope = find_nodes(&node.sub_rules, "scope_name")
+        if let Some(base_type_node) = node.find_node("base_type_decl") {
+            let scope = node.find_nodes("scope_name")
                 .into_iter()
-                .map(as_identifier)
+                .map(RuleNode::as_identifier)
                 .collect();
 
-            let name_node = expect_node(&base_type_node.sub_rules, "identifier")?;
+            let name_node = base_type_node.expect_node("identifier")?;
 
             let generic_parameters = {
-                let generic_types_node = find_node(&base_type_node.sub_rules, "generic_types_inst");
+                let generic_types_node = base_type_node.find_node("generic_types_inst");
                 if let Some(generic_types_node) = generic_types_node {
                     self.read_generic_types_inst(generic_types_node)?
                 } else {
@@ -169,18 +169,18 @@ impl Symbolizer {
             };
 
             Ok(TypeRef::Struct(StructRef {
-                name: as_identifier(name_node),
+                name: name_node.as_identifier(),
                 generic_parameters,
                 scope,
             }))
-        } else if let Some(fn_type_node) = find_node(&node.sub_rules, "fn_type") {
+        } else if let Some(fn_type_node) = node.find_node("fn_type") {
             // fn_type = [ unnamed_parameter_list ], return_type;
             // unnamed_parameter_list = type_ref, { type_ref };
 
             let parameters = {
                 let mut parameters = Vec::new();
                 let parameter_list_node =
-                    find_node(&fn_type_node.sub_rules, "unnamed_parameter_list");
+                    fn_type_node.find_node("unnamed_parameter_list");
                 if let Some(parameter_list_node) = parameter_list_node {
                     for parameter_node in parameter_list_node.sub_rules {
                         parameters.push(self.read_type_ref(parameter_list_node)?);
@@ -189,7 +189,7 @@ impl Symbolizer {
                 parameters
             };
 
-            let return_type_node = expect_node(&fn_type_node.sub_rules, "return_type")?;
+            let return_type_node = fn_type_node.expect_node("return_type")?;
             let return_type = self.read_type_ref(return_type_node)?;
 
             Ok(TypeRef::Function(FunctionRef {
@@ -206,7 +206,7 @@ impl Symbolizer {
         &'a self,
         node: &RuleNode<'_, '_>,
     ) -> Result<&'a Scope, SimpleError> {
-        let derived_scope = find_nodes(&node.sub_rules, "scope_name");
+        let derived_scope = node.find_nodes("scope_name");
         let mut search_scope = &self.scope;
         for ele in derived_scope {
             debug_assert_eq!(ele.rule_name, "scope_name");
@@ -231,7 +231,7 @@ impl Symbolizer {
                 return Err(SimpleError::new("expected identifier"));
             }
 
-            generic_types.push(as_identifier(&generic_type_node));
+            generic_types.push(generic_type_node.as_identifier());
         }
 
         Ok(generic_types)
@@ -257,15 +257,15 @@ impl Symbolizer {
     fn read_enum(&self, node: &RuleNode<'_, '_>) -> Result<EnumDefinition, SimpleError> {
         debug_assert_eq!(node.rule_name, "enum_definition");
 
-        let name_node = expect_node(&node.sub_rules, "identifier")?;
+        let name_node = node.expect_node("identifier")?;
 
-        let value_names = find_nodes(&node.sub_rules, "enum_value_decl")
+        let value_names = node.find_nodes("enum_value_decl")
             .into_iter()
-            .map(as_identifier)
+            .map(RuleNode::as_identifier)
             .collect();
 
         Ok(EnumDefinition {
-            name: as_identifier(name_node),
+            name: name_node.as_identifier(),
             values: value_names,
         })
     }
@@ -277,7 +277,7 @@ impl Symbolizer {
     ) -> Result<(), SimpleError> {
         debug_assert_eq!(node.rule_name, "scope");
 
-        let this_scope_name = as_identifier(expect_node(&node.sub_rules, "scope_name")?);
+        let this_scope_name = node.expect_node("scope_name").map(RuleNode::as_identifier)?;
         let mut this_scope = super_scope
             .scopes
             .get(&this_scope_name)
@@ -324,12 +324,12 @@ impl Symbolizer {
         debug_assert_eq!(node.rule_name, "function_definition");
         // function_definition     = function_signature, ( function_block | native_decl );
         // function_signature      = function_name, [ generic_types_decl ], [ parameter_list ], return_type;
-        let signature_node = expect_node(&node.sub_rules, "function_signature")?;
+        let signature_node = node.expect_node("function_signature")?;
 
-        let name_node = expect_node(&signature_node.sub_rules, "function_name")?;
+        let name_node = signature_node.expect_node("function_name")?;
 
         let generic_parameters = {
-            let generic_types_node = find_node(&signature_node.sub_rules, "generic_types_decl");
+            let generic_types_node = signature_node.find_node("generic_types_decl");
             if let Some(generic_types_node) = generic_types_node {
                 self.read_generic_types_decl(generic_types_node)?
             } else {
@@ -337,27 +337,33 @@ impl Symbolizer {
             }
         };
 
-        let parameters: Vec<Parameter> = {
-            let parameter_node = find_node(&signature_node.sub_rules, "parameter_list");
+        let parameters: HashMap<Identifier, TypeRef> = {
+            let parameter_node = signature_node.find_node("parameter_list");
             if let Some(parameter_node) = parameter_node {
-                self.read_parameter_list(parameter_node)
+                self.read_parameter_list(parameter_node)?
             } else {
-                Vec::new()
+                HashMap::new()
             }
         };
 
-        let return_type = {
-            let return_type_node = expect_node(&signature_node.sub_rules, "return_type")?;
+        let return_var = {
+            let return_type_node = signature_node.expect_node("return_type")?;
+
             debug_assert_eq!(return_type_node.sub_rules.len(), 1);
-            self.read_type_ref(return_type_node.sub_rules.first().unwrap())?
+            let return_type = self.read_type_ref(return_type_node.sub_rules.first().unwrap())?;
+
+            Rc::from(VariableDeclaration {
+                name: Rc::from("return"),
+                type_name: return_type,
+            })
         };
 
-        let function_block_node = find_node(&node.sub_rules, "function_block");
+        let function_block_node = node.find_node("function_block");
         let function_body = {
             if let Some(function_block_node) = function_block_node {
-                self.read_function_block(function_block_node, parameters)?
+                self.read_function_block(function_block_node, parameters, return_var)?
             } else {
-                expect_node(&signature_node.sub_rules, "native_decl")?;
+                signature_node.expect_node("native_decl")?;
                 FunctionBlock {
                     statements: Vec::new(),
                 }
@@ -365,10 +371,10 @@ impl Symbolizer {
         };
 
         Ok(FunctionDefinition {
-            name: as_identifier(name_node),
+            name: name_node.as_identifier(),
             generic_parameters,
             parameters,
-            return_type,
+            return_var,
             body: function_body,
             is_static: true,
             // technically, only when the "native_decl" node is found
@@ -376,44 +382,35 @@ impl Symbolizer {
         })
     }
 
+    fn read_parameter_list(
+        &self,
+        node: &RuleNode<'_, '_>,
+    ) -> Result<HashMap<Identifier, TypeRef>, SimpleError> {
+        debug_assert_eq!(node.rule_name, "parameter_list");
+        // parameter_list          = parameter, { parameter };
+        // parameter               = type_ref, [ expansion_decl ], identifier;
+
+        let parameter_nodes = node.find_nodes("parameter");
+
+        let mut parameters = HashMap::new();
+        for parameter_node in parameter_nodes {
+            let type_node = parameter_node.expect_node("type_ref")?;
+            let type_name = self.read_type_ref(type_node)?;
+            let expansion_node = parameter_node.find_node("expansion_decl");
+            let name_node = parameter_node.expect_node("identifier")?;
+
+            parameters.insert(name_node.as_identifier(), type_name);
+        }
+
+        Ok(parameters)
+    }
+
     fn read_function_block(
         &self,
-        function_block_node: &RuleNode<'_, '_>,
-        parameters: Vec<Parameter>,
+        node: &RuleNode<'_, '_>,
+        parameters: HashMap<Identifier, TypeRef>,
+        return_var: Rc<VariableDeclaration>,
     ) -> Result<FunctionBlock, SimpleError> {
-        todo!()
+        function_parser::read_function_block(node, parameters, return_var)
     }
-
-    fn read_parameter_list(&self, parameter_node: &RuleNode<'_, '_>) -> Vec<Parameter> {
-        todo!()
-    }
-}
-
-fn as_identifier(field_node: &RuleNode<'_, '_>) -> Rc<str> {
-    Rc::from(field_node.tokens)
-}
-
-fn expect_node<'r, 'p, 'd>(
-    node: &'r Vec<RuleNode<'p, 'd>>,
-    expected: &str,
-) -> Result<&'r RuleNode<'p, 'd>, SimpleError> {
-    node.iter()
-        .find(|rule| rule.rule_name == expected)
-        .ok_or_else(|| SimpleError::new(format!("Expected node {expected}")))
-}
-
-fn find_node<'r, 'p, 'd>(
-    node: &'r Vec<RuleNode<'p, 'd>>,
-    expected: &str,
-) -> Option<&'r RuleNode<'p, 'd>> {
-    node.iter().find(|rule| rule.rule_name == expected)
-}
-
-fn find_nodes<'r, 'p, 'd>(
-    node: &'r Vec<RuleNode<'p, 'd>>,
-    expected: &str,
-) -> Vec<&'r RuleNode<'p, 'd>> {
-    node.iter()
-        .filter(|rule| rule.rule_name == expected)
-        .collect()
 }

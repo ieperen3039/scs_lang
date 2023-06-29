@@ -1,6 +1,7 @@
 use std::{collections::HashMap, rc::Rc};
 
 pub type Identifier = Rc<str>;
+pub type ScopeRef = Vec<Identifier>;
 
 //#[derive(Hash, Eq, PartialEq)]
 
@@ -25,11 +26,12 @@ pub enum TypeRef {
 
 pub struct StructRef {
     pub name: Identifier,
-    pub scope : Vec<Identifier>,
+    pub scope : ScopeRef,
     // implementation / our selection of types to use as generic parameters
     pub generic_parameters : Vec<TypeRef>,
 }
 
+// an unspecific `fn<>` declaration
 pub struct FunctionRef {
     pub parameters: Vec<TypeRef>,
     pub return_type: Box<TypeRef>,
@@ -84,16 +86,12 @@ pub struct FunctionDefinition {
     pub name: Identifier,
     // there are generic declarations; brand new identifiers
     pub generic_parameters : Vec<Identifier>,
-    pub parameters: Vec<Parameter>,
-    pub return_type: TypeRef,
+    // parameter expansion must be resolved before the ast is constructed
+    pub parameters: HashMap<Identifier, TypeRef>,
+    pub return_var: Rc<VariableDeclaration>,
     pub body: FunctionBlock,
     pub is_static: bool,
     pub is_external: bool,
-}
-
-pub struct Parameter {
-    pub name: Rc<VariableDeclaration>,
-    pub expansion: bool,
 }
 
 pub struct VariableDeclaration {
@@ -105,20 +103,21 @@ pub struct FunctionBlock {
     pub statements: Vec<Statement>,
 }
 
+// an expression, followed by mutations on the expression
+// this could be considered an expression by itself
+// this is represented in Expression::FunctionBlock (which is a vec of statements)
 pub struct Statement {
     pub base_element: Expression,
-    pub modifiers: Vec<MethodCall>,
-    pub return_variable: Option<Rc<VariableDeclaration>>, // None if return statement
+    pub mutations: Vec<Mutation>,
 }
 
 pub enum Expression {
-    StaticFunctionCall {
-        namespace: Identifier,
-        function: MethodCall,
-    },
+    StaticFunctionCall(FunctionCall),
     FunctionBlock(FunctionBlock),
     Array(Vec<Expression>),
     Literal(Literal),
+    // note, a variable declaration is not an expression, but a reference to a variable is.
+    Variable(Rc<VariableDeclaration>),
 }
 
 pub enum Literal {
@@ -127,7 +126,19 @@ pub enum Literal {
     String(String),
 }
 
-pub struct MethodCall {
-    name: Rc<FunctionDefinition>,
-    arguments: Vec<Rc<VariableDeclaration>>,
+// mutations of expressions
+pub enum Mutation {
+    FunctionCall(FunctionCall),
+    Assignment(Rc<VariableDeclaration>)
+}
+
+pub struct FunctionCall {
+    namespace : ScopeRef,
+    function: Rc<FunctionDefinition>,
+    arguments: Vec<Argument>,
+}
+
+pub struct Argument {
+    parameter_name: Identifier,
+    value : Expression,
 }

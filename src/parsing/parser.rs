@@ -1,59 +1,19 @@
 use std::{
     cmp,
     collections::{HashSet, VecDeque},
-    hash::Hash,
     io::Write,
 };
 
 use regex::Regex;
 use simple_error::SimpleError;
 
-use super::ebnf_ast;
+use super::{ebnf_ast, rule_nodes::RuleNode};
 
 type ParseResult<'prog, 'bnf> = Vec<Result<Interpretation<'prog, 'bnf>, Failure<'bnf>>>;
 
 const MAX_NUM_TOKENS_BACKTRACE_ON_ERROR: i32 = 5;
 const MAX_NUM_TOKENS_BACKTRACE_ON_SUCCESS: usize = 100;
 const MAX_ERRORS_PER_RULE: usize = 50;
-
-// the entire resulting syntax tree consists of these nodes
-#[derive(Eq, Clone)]
-pub struct RuleNode<'prog, 'bnf> {
-    pub rule_name: &'bnf str,
-    pub tokens: &'prog str,
-    pub sub_rules: Vec<RuleNode<'prog, 'bnf>>,
-}
-
-impl<'prog, 'bnf> Hash for RuleNode<'prog, 'bnf> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.rule_name.hash(state);
-        self.sub_rules.hash(state);
-
-        if self.sub_rules.is_empty() {
-            self.tokens.hash(state);
-        }
-    }
-}
-
-impl<'prog, 'bnf> PartialEq for RuleNode<'prog, 'bnf> {
-    fn eq(&self, other: &Self) -> bool {
-        if self.sub_rules.is_empty() {
-            other.sub_rules.is_empty() && self.rule_name == other.rule_name && self.tokens == other.tokens
-        } else {
-            self.rule_name == other.rule_name && self.sub_rules == other.sub_rules
-        }
-    }
-}
-
-impl<'prog, 'bnf> std::fmt::Debug for RuleNode<'prog, 'bnf> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.sub_rules.is_empty() {
-            f.write_fmt(format_args!("{{{}, \"{}\"}}", self.rule_name, self.tokens))
-        } else {
-            f.write_fmt(format_args!("{{{}, {:?}}}", self.rule_name, self.sub_rules))
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 pub enum Failure<'bnf> {
