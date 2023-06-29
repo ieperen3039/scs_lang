@@ -33,13 +33,17 @@ pub fn read_function_block(
     let mut statements = Vec::new();
 
     for ele in node.sub_rules.chunks(2) {
-        ele[0].expect_node("statement_separator")?;
+        let statement_node = ele[0].expect_node("statement")?;
+        let mut statement = read_statement(statement_node, &mut variables)?;
 
         if ele.len() == 2 {
-            let statement_node = ele[1].expect_node("statement")?;
-            let statement = read_statement(statement_node, &mut variables)?;
-            statements.push(statement);
+            ele[1].expect_node("statement_separator")?;
+        } else {
+            // this is an implicit return
+            statement.mutations.push(Mutation::Assignment(return_var))
         }
+
+        statements.push(statement);
     }
 
     Ok(FunctionBlock { statements })
