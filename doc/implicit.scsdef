@@ -42,9 +42,19 @@ impl String {
 }
 
 impl Result<P, N> {
-    fn invert : Result<N, P> { this on_pos ?* Result.neg !* Result.pos }
     fn unwrap_pos_or(P then) : P native
     fn unwrap_neg_or(N then) : N native
+    
+    fn invert : Result<N, P> { 
+        this ?* Result.neg = return; 
+        this !* Result.pos = return; 
+    }
+    
+    fn map_both(fn<(P)R> pos, fn<(N)R> neg)
+    {
+        this ? pos = return; 
+        this ! neg = return; 
+    }
 
     fn on_pos<R>(fn<(P)R>) : Result<R, N> native
     fn on_neg<R>(fn<(N)R>) : Result<P, R> native
