@@ -1,6 +1,6 @@
 use crate::parsing::{
     ebnf_parser,
-    parser::{self, RuleNode},
+    parser, rule_nodes::RuleNode,
 };
 
 #[test]

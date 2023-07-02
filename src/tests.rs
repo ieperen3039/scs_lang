@@ -8,5 +8,5 @@ fn transitive_include() {
 
     let result = compiler.compile(&std::path::PathBuf::from("test_data/include_test/include_test_4.scs")).unwrap();
     
-    assert!(result.functions.contains_key("include_test_5"));
+    assert!(result.definitions.functions.contains_key("include_test_5"));
 }

@@ -1,8 +1,5 @@
+use crate::parsing::rule_nodes::RuleNode;
 use std::path::PathBuf;
-
-use crate::parsing::parser::RuleNode;
-
-use super::ast::Program;
 
 pub fn extract_includes(tree: &RuleNode<'_, '_>, file_path : &std::path::Path) -> Vec<PathBuf> {
     assert_eq!(tree.rule_name, "scs_program");
