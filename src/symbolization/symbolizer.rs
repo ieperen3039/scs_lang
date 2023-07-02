@@ -361,11 +361,12 @@ impl Symbolizer {
         let function_block_node = node.find_node("function_block");
         let function_body = {
             if let Some(function_block_node) = function_block_node {
-                self.read_function_block(function_block_node, parameters, return_var)?
+                function_parser::read_function_body(function_block_node, parameters, return_var)?
             } else {
                 signature_node.expect_node("native_decl")?;
                 FunctionBlock {
                     statements: Vec::new(),
+                    return_var,
                 }
             }
         };
@@ -374,7 +375,6 @@ impl Symbolizer {
             name: name_node.as_identifier(),
             generic_parameters,
             parameters,
-            return_var,
             body: function_body,
             is_static: true,
             // technically, only when the "native_decl" node is found
@@ -403,14 +403,5 @@ impl Symbolizer {
         }
 
         Ok(parameters)
-    }
-
-    fn read_function_block(
-        &self,
-        node: &RuleNode<'_, '_>,
-        parameters: HashMap<Identifier, TypeRef>,
-        return_var: Rc<VariableDeclaration>,
-    ) -> Result<FunctionBlock, SimpleError> {
-        function_parser::read_function_block(node, parameters, return_var)
     }
 }

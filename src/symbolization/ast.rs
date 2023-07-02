@@ -22,6 +22,7 @@ pub enum TypeRef {
     Struct(StructRef),
     Array(Box<TypeRef>),
     Function(FunctionRef),
+    Void
 }
 
 pub struct StructRef {
@@ -88,7 +89,6 @@ pub struct FunctionDefinition {
     pub generic_parameters : Vec<Identifier>,
     // parameter expansion must be resolved before the ast is constructed
     pub parameters: HashMap<Identifier, TypeRef>,
-    pub return_var: Rc<VariableDeclaration>,
     pub body: FunctionBlock,
     pub is_static: bool,
     pub is_external: bool,
@@ -101,6 +101,7 @@ pub struct VariableDeclaration {
 
 pub struct FunctionBlock {
     pub statements: Vec<Statement>,
+    pub return_var: Rc<VariableDeclaration>,
 }
 
 // an expression, followed by mutations on the expression
@@ -121,24 +122,23 @@ pub enum Expression {
 }
 
 pub enum Literal {
-    Number(u32),
-    SignedNumber(i32),
-    String(String),
+    Number(i32),
+    String(Rc<str>),
 }
 
 // mutations of expressions
 pub enum Mutation {
     FunctionCall(FunctionCall),
-    Assignment(Rc<VariableDeclaration>)
+    Assignment(Rc<VariableDeclaration>),
 }
 
 pub struct FunctionCall {
-    namespace : ScopeRef,
-    function: Rc<FunctionDefinition>,
-    arguments: Vec<Argument>,
+    pub namespace : ScopeRef,
+    pub function: Rc<FunctionDefinition>,
+    pub arguments: Vec<Argument>,
 }
 
 pub struct Argument {
-    parameter_name: Identifier,
-    value : Expression,
+    pub parameter_name: Identifier,
+    pub value : Expression,
 }
