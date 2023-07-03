@@ -1,0 +1,161 @@
+version scs 0.0.1
+
+type Value : String
+type Error : String
+
+// fn<(Value)Value>
+fn val_par_val_ret(Value first) : Value native
+
+// fn<( fn<(Value)Value> )Value>
+fn fn_par_val_ret(fn<(Value)Value> first) : Value native
+
+// fn<( fn<(Value)Value>, fn<(Value)Value> )Value>
+fn fn_par_fn_par_val_ret(fn<(Value)Value> first, fn<(Value)Value> second) : Value native
+
+// fn<( fn<(Value)Value>, fn<(Value)Value> )Result<Value, Error>>
+fn fn_par_result_ret(fn<(Value)Value> first) : Result<Value, Error> native
+
+// fn<( fn<(Value)Value> )fn<(Value)Value>>
+fn fn_par_fn_ret(fn<(Value)Value> first) : fn<(Value)Value> native
+
+// etc...
+
+// also, from the standard:
+impl Result<Value, Error> {
+    // implicit parameter `Result<Value, Error>> this`
+    fn on_pos(fn<(Value)Value> mapping) : Result<Value, Error>> native
+
+    op "?" : on_pos
+}
+
+// an operator that takes one parameter can be syntax-replaced with its replacement function
+// e.g. `(MyCInt arg) { arg ++ }`
+// replacing `(MyCInt arg) { arg increment_one }`
+// note, there are no such operators in the standard lib (yet)
+
+// an operator that takes two parameters will take its following expression as its second argument
+// e.g. `(Result<Value, Error> arg) { arg ? val_par_val_ret }`
+// replacing `(Result<Value, Error> arg) { arg on_pos(mapping: val_par_val_ret }`
+// otherwise, the statement `arg ? fun1 fun2` where arg is a `Result<fn(Value)Value, E>`, could be intended as `arg on_pos(mapping: (val) { val fun1 fun2 })`
+
+// operator precedence does not exist
+// otherwise, the statement `arg ? fun1 + fun2` could be evaluated differently depending on the precedence of `?` and `+`.
+
+
+fn value_to_result(Result<Value, Error> arg){
+    arg
+        // current without members
+        (arg) { 
+            unwrap(
+                on_pos(arg, (val) { 
+                    one_val_par_result_ret(val) 
+                }) // : Result<Result<Value, Error>, Error>
+            ) // : Result<Value, Error>
+        }
+
+        // current without operators
+        on_pos(one_val_par_result_ret) // : Result<Result<Value, Error>, Error>
+        unwrap // : Result<Value, Error>
+
+        // current plain
+        ? one_val_par_result_ret 
+        unwrap
+}
+
+fn map_composition_on_pos(Result<Value, Error> arg){
+    arg
+        // current without members
+        (arg) { 
+            on_pos(arg, (val) { 
+                one_val_par_val_ret_2(one_val_par_val_ret_1(val)) 
+            })
+        }
+
+        // current without operators
+        on_pos (val) { 
+            val 
+            one_val_par_val_ret_1 
+            one_val_par_val_ret_2 
+        }
+        
+        // proposed without operators
+        on_pos {
+             one_val_par_val_ret_1 
+             one_val_par_val_ret_2 
+        }
+        // how do we know that one_val_par_val_ret_1 is not a variable?
+        // we would parse on_pos (val) { one_val_par_val_ret_1 } as calling on_pos on unknown variable `val`, and the result is applied to the implicit-parameter lamda.
+        // this is possible if we can distinguish mutators from expressions
+        // adding indicator of implicit parameter like `(_)` is too verbose.
+        // an operator (say `.` : and_then) would introduce multiple ways of currying (`val fun1.fun2 ~= val fun1 fun2`)
+
+        // current plain
+        ? (val) { 
+            val 
+            one_val_par_val_ret_1 
+            one_val_par_val_ret_2 
+        }
+
+        // current alternative plain
+        ? one_val_par_val_ret_1 
+        ? one_val_par_val_ret_2
+
+        // proposed plain
+        ? { 
+            one_val_par_val_ret_1 
+            one_val_par_val_ret_2 
+        }
+}
+
+fn first_order_composition_on_pos(Result<Value, Error> arg){
+    arg
+        // current without members
+        (arg) { 
+            on_pos(arg, (val) { 
+                val_par_fn_par_val_ret_2(first: val, second: one_val_par_val_ret_1) 
+            })
+        }
+
+        // current without operators
+        on_pos val_par_fn_par_val_ret_2(second : one_val_par_val_ret_1)
+
+        // current plain
+        ? val_par_fn_par_val_ret_2(second : one_val_par_val_ret_1)
+        
+        // an operator (say `+` : chain) would raise a need for operator precedence:
+        // `arg ? fun1 + fun2` where arg is a `Result<fn(Value)Value, E>`, could be intended as (arg ? fun1) + fun2
+}
+
+fn two_par_fn_turned_first_order(Result<Value, Error> arg){
+    arg
+        // current without members
+        (arg) {
+            // val_par_val_par_val_ret(first: 1) returns a fn<(Value)Value>
+            on_pos(arg, val_par_val_par_val_ret(first: 1))
+        }
+
+        // current without operators
+        on_pos val_par_val_par_val_ret(first: 1)
+
+        // current plain
+        ? val_par_val_par_val_ret(first: 1)
+}
+
+fn two_par_fn_turned_first_order(Result<Value, Error> arg){
+    arg
+        // current without members
+        (arg) {
+            // val_par_val_par_val_ret(first: 1) returns a fn<(Value, Value)Value>
+            on_pos(arg, val_par_fn_par_val_par_val_ret(first: 1, second: (val) { map(val) })
+        }
+
+        // current without operators
+        on_pos val_par_val_par_val_ret(first: 1, second: map())
+        // hard to know whether map() returns a value or a function
+        
+        // proposed without operators
+        on_pos val_par_val_par_val_ret(first: 1, second: map)
+
+        // current plain
+        ? val_par_val_par_val_ret(first: 1)
+}
