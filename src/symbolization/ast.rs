@@ -1,7 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
 pub type Identifier = Rc<str>;
-pub type ScopeRef = Vec<Identifier>;
 
 //#[derive(Hash, Eq, PartialEq)]
 
@@ -16,18 +15,16 @@ pub struct Scope {
     pub functions: HashMap<Identifier, Rc<FunctionDefinition>>,
 }
 
-// -- weak references
+// -- strong references -- 
 
 pub enum TypeRef {
     Struct(StructRef),
     Array(Box<TypeRef>),
     Function(FunctionRef),
-    Void
 }
 
 pub struct StructRef {
-    pub name: Identifier,
-    pub scope : ScopeRef,
+    pub definition: Rc<TypeDefinition>,
     // implementation / our selection of types to use as generic parameters
     pub generic_parameters : Vec<TypeRef>,
 }
@@ -41,25 +38,22 @@ pub struct FunctionRef {
 // -- types --
 
 pub enum TypeDefinition {
+    Native(NativeStruct),
     Struct(StructDefinition),
     Enum(EnumDefinition),
     Variant(VariantDefinition),
 }
 
-impl TypeDefinition {
-    pub fn get_name(&self) -> Identifier {
-        match *self {
-            TypeDefinition::Struct(StructDefinition { name, .. }) => name,
-            TypeDefinition::Enum(EnumDefinition { name, .. }) => name,
-            TypeDefinition::Variant(VariantDefinition { name, .. }) => name,
-        }
-    }
+pub struct NativeStruct {
+    pub name: Identifier,
+    // there are generic declarations; brand new identifiers
+    pub generic_parameters : Vec<Identifier>,
 }
 
 pub struct StructDefinition {
     pub name: Identifier,
     // a struct can only be derived from structs
-    pub derived_from : Option<Rc<TypeDefinition>>,
+    pub derived_from : Option<StructRef>,
     // there are generic declarations; brand new identifiers
     pub generic_parameters : Vec<Identifier>,
     pub fields : Vec<StructField>,
@@ -67,18 +61,22 @@ pub struct StructDefinition {
 
 pub struct StructField {
     pub name : Identifier,
-    // type reference (we use an implementation of the type), not an Rc to a type definition
-    pub r#type : TypeRef,
+    // we use an instantiation of the type, filling in any generic parameters
+    pub field_type : TypeRef,
 }
 
 pub struct VariantDefinition {
     pub name: Identifier,
     pub values: Vec<Identifier>,
+    // a variant can only be derived from structs
+    pub derived_from : Option<StructRef>,
 }
 
 pub struct EnumDefinition {
     pub name: Identifier,
     pub values: Vec<Identifier>,
+    // an enum can only be derived from structs
+    pub derived_from : Option<StructRef>,
 }
 
 // -- implementations --
@@ -95,7 +93,7 @@ pub struct FunctionDefinition {
 }
 
 pub struct VariableDeclaration {
-    pub type_name: TypeRef,
+    pub var_type: TypeRef,
     pub name: Identifier,
 }
 
@@ -109,31 +107,31 @@ pub struct FunctionBlock {
 // this is represented in Expression::FunctionBlock (which is a vec of statements)
 pub struct Statement {
     pub base_element: Expression,
-    pub mutations: Vec<Mutation>,
+    pub mutations: Vec<Mutator>,
 }
 
 pub enum Expression {
     StaticFunctionCall(FunctionCall),
     FunctionBlock(FunctionBlock),
-    Array(Vec<Expression>),
+    Array(ArrayInitialisation),
     Literal(Literal),
-    // note, a variable declaration is not an expression, but a reference to a variable is.
+    // note, only a _reference_ to a variable is an expression.
     Variable(Rc<VariableDeclaration>),
 }
 
 pub enum Literal {
     Number(i32),
     String(Rc<str>),
+    Boolean(bool),
 }
 
 // mutations of expressions
-pub enum Mutation {
+pub enum Mutator {
     FunctionCall(FunctionCall),
     Assignment(Rc<VariableDeclaration>),
 }
 
 pub struct FunctionCall {
-    pub namespace : ScopeRef,
     pub function: Rc<FunctionDefinition>,
     pub arguments: Vec<Argument>,
 }
@@ -141,4 +139,9 @@ pub struct FunctionCall {
 pub struct Argument {
     pub parameter_name: Identifier,
     pub value : Expression,
+}
+
+pub struct ArrayInitialisation {
+    pub element_type : TypeRef,
+    pub elements : Vec<Expression>,
 }

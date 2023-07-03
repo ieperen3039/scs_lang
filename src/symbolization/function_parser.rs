@@ -24,8 +24,8 @@ pub fn read_function_block(
         } else {
             // this is an implicit return
             let return_var = match statement.mutations.last().unwrap() {
-                Mutation::FunctionCall(f) => f.function.body.return_var,
-                Mutation::Assignment(_) => {
+                Mutator::FunctionCall(f) => f.function.body.return_var,
+                Mutator::Assignment(_) => {
                     return Err(SimpleError::new(
                         "Result of an assignment is always void (did you forget a semicolon?",
                     ))
@@ -34,7 +34,7 @@ pub fn read_function_block(
 
             variables.insert(return_var.name, return_var);
 
-            statement.mutations.push(Mutation::Assignment(return_var))
+            statement.mutations.push(Mutator::Assignment(return_var))
         }
 
         statements.push(statement);
@@ -48,7 +48,7 @@ pub fn read_function_block(
 
 pub fn read_function_body(
     node: &RuleNode<'_, '_>,
-    parameters: HashMap<Identifier, TypeRef>,
+    parameters: HashMap<Identifier, TypeName>,
     return_var: Rc<VariableDeclaration>,
 ) -> Result<FunctionBlock, SimpleError> {
     debug_assert_eq!(node.rule_name, "function_block");
@@ -62,7 +62,7 @@ pub fn read_function_body(
         variables.insert(
             identifier,
             Rc::from(VariableDeclaration {
-                type_name,
+                var_type: type_name,
                 name: identifier,
             }),
         );
@@ -72,8 +72,6 @@ pub fn read_function_body(
 }
 
 // statement               = _expression, { _mutator };
-// _expression             = identifier | static_function_call | lambda | array_initialisation | string_literal | integer_literal;
-// _mutator                = method_call | method_to_function_call | operator;
 pub fn read_statement(
     node: &RuleNode<'_, '_>,
     variables: &mut VarStorage,
@@ -87,11 +85,15 @@ pub fn read_statement(
 
     let expression = read_expression(expression_node, variables)?;
 
-    for mutator_node in &node.sub_rules[1..] {}
+    let mut expression_type = expression.get_type();
+    for mutator_node in &node.sub_rules[1..] {
+        let mutator = read_mutator(expression_type, mutator_node, variables)?;
+    }
 
     todo!()
 }
 
+// _expression             = identifier | static_function_call | lambda | array_initialisation | string_literal | integer_literal;
 fn read_expression(
     expression_node: &RuleNode<'_, '_>,
     variables: &mut VarStorage,
@@ -134,6 +136,11 @@ fn read_expression(
     }
 }
 
+// _mutator                = method_call | method_to_function_call | operator;
+fn read_mutator(expression_type: TypeName, mutator_node: &RuleNode<'_, '_>, variables: &mut VarStorage) -> Result<Mutator, SimpleError> {
+    todo!()
+}
+
 fn extract_string(expression_node: &RuleNode<'_, '_>) -> Rc<str> {
     let slice = expression_node.tokens;
     // remove quotation marks
@@ -143,7 +150,7 @@ fn extract_string(expression_node: &RuleNode<'_, '_>) -> Rc<str> {
 fn read_array_initialisation(
     node: &RuleNode<'_, '_>,
     variables: &mut VarStorage,
-) -> Result<Vec<Expression>, SimpleError> {
+) -> Result<ArrayInitialisation, SimpleError> {
     todo!()
 }
 
@@ -160,6 +167,6 @@ fn expect_variable(
 ) -> Result<Rc<VariableDeclaration>, SimpleError> {
     variables
         .get(identifier)
-        .map(Rc::to_owned)
+        .map(Rc::clone)
         .ok_or_else(|| SimpleError::new(format!("expected identifier {identifier}")))
 }

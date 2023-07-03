@@ -6,3 +6,7 @@ pub mod symbolizer;
 mod tests;
 pub mod ast_util;
 mod function_parser;
+pub mod type_collector;
+pub mod type_resolver;
+pub mod proto_ast;
+mod proto_ast_util;
