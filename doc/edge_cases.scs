@@ -83,8 +83,9 @@ fn map_composition_on_pos(Result<Value, Error> arg){
              one_val_par_val_ret_1 
              one_val_par_val_ret_2 
         }
-        // how do we know that one_val_par_val_ret_1 is not a variable?
-        // we would parse on_pos (val) { one_val_par_val_ret_1 } as calling on_pos on unknown variable `val`, and the result is applied to the implicit-parameter lamda.
+        // how do we know that one_val_par_val_ret_1 is not a variable? (we can do a look-up)
+        // we would parse on_pos (val) { val one_val_par_val_ret } as calling on_pos with unknown variable `val` as parameter, 
+        //     and the result is applied to the implicit-parameter lamda. This may just be a syntax problem
         // this is possible if we can distinguish mutators from expressions
         // adding indicator of implicit parameter like `(_)` is too verbose.
         // an operator (say `.` : and_then) would introduce multiple ways of currying (`val fun1.fun2 ~= val fun1 fun2`)
