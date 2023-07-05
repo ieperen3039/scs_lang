@@ -21,7 +21,7 @@ fs {
     }
 
     impl AbsoluteFilePath {
-        fn copyTo(AbsoluteFilePath newPath): Optional<AbsoluteFilePath> {
+        fn copyTo(AbsoluteFilePath newPath): Maybe<AbsoluteFilePath> {
             system.getShellType
                 run(
                     Batch: "cp {this} {newPath}",

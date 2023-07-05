@@ -2,27 +2,21 @@
 type void = native // zero-sized nothing-type
 
 variant Result<P, N> {
-    P pos,
-    N neg,
+    Pos(P),
+    Neg(N),
 }
 
-type Optional<T> = Result<T, void>
-type boolean = Result<void, void>
+type Maybe<T> = Result<T, void>
+type boolean = Result<void, void> // = Maybe<void>
 
 type int = native 
 type float = native 
 type String = native 
 
 type fn<R> = fn<()R>
-type fn = fn<()void>
 
 impl boolean {
     fn if<T>(fn<T> true, fn<T> false) : T native
-}
-
-impl boolean[] {
-    fn any: boolean native
-    fn all: boolean native
 }
 impl int {
     fn isLessThan(int other): boolean native
@@ -42,22 +36,20 @@ impl String {
 }
 
 impl Result<P, N> {
-    fn unwrap_pos_or(P then) : P native
-    fn unwrap_neg_or(N then) : N native
-    
     fn invert : Result<N, P> { 
-        this ?* Result.neg = return; 
-        this !* Result.pos = return; 
+        this switch(Pos: Result.Neg, Neg: Result.Pos)
     }
+
+    fn unwrap_pos_or(N default) : P switch(Pos: identity, Neg: default)
+    fn unwrap_neg_or(P default) : N switch(Pos: default, Neg: identity)
     
     fn map_both(fn<(P)R> pos, fn<(N)R> neg)
     {
-        this ? pos = return; 
-        this ! neg = return; 
+        this ? pos ! neg = return; 
     }
 
-    fn on_pos<R>(fn<(P)R>) : Result<R, N> native
-    fn on_neg<R>(fn<(N)R>) : Result<P, R> native
+    fn on_pos<R>(fn<(P)R> mapping) : Result<R, N> map_both(pos: mapping, neg: identity)
+    fn on_neg<R>(fn<(N)R> mapping) : Result<P, R> map_both(pos: identity, neg: mapping)
 
     op "?" : on_pos
     op "!" : on_neg 
@@ -65,12 +57,18 @@ impl Result<P, N> {
 
 // any array of results can be collapsed
 impl Result<P, N>[] {
-    fn any: Optional<P> native
+    fn any: Maybe<P> native
     fn all: boolean native
-    fn split : Result<P[], N[]> native
+    fn filter_pos: P[] native
+    fn filter_neg: N[] native
 }
 
-impl <T> {
+impl Maybe<T>[] {
+    fn filter: T[] { this filter_pos }
+}
+
+impl<T> T {
+    fn identity : T { this }
     fn equalTo<T>(T other) : boolean native
 
     fn _apply_on_fn<R>(fn<(T)R> mapping) : R { mapping(this) }
@@ -79,23 +77,33 @@ impl <T> {
     fn _assign_to_variable(...) : void native
 
     op "=" : _assign_to_variable
-    op "*" : _apply_on_fn 
-    op ";" : _replace_with
+    op ":" : _replace_with
 }
 
-impl <T>[] {
-    // partition does not change the size of the array.
-    // you'll have to use a 'positive-assign' to get the array of positive values.
-    fn partition(fn<(T)boolean> predicate) : Result<T, T> native
+impl<T> T[] {
     fn collect(fn<(T, T)T> collector) : T native
     fn collect<Acc>(Acc accumulator, fn<(Acc, T)Acc> collector) : Acc native
     fn map<R>(fn<(T)R> mapping) : R[] native
     // combines every two adjacent elements into a new element (resutling in an array of 1 less length)
     fn multimap<R>(fn<(T, T)R> mapping) : T[] native
-    fn first : Optional<T> native
+    fn first : Maybe<T> native
     fn append(T new_element) : T[] native
 
-    fn filter(fn<(T)boolean> predicate) : T[] { this > partition(predicate) split }
+    // partition does not change the size of the array.
+    fn partition(fn<(T)boolean> predicate) : Result<T, T>[] {
+        this > (elt) { 
+            predicate(elt) !: elt ?: elt 
+        }
+    }
+
+
+    fn filter(fn<(T)boolean> predicate) : T[] { 
+        this > (elt) { 
+            elt predicate ?: elt 
+        }
+        filter_pos
+    }
+
     fn append(T[] other) : T[] { other collect(this, append) }
 
     op "*" : first
@@ -114,21 +122,10 @@ impl enum {
 // the variant elements are separately instantiable and name-able
 impl variant<E...> {
     /* every element of the variant expands to an argument of type T, with the name of the element as argument name */
-    fn switch<T>(T ... expression) : T native
-    fn as(E expected): Optional<E> native
+    fn switch<T>(fn<(E)T> ... expression) : T native
+    fn as(E expected): Maybe<E> native
 }
 
 impl variant<E...>[] {
     fn split : (E[]...)[] native
 }
-
-impl fn<(P)R> {
-    fn _chain<R2>(fn<(R)R2> next_function) : fn<(P)R2> native
-    // { 
-    //     (input) { 
-    //         input * this * next_function
-    //     } 
-    // }
-
-    op "+" : _chain
-} 
