@@ -171,3 +171,27 @@ fn val_par_fn_par_partial_call(Result<Value, Error> arg){
     arg
         ? val_par_fn_par_val_par_val_ret(first: 1, second: map)
 }
+
+// proposal for multiple return values (SCP_3)
+fn multiple_ret(Result<Value, Error> arg) {
+    // proposed plain using tuples
+    arg
+        val_par_three_val_return
+        = three_tuple
+
+    three_tuple
+        // tuple deconstruction
+        = (a, b, c);
+
+    three_tuple
+        // partial assignment
+        = (void, void, d)
+    
+    // proposed plain using unnamed variant arrays
+    arg
+        val_par_three_val_return
+        = three_tuple
+
+    three_tuple
+        * switch(/* which names do we use for unnamed variants though? */)
+}

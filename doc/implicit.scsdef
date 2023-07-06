@@ -17,21 +17,32 @@ type fn<R> = fn<()R>
 
 impl boolean {
     fn if<T>(fn<T> true, fn<T> false) : T native
+    fn or(boolean else) : boolean { this !: else }
+    fn and(boolean else) : boolean { this ?: else }
+
+    op "||" : or
+    op "&&" : and
 }
 impl int {
-    fn isLessThan(int other): boolean native
-    fn isLessOrEqualThan(int other): boolean native
-    fn isGreaterThan(int other): boolean native
-    fn isGreaterOrEqualThan(int other): boolean native
-    fn equalTo(int other) : boolean native
-    fn asFloat : float native
+    fn less_than(int other): boolean native
+    fn less_or_equal_to(int other): boolean { 
+        this equal_to(other) || { this less_than(other) }
+    }
+
+    fn greater_than(int other): boolean native
+    fn greater_or_equal(int other): boolean { 
+        this equal_to(other) || { this greater_than(other) }
+    }
+
+    fn equal_to(int other) : boolean native
+    fn as_float : float native
 }
 impl float {
-    fn isLessThan(float other): boolean native
-    fn isGreaterThan(float other): boolean native
+    fn less_than(float other): boolean native
+    fn greater_than(float other): boolean native
 }
 impl String {
-    fn equalTo(String other): boolean native
+    fn equal_to(String other): boolean native
     fn is: LogicBuilder<String> native
 }
 
@@ -81,13 +92,18 @@ impl<T> T {
 }
 
 impl<T> T[] {
-    fn collect(fn<(T, T)T> collector) : T native
-    fn collect<Acc>(Acc accumulator, fn<(Acc, T)Acc> collector) : Acc native
+    fn reduce(fn<(T, T)T> collector) : T native
+    fn reduce<Acc>(Acc accumulator, fn<(Acc, T)Acc> collector) : Acc native
     fn map<R>(fn<(T)R> mapping) : R[] native
-    // combines every two adjacent elements into a new element (resutling in an array of 1 less length)
-    fn multimap<R>(fn<(T, T)R> mapping) : T[] native
     fn first : Maybe<T> native
     fn append(T new_element) : T[] native
+
+    // combines every two adjacent elements into a new element (resutling in an array of 1 less length)
+    fn multimap<R>(fn<(T, T)R> mapping) : R[] native
+    // maps each element, using its neighboring elements (SCP_2)
+    fn transform<R>(fn<(Maybe<T>, T, Maybe<T>)R> mapping) : R[] native
+    // maps each element sequentially, based on a stateful processor (SCP_3)
+    fn process<Proc>(Proc processor, fn<(Proc, T)(Proc, T)> collector) : T[] native
 
     // partition does not change the size of the array.
     fn partition(fn<(T)boolean> predicate) : Result<T, T>[] {
@@ -104,7 +120,7 @@ impl<T> T[] {
         filter_pos
     }
 
-    fn append(T[] other) : T[] { other collect(this, append) }
+    fn append(T[] other) : T[] { other reduce(this, append) }
 
     op "*" : first
     op ">" : map
