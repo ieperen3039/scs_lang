@@ -19,6 +19,7 @@ impl boolean {
     fn if<T>(fn<T> true, fn<T> false) : T native
     fn or(boolean else) : boolean { this !: else }
     fn and(boolean else) : boolean { this ?: else }
+    fn not<T>(T elt, fn<(T)boolean> fn) : boolean { elt fn invert }
 
     op "||" : or
     op "&&" : and
