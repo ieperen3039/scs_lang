@@ -195,3 +195,8 @@ fn multiple_ret(Result<Value, Error> arg) {
     three_tuple
         * switch(/* which names do we use for unnamed variants though? */)
 }
+
+// proposal for structs (SCP_4)
+type struct {
+
+}

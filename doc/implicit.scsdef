@@ -15,11 +15,16 @@ type String = native
 
 type fn<R> = fn<()R>
 
+// (SCP_4)
+struct Pair<A, B> {
+    A a;
+    B b;
+}
+
 impl boolean {
     fn if<T>(fn<T> true, fn<T> false) : T native
     fn or(boolean else) : boolean { this !: else }
     fn and(boolean else) : boolean { this ?: else }
-    fn not<T>(T elt, fn<(T)boolean> fn) : boolean { elt fn invert }
 
     op "||" : or
     op "&&" : and
@@ -80,31 +85,37 @@ impl Maybe<T>[] {
 }
 
 impl<T> T {
+    op "=" : _assign_to_variable
+    op ":" : _replace_with
+
     fn identity : T { this }
     fn equalTo<T>(T other) : boolean native
+    fn not(fn<(T)boolean> expression) : boolean { expression invert }
 
-    fn _apply_on_fn<R>(fn<(T)R> mapping) : R { mapping(this) }
+    // discards `this` and returns `new_value`
     fn _replace_with<R>(R new_value) : R { new_value }
      // creates a new name in the scope
     fn _assign_to_variable(...) : void native
-
-    op "=" : _assign_to_variable
-    op ":" : _replace_with
 }
 
+// we call this a "buffer" (because it is not implemented as a true array)
 impl<T> T[] {
+    op "*" : first
+    op ">" : map
+    op "+" : append
+
     fn reduce(fn<(T, T)T> collector) : T native
     fn reduce<Acc>(Acc accumulator, fn<(Acc, T)Acc> collector) : Acc native
     fn map<R>(fn<(T)R> mapping) : R[] native
     fn first : Maybe<T> native
     fn append(T new_element) : T[] native
 
-    // combines every two adjacent elements into a new element (resutling in an array of 1 less length)
-    fn multimap<R>(fn<(T, T)R> mapping) : R[] native
+    // combines every two adjacent elements into a new element (resulting in an array of 1 less length)
+    fn derive<R>(fn<(T, T)R> mapping) : R[] native
     // maps each element, using its neighboring elements (SCP_2)
     fn transform<R>(fn<(Maybe<T>, T, Maybe<T>)R> mapping) : R[] native
-    // maps each element sequentially, based on a stateful processor (SCP_3)
-    fn process<Proc>(Proc processor, fn<(Proc, T)(Proc, T)> collector) : T[] native
+    // maps each element sequentially, based on a stateful processor (SCP_4)
+    fn process<Proc>(Proc processor, fn<(Pair<Proc, T>)Pair<Proc, T>> collector) : T[] native
 
     // partition does not change the size of the array.
     fn partition(fn<(T)boolean> predicate) : Result<T, T>[] {
@@ -122,10 +133,6 @@ impl<T> T[] {
     }
 
     fn append(T[] other) : T[] { other reduce(this, append) }
-
-    op "*" : first
-    op ">" : map
-    op "+" : append
 }
 
 //  the enum type is a type, each enum value is an object instance

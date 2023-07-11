@@ -32,7 +32,8 @@ use "filesystem"
             // map each string to a string[]
             split_on(",")
             // map every element `s` to a Result, that is true iff `s equalTo("NA") invert`
-            partition((s) { s equalTo("NA") invert }) 
+            // partition((s) { s equalTo("NA") invert }) 
+            partition((s) { s not(equalTo("NA")) } ) 
             // parse each positive element
             *? parse_int
             // unwrap the result value to an int, replacing all negative values with 0
