@@ -23,11 +23,11 @@ impl StructDefinition {
 }
 
 impl TypeDefinition {
-    pub const STRING_TYPE: Rc<TypeDefinition> = Rc::from(TypeDefinition::Struct(
+    pub const STRING_TYPE: Rc<TypeDefinition> = Rc::from(TypeDefinition::Tuple(
         StructDefinition::build_native("String"),
     ));
     
-    pub const INT_TYPE: Rc<TypeDefinition> = Rc::from(TypeDefinition::Struct(
+    pub const INT_TYPE: Rc<TypeDefinition> = Rc::from(TypeDefinition::Tuple(
         StructDefinition::build_native("int"),
     ));
 
@@ -42,7 +42,7 @@ impl TypeDefinition {
         Rc::from(TypeDefinition::Variant(VariantDefinition {
             name: Rc::from("Optional"),
             values: vec![Rc::from("some"), Rc::from("none")],
-            derived_from: Some(StructRef {
+            derived_from: Some(DefinedTypeRef {
                 definition: TypeDefinition::RESULT_TYPE,
                 generic_parameters: ,
             }),
@@ -52,7 +52,7 @@ impl TypeDefinition {
     Rc::from(TypeDefinition::Variant(VariantDefinition {
         name: Rc::from("boolean"),
         values: vec![Rc::from("true"), Rc::from("false")],
-        derived_from: Some(StructRef {
+        derived_from: Some(DefinedTypeRef {
             definition: TypeDefinition::RESULT_TYPE,
             generic_parameters: ,
         }),
@@ -60,10 +60,10 @@ impl TypeDefinition {
 
     pub fn get_name(&self) -> Identifier {
         match self {
-            TypeDefinition::Struct(StructDefinition { name, .. }) => name.clone(),
+            TypeDefinition::Tuple(StructDefinition { name, .. }) => name.clone(),
             TypeDefinition::Enum(EnumDefinition { name, .. }) => name.clone(),
             TypeDefinition::Variant(VariantDefinition { name, .. }) => name.clone(),
-            TypeDefinition::Native(NativeStruct { name, .. }) => name.clone(),
+            TypeDefinition::Base(BaseType { name, .. }) => name.clone(),
         }
     }
 }
@@ -74,16 +74,16 @@ impl Expression {
             Expression::StaticFunctionCall(fun) => fun.function.body.return_var.var_type,
             Expression::FunctionBlock(block) => block.return_var.var_type,
             Expression::Array(array) => array.element_type,
-            Expression::Literal(Literal::String(_)) => TypeRef::Struct(StructRef { definition: TypeDefinition::STRING_TYPE, generic_parameters: Vec::new() }), 
-            Expression::Literal(Literal::Number(_)) => TypeRef::Struct(StructRef { definition: TypeDefinition::INT_TYPE, generic_parameters: Vec::new() }),
-            Expression::Literal(Literal::Boolean(_)) => TypeRef::Struct(StructRef { definition: TypeDefinition::BOOLEAN_TYPE, generic_parameters: Vec::new() }),
+            Expression::Literal(Literal::String(_)) => TypeRef::Defined(DefinedTypeRef { definition: TypeDefinition::STRING_TYPE, generic_parameters: Vec::new() }), 
+            Expression::Literal(Literal::Number(_)) => TypeRef::Defined(DefinedTypeRef { definition: TypeDefinition::INT_TYPE, generic_parameters: Vec::new() }),
+            Expression::Literal(Literal::Boolean(_)) => TypeRef::Defined(DefinedTypeRef { definition: TypeDefinition::BOOLEAN_TYPE, generic_parameters: Vec::new() }),
             Expression::Variable(var) => var.var_type,
         }
     }
 }
 
 impl Scope {
-    pub fn new(name: &str) -> Scope {
+    pub fn new() -> Scope {
         Scope {
             scopes: HashMap::new(),
             types: HashMap::new(),

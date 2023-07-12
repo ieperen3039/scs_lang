@@ -11,7 +11,7 @@ fs {
                 Batch: "set directoryOfThis=%cd%",
                 Bash: "directoryOfThis=$PWD"
             )
-            ?= _ // discard any error
+            ?= void // discard any error
             readVariable("directoryOfThis")
     }
 
@@ -26,8 +26,9 @@ fs {
                 run(
                     Batch: "cp {this} {newPath}",
                     Bash: "cp {this} {newPath}"
-                )
-                >! newPath
+                ); 
+                
+            newPath
         }
     }
 }

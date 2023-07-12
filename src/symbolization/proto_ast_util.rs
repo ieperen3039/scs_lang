@@ -3,12 +3,19 @@ use std::{collections::HashMap, rc::Rc};
 use super::proto_ast::*;
 
 impl ProtoScope {
-    pub fn new(name: &str) -> ProtoScope {
+    pub fn new(name: &str, parent: Option<&ProtoScope>) -> ProtoScope {
+        let mut full_name = parent.map(|sc| sc.full_name.clone()).unwrap_or(Vec::new());
+        full_name.push(Rc::from(name));
+
         ProtoScope {
-            name : Rc::from(name),
+            full_name,
             scopes: HashMap::new(),
             types: HashMap::new(),
         }
+    }
+
+    pub fn get_name(&self) -> Identifier {
+        self.full_name.last().unwrap().to_owned()
     }
 }
 
@@ -21,7 +28,7 @@ impl TypeName {
     }
 
     pub fn build_result(pos_type: TypeName, neg_type: TypeName) -> TypeName {
-        TypeName::Struct(StructName {
+        TypeName::Defined(DefinedName {
             name: Rc::from("Result"),
             scope: Vec::new(),
             generic_parameters: vec![pos_type, neg_type],
@@ -29,7 +36,7 @@ impl TypeName {
     }
 
     pub fn build_optional(some_type: TypeName) -> TypeName {
-        TypeName::Struct(StructName {
+        TypeName::Defined(DefinedName {
             name: Rc::from("Optional"),
             scope: Vec::new(),
             generic_parameters: vec![some_type],
@@ -37,9 +44,9 @@ impl TypeName {
     }
 }
 
-impl StructName {
-    pub fn build_plain(name: &str) -> StructName {
-        StructName {
+impl DefinedName {
+    pub fn build_plain(name: &str) -> DefinedName {
+        DefinedName {
             name: Rc::from(name),
             scope: Vec::new(),
             generic_parameters: Vec::new(),
