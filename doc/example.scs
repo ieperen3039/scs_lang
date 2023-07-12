@@ -10,32 +10,51 @@ use "filesystem"
 
 // file-parameters are directly translated to command-line parameters
 // not sure how to do documentation though (special 'active' comment maybe)
+// this function parses a csv input file
 (FileName input_file) : Result<String, String>
 {
     input_file
-        * File.open // application
-        != file_open_error // negative-assign
-        readToString // method
-        splitOn("\n") // method
-        // map each string to upper case
-        * toUpper // map
-        // remove all "NA" lines
-        // String.equalTo(...) will be interpreted as (this) { this equalTo(...) }
-        filter(String.equalTo("NA") + Result.invert) 
-        // filter((line) { line equalTo("") invert }) 
-        ?* replace(",", ";")
-        // collect all selected lines into lloc
-        // and discard the neg-value
-        ?= lloc; 
+        File.open
+        // if it fails (File.open returns a negative value) assign it to file_open_error
+        != file_open_error
+        // the above assignment leaves us with the positive value
+        read_to_string
+        // split_on turns the string into a string[]
+        split_on("\n")
+        // apply `trim_white_space` to each element
+        * trim_white_space
+        // `String.empty` is a function that accepts a stringand returns a boolean.
+        // `String.empty` has type `fn<(string)boolean>` and `filter` accepts a `fn<(T)boolean>` where T is the type of the array (string)
+        filter(String.empty)
+        // we now create a lambda, and map each element using the lamda
+        * (line) {
+            line
+            // map each string to a string[]
+            split_on(",")
+            // map every element `s` to a Result, that is true iff `s equalTo("NA") invert`
+            partition((s) { s equalTo("NA") invert }) 
+            // parse each positive element
+            *? parse_int
+            // unwrap the result value to an int, replacing all negative values with 0
+            unwrap_pos_or(0)
+        } 
+        // the lamda above mapped each element to an int[], so now we have an int[][]
+        // we assign it to the new variable `data` (we could be explicit, and say `= int[][] data`)
+        = data;
 
+    // file_open_error was assigned conditionally. 
+    // Any statement starting with such variable is not executed if the variable is not assigned.
+    // hence, if the file opened successfully, this entire section (up to the next semicolon) is skipped.
+    // The compiler checks whether all variables referenced in a function are guaranteed to exist, otherwise it will not compile
     file_open_error
-        * (err) {  // application to lamda
-            io.format(fmt: "Could not open file {}", args: err) 
-        }
+        // io.format_1 accepts two parameters: a format, and the format argument
+        // if we fill in one parameter, then this results in a function accepting the remaining element (fn<(err)string>)
+        // hence, we can format the file_open_error into a string by just calling this:
+        io.format_1(fmt: "Could not open file {}") 
+        // to return a value from a function, we assign it to the return keyword
         = return;
 
-    lloc
-        multimap((a, b) { a + "," })
-        reduce(String.concat)
+    data
+        // ...
         = return;
 }
