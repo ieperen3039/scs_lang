@@ -5,6 +5,7 @@ pub type Identifier = Rc<str>;
 //#[derive(Hash, Eq, PartialEq)]
 
 pub struct Program {
+    pub name: Identifier,
     pub definitions: Scope,
     pub main: Option<Rc<FunctionDefinition>>,
 }
@@ -15,15 +16,17 @@ pub struct Scope {
     pub functions: HashMap<Identifier, Rc<FunctionDefinition>>,
 }
 
-// -- strong references -- 
+// -- references to types -- 
 
 pub enum TypeRef {
-    Struct(StructRef),
+    Defined(DefinedTypeRef),
+    UnamedTuple(Vec<TypeRef>),
     Array(Box<TypeRef>),
     Function(FunctionRef),
+    Void
 }
 
-pub struct StructRef {
+pub struct DefinedTypeRef {
     pub definition: Rc<TypeDefinition>,
     // implementation / our selection of types to use as generic parameters
     pub generic_parameters : Vec<TypeRef>,
@@ -35,48 +38,20 @@ pub struct FunctionRef {
     pub return_type: Box<TypeRef>,
 }
 
-// -- types --
+// -- defined types --
 
-pub enum TypeDefinition {
-    Native(NativeStruct),
-    Struct(StructDefinition),
-    Enum(EnumDefinition),
-    Variant(VariantDefinition),
-}
-
-pub struct NativeStruct {
+pub struct TypeDefinition {
     pub name: Identifier,
     // there are generic declarations; brand new identifiers
     pub generic_parameters : Vec<Identifier>,
+    pub sub_type : TypeSubType,
 }
 
-pub struct StructDefinition {
-    pub name: Identifier,
-    // a struct can only be derived from structs
-    pub derived_from : Option<StructRef>,
-    // there are generic declarations; brand new identifiers
-    pub generic_parameters : Vec<Identifier>,
-    pub fields : Vec<StructField>,
-}
-
-pub struct StructField {
-    pub name : Identifier,
-    // we use an instantiation of the type, filling in any generic parameters
-    pub field_type : TypeRef,
-}
-
-pub struct VariantDefinition {
-    pub name: Identifier,
-    pub values: Vec<Identifier>,
-    // a variant can only be derived from structs
-    pub derived_from : Option<StructRef>,
-}
-
-pub struct EnumDefinition {
-    pub name: Identifier,
-    pub values: Vec<Identifier>,
-    // an enum can only be derived from structs
-    pub derived_from : Option<StructRef>,
+pub enum TypeSubType {
+    Base { derived : Box<TypeRef> },
+    Enum { values : Vec<Identifier> },
+    Variant { variants : Vec<TypeRef> },
+    Tuple { elements : Vec<TypeRef> },
 }
 
 // -- implementations --
@@ -115,7 +90,7 @@ pub enum Expression {
     FunctionBlock(FunctionBlock),
     Array(ArrayInitialisation),
     Literal(Literal),
-    // note, only a _reference_ to a variable is an expression.
+    // a _reference_ to a variable is an expression, not a declaration.
     Variable(Rc<VariableDeclaration>),
 }
 

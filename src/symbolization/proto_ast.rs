@@ -3,19 +3,20 @@ use std::{collections::HashMap, rc::Rc};
 pub type Identifier = Rc<str>;
 
 pub struct ProtoScope {
-    pub name : Identifier,
+    pub full_name : Vec<Identifier>,
     pub scopes: HashMap<Identifier, ProtoScope>,
     pub types: HashMap<Identifier, Rc<TypeDefinition>>
 }
 
 pub enum TypeName {
-    Struct(StructName),
+    Defined(DefinedName),
+    UnamedTuple(Vec<TypeName>),
     Array(Box<TypeName>),
     FunctionType(FunctionName),
     Void
 }
 
-pub struct StructName {
+pub struct DefinedName {
     pub name: Identifier,
     pub scope : Vec<Identifier>,
     // implementation / our selection of types to use as generic parameters
@@ -30,44 +31,16 @@ pub struct FunctionName {
 
 // -- types --
 
-pub enum TypeDefinition {
-    Native(NativeStruct),
-    Struct(StructDefinition),
-    Enum(EnumDefinition),
-    Variant(VariantDefinition),
-}
-
-pub struct NativeStruct {
+pub struct TypeDefinition {
     pub name: Identifier,
     // there are generic declarations; brand new identifiers
     pub generic_parameters : Vec<Identifier>,
+    pub sub_type : TypeSubType,
 }
 
-pub struct StructDefinition {
-    pub name: Identifier,
-    // a struct can only be derived from structs
-    pub derived_from : Option<StructName>,
-    // there are generic declarations; brand new identifiers
-    pub generic_parameters : Vec<Identifier>,
-    pub fields : Vec<StructField>,
-}
-
-pub struct StructField {
-    pub name : Identifier,
-    // we use an instantiation of the type, filling in any generic parameters
-    pub field_type : TypeName,
-}
-
-pub struct VariantDefinition {
-    pub name: Identifier,
-    pub values: Vec<Identifier>,
-    // a variant can only be derived from structs
-    pub derived_from : Option<StructName>,
-}
-
-pub struct EnumDefinition {
-    pub name: Identifier,
-    pub values: Vec<Identifier>,
-    // an enum can only be derived from structs
-    pub derived_from : Option<StructName>,
+pub enum TypeSubType {
+    Base { derived : Box<TypeName> },
+    Enum { values : Vec<Identifier> },
+    Variant { variants : Vec<TypeName> },
+    Tuple { elements : Vec<TypeName> },
 }
