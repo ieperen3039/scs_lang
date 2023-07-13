@@ -5,7 +5,7 @@ fs {
     type AbsoluteFilePath : FilePath
     type RelativeFilePath : FilePath
 
-    fn directoryOfThis: AbsoluteFilePath {
+    fn directoryOfThis() : AbsoluteFilePath {
         system.getShellType
             run(
                 Batch: "set directoryOfThis=%cd%",
@@ -16,8 +16,8 @@ fs {
     }
 
     impl FilePath {
-        fn append: This native
-        fn getParent: This native
+        fn append(): This native
+        fn getParent(): This native
     }
 
     impl AbsoluteFilePath {
@@ -26,9 +26,8 @@ fs {
                 run(
                     Batch: "cp {this} {newPath}",
                     Bash: "cp {this} {newPath}"
-                ); 
-                
-            newPath
+                )
+                ?: newPath
         }
     }
 }

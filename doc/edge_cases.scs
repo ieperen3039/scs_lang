@@ -181,22 +181,9 @@ fn multiple_ret(Result<Value, Error> arg) {
 
     three_tuple
         // tuple deconstruction
-        = (a, b, c);
+        = [a, b, c];
 
     three_tuple
         // partial assignment
-        = (void, void, d)
-    
-    // proposed plain using unnamed variant arrays
-    arg
-        val_par_three_val_return
-        = three_tuple
-
-    three_tuple
-        * switch(/* which names do we use for unnamed variants though? */)
-}
-
-// proposal for structs (SCP_4)
-type struct {
-
+        = [void, void, d]
 }

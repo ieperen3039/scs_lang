@@ -20,7 +20,7 @@ use "filesystem"
         // the above assignment leaves us with the positive value
         read_to_string
         // split_on turns the string into a string[]
-        split_on("\n")
+        split("\n")
         // apply `trim_white_space` to each element
         * trim_white_space
         // `String.empty` is a function that accepts a stringand returns a boolean.
@@ -30,7 +30,7 @@ use "filesystem"
         * (line) {
             line
             // map each string to a string[]
-            split_on(",")
+            split(",")
             // map every element `s` to a Result, that is true iff `s equalTo("NA") invert`
             // partition((s) { s equalTo("NA") invert }) 
             partition((s) { s not(equalTo("NA")) } ) 
