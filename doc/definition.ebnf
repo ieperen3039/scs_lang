@@ -16,28 +16,32 @@ directory               = _file_name;
 file                    = _file_name;
 
 (* scopes and definitions *)
-_definition             = scope | type_definition | enum_definition | implementation | function_definition;
+_definition             = scope | type_definition | enum_definition | variant_definition | implementation | function_definition;
 scope_name              = _name;
-scope                   = scope_name, _, "{", { _definition, _ }, _, "}";
+scope                   = scope_name, _, "{", _, { _definition, _ }, "}";
 _scope_reference        = scope_name, { ".", scope_name };
-type_definition         = _keyword_type, _, base_type_decl, _, [ ( ":", _, derived_type, _ ) | ( native_decl, _ ) ], ["{", { _, field_declaration }, _, "}" ];
+type_definition         = _keyword_type, _, base_type_decl, _, "=",  ( derived_type | native_decl );
 field_declaration       = type_ref, _, identifier, _, ";";
 (* reference to existing type *)
-type_ref                = ( ( [ _scope_reference ], _, base_type_ref ) | fn_type ), { _, array_symbol };
-(* reference to existing type, but cannot be a function of array *)
-derived_type            = [ _scope_reference ], base_type_ref;
-(* reference to existing type, could be an enum, instantiates generic types *)
-base_type_ref           = identifier, _, [ generic_types_inst ];
-(* declaration of new type, declares the existence of generic types *)
-base_type_decl          = identifier, _, [ generic_types_decl ];
-(* declares the existence of generic types *)
+type_ref                = ( ( [ _scope_reference ], ".", base_type_ref ) | fn_type | tuple_inst ), { _, array_symbol };
+(* reference to existing basic type *)
+derived_type            = ( [ _scope_reference ], ".", base_type_ref ) | tuple_inst;
+(* instantiation of a tuple *)
+tuple_inst               = "[", _, type_ref, [ _, ",", _, type_ref ], "]";
+(* reference to existing base type, enum or variant. instantiates generic types *)
+base_type_ref           = identifier, [ _, generic_types_inst ];
+(* declaration of new type name, declares the existence of generic types *)
+base_type_decl          = identifier, [ _, generic_types_decl ];
+(* declaration of generic types *)
 generic_types_decl      = "<", _, identifier, { _, identifier }, _, ">";
-(* instantiates generic types *)
+(* instantion of generic types *)
 generic_types_inst      = "<", _, type_ref, { _, type_ref }, _, ">";
 (* function does not actually use generics, only syntactically *)
 fn_type                 = _keyword_fn, _, [ "<", _, [ "(", _, unnamed_parameter_list, _, ")", _ ], return_type, _, ">" ];
-enum_definition         = _keyword_enum, _, enum_value_decl, _, "[", _, { enum_value_decl, _, ",", _ }, "]";
+enum_definition         = _keyword_enum, _, identifier, _, "[", _, enum_value_decl, _, { ",", _, enum_value_decl, _ }, "]";
 enum_value_decl         = _name;
+variant_definition      = _keyword_variant, _, identifier, _, [ generic_types_decl, _ ], "[", _, variant_value_decl, _, { ",", variant_value_decl, _ }, "]";
+variant_value_decl      = identifier, _, "(", _, type_ref, _, ")";
 (* generics are not instantiated, hence a base_type_decl *)
 implementation          = _keyword_start_implementation, _, base_type_decl, { _, array_symbol }, _, "{", _, { function_definition, _ }, "}";
 
@@ -84,7 +88,7 @@ _literal                = string_literal | integer_literal;
 
 (* keyword wrappers *)
 return_decl             = _keyword_return;
-native_decl             = _keyword_native;
+native_decl             = _keyword_extern;
 
 (* other wrappers *)
 identifier = _name;
@@ -106,7 +110,7 @@ _keyword_type = "type";
 _keyword_fn = "fn";
 _keyword_enum = "enum";
 _keyword_variant = "variant";
-_keyword_native = "native";
+_keyword_extern = "extern";
 _keyword_this = "this";
 _keyword_return = "return";
 (* _keyword_static = "static"; *)

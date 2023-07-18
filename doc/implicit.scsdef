@@ -5,16 +5,18 @@ type int = extern
 type float = extern 
 
 // structures
-variant Result<P, N> {
+variant Result<P, N> [
     Pos(P),
     Neg(N),
-}
+]
 
 // derived
 type Maybe<T> = Result<T, void>
 type boolean = Result<void, void> // = Maybe<void>
 type String = character[] 
-type fn<R> = fn<()R>
+// fn does not have actual generic parameters
+// type fn<R> = fn<()R>
+// type fn = fn<void>
 
 // implementations
 impl boolean {
