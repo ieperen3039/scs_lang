@@ -48,10 +48,15 @@ pub struct TypeDefinition {
 }
 
 pub enum TypeSubType {
-    Base { derived : Box<TypeRef> },
+    Base { derived : Option<Box<TypeRef>> },
     Enum { values : Vec<Identifier> },
-    Variant { variants : Vec<TypeRef> },
+    Variant { variants : Vec<VariantValue> },
     Tuple { elements : Vec<TypeRef> },
+}
+
+pub struct VariantValue {
+    pub name : Identifier,
+    pub value_type : TypeRef,
 }
 
 // -- implementations --
