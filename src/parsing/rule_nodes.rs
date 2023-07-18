@@ -52,9 +52,7 @@ impl<'prog, 'bnf> RuleNode<'prog, 'bnf> {
         &'r self,
         expected: &str,
     ) -> Result<&'r RuleNode, SimpleError> {
-        self.sub_rules
-            .iter()
-            .find(|rule| rule.rule_name == expected)
+        self.find_node(expected)
             .ok_or_else(|| SimpleError::new(format!("Expected node {expected}")))
     }
 

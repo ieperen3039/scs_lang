@@ -16,6 +16,7 @@ pub enum TypeName {
     Void
 }
 
+// could be a base type, but also an enum variant or a named tuple
 pub struct DefinedName {
     pub name: Identifier,
     pub scope : Vec<Identifier>,
@@ -39,8 +40,13 @@ pub struct TypeDefinition {
 }
 
 pub enum TypeSubType {
-    Base { derived : Box<TypeName> },
+    Base { derived : Option<Box<TypeName>> },
     Enum { values : Vec<Identifier> },
-    Variant { variants : Vec<TypeName> },
+    Variant { variants : Vec<VariantValue> },
     Tuple { elements : Vec<TypeName> },
+}
+
+pub struct VariantValue {
+    pub name : Identifier,
+    pub type_name : TypeName,
 }
