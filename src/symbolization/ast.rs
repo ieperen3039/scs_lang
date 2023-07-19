@@ -17,7 +17,7 @@ pub struct Scope {
 
 // -- references to types -- 
 
-#[derive(Debug, Hash, Eq, PartialEq)]
+#[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub enum TypeRef {
     UnresolvedName(UnresolvedName),
     Defined(DefinedTypeRef),
@@ -28,7 +28,7 @@ pub enum TypeRef {
     Void
 }
 
-#[derive(Debug, Hash, Eq, PartialEq)]
+#[derive(Debug, Hash, Eq, PartialEq, Clone)]
 // could be a base type, but also an enum variant or a named tuple
 pub struct DefinedTypeRef {
     pub definition: Rc<TypeDefinition>,
@@ -36,7 +36,7 @@ pub struct DefinedTypeRef {
     pub generic_parameters : Vec<TypeRef>,
 }
 
-#[derive(Debug, Hash, Eq, PartialEq)]
+#[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct UnresolvedName {
     pub name: Identifier,
     pub scope : Vec<Identifier>,
@@ -45,7 +45,7 @@ pub struct UnresolvedName {
 }
 
 // an unspecific `fn<>` declaration
-#[derive(Debug, Hash, Eq, PartialEq)]
+#[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct FunctionType {
     pub parameters: Vec<TypeRef>,
     pub return_type: Box<TypeRef>,

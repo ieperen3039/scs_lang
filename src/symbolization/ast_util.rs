@@ -3,11 +3,11 @@ use std::{collections::HashMap, rc::Rc};
 use super::ast::*;
 
 impl TypeDefinition {
-    pub const STRING_TYPE: Rc<TypeDefinition> = Rc::from(TypeDefinition::build_native("String"));
+    pub const STRING: Rc<TypeDefinition> = Rc::from(TypeDefinition::build_native("String"));
 
-    pub const INT_TYPE: Rc<TypeDefinition> = Rc::from(TypeDefinition::build_native("int"));
+    pub const NUMBER: Rc<TypeDefinition> = Rc::from(TypeDefinition::build_native("int"));
 
-    pub const RESULT_TYPE: Rc<TypeDefinition> = {
+    pub const RESULT: Rc<TypeDefinition> = {
         let generic_pos = Rc::from(GenericParameter{ name: Rc::from("P")});
         let generic_neg = Rc::from(GenericParameter{ name: Rc::from("N")});
         Rc::from(TypeDefinition {
@@ -28,26 +28,26 @@ impl TypeDefinition {
         })
     };
 
-    pub const OPTIONAL_TYPE: Rc<TypeDefinition> = {
+    pub const OPTIONAL: Rc<TypeDefinition> = {
         let generic_type = Rc::from(GenericParameter{ name: Rc::from("T") });
         Rc::from(TypeDefinition {
             name: Rc::from("Optional"),
             generic_parameters: vec![generic_type],
             sub_type: TypeSubType::Base {
                 derived: Some(Box::from(TypeRef::Defined(DefinedTypeRef {
-                    definition: TypeDefinition::RESULT_TYPE,
+                    definition: TypeDefinition::RESULT,
                     generic_parameters: vec![TypeRef::Generic(generic_type), TypeRef::Void],
                 }))),
             },
         })
     };
 
-    pub const BOOLEAN_TYPE: Rc<TypeDefinition> = Rc::from(TypeDefinition {
+    pub const BOOLEAN: Rc<TypeDefinition> = Rc::from(TypeDefinition {
         name: Rc::from("boolean"),
         generic_parameters: Vec::new(),
         sub_type: TypeSubType::Base {
             derived: Some(Box::from(TypeRef::Defined(DefinedTypeRef {
-                definition: TypeDefinition::RESULT_TYPE,
+                definition: TypeDefinition::RESULT,
                 generic_parameters: vec![TypeRef::Void, TypeRef::Void],
             }))),
         },
@@ -76,25 +76,33 @@ impl TypeDefinition {
     }
 }
 
+impl TypeRef {
+    pub const STRING : TypeRef = TypeRef::Defined(DefinedTypeRef {
+        definition: TypeDefinition::STRING,
+        generic_parameters: Vec::new(),
+    });
+
+    pub const NUMBER : TypeRef = TypeRef::Defined(DefinedTypeRef {
+        definition: TypeDefinition::NUMBER,
+        generic_parameters: Vec::new(),
+    });
+
+    pub const BOOLEAN : TypeRef = TypeRef::Defined(DefinedTypeRef {
+        definition: TypeDefinition::BOOLEAN,
+        generic_parameters: Vec::new(),
+    });
+}
+
 impl Expression {
-    pub fn get_type(&self) -> TypeRef {
-        match self {
-            Expression::StaticFunctionCall(fun) => fun.function.body.return_var.var_type,
-            Expression::FunctionBlock(block) => block.return_var.var_type,
-            Expression::Array(array) => array.element_type,
-            Expression::Literal(Literal::String(_)) => TypeRef::Defined(DefinedTypeRef {
-                definition: TypeDefinition::STRING_TYPE,
-                generic_parameters: Vec::new(),
-            }),
-            Expression::Literal(Literal::Number(_)) => TypeRef::Defined(DefinedTypeRef {
-                definition: TypeDefinition::INT_TYPE,
-                generic_parameters: Vec::new(),
-            }),
-            Expression::Literal(Literal::Boolean(_)) => TypeRef::Defined(DefinedTypeRef {
-                definition: TypeDefinition::BOOLEAN_TYPE,
-                generic_parameters: Vec::new(),
-            }),
-            Expression::Variable(var) => var.var_type,
+    pub fn get_type(&self) -> &TypeRef {
+        match &self {
+            Expression::StaticFunctionCall(fun) => &fun.function.body.return_var.var_type,
+            Expression::FunctionBlock(block) => &block.return_var.var_type,
+            Expression::Array(array) => &array.element_type,
+            Expression::Literal(Literal::String(_)) => &TypeRef::STRING,
+            Expression::Literal(Literal::Number(_)) => &TypeRef::NUMBER,
+            Expression::Literal(Literal::Boolean(_)) => &TypeRef::BOOLEAN,
+            Expression::Variable(var) => &var.var_type,
         }
     }
 }

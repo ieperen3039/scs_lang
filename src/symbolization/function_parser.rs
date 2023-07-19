@@ -24,15 +24,15 @@ pub fn read_function_block(
         } else {
             // this is an implicit return
             let return_var = match statement.mutations.last().unwrap() {
-                Mutator::FunctionCall(f) => f.function.body.return_var,
+                Mutator::FunctionCall(f) => f.function.body.return_var.clone(),
                 Mutator::Assignment(_) => {
                     return Err(SimpleError::new(
-                        "Result of an assignment is always void (did you forget a semicolon?",
+                        "Result of an assignment is always void (did you forget a semicolon?)",
                     ))
                 }
             };
 
-            variables.insert(return_var.name, return_var);
+            variables.insert(return_var.name.clone(), return_var.clone());
 
             statement.mutations.push(Mutator::Assignment(return_var))
         }
@@ -56,11 +56,11 @@ pub fn read_function_body(
 
     // the return statement is implemented as a variable
     // this variable will hold the return value when a function returns
-    variables.insert(return_var.name, return_var);
+    variables.insert(return_var.name.clone(), return_var);
 
     for (identifier, type_name) in parameters {
         variables.insert(
-            identifier,
+            identifier.clone(),
             Rc::from(VariableDeclaration {
                 var_type: type_name,
                 name: identifier,
@@ -137,7 +137,7 @@ fn read_expression(
 }
 
 // _mutator                = method_call | method_to_function_call | operator;
-fn read_mutator(expression_type: TypeRef, mutator_node: &RuleNode<'_, '_>, variables: &mut VarStorage) -> Result<Mutator, SimpleError> {
+fn read_mutator(expression_type: &TypeRef, mutator_node: &RuleNode<'_, '_>, variables: &mut VarStorage) -> Result<Mutator, SimpleError> {
     todo!()
 }
 
