@@ -38,7 +38,7 @@ impl TypeResolver {
                     self.resolve_local_scope_reference(&scope[1..], local_scope)
                 } else {
                     Err(SimpleError::new(format!(
-                        "Could not find {} in scope {:?}, nor in the global scope",
+                        "Could not find '{}' in scope {:?}, nor in the global scope",
                         first, current.full_name
                     )))
                 }
@@ -58,8 +58,8 @@ impl TypeResolver {
                     return self.resolve_local_scope_reference(&scope[1..], child_scope);
                 };
                 Err(SimpleError::new(format!(
-                    "Could not find {} in scope {:?}",
-                    first, current.full_name
+                    "Could not find '{first}' in scope {:?}",
+                    current.full_name
                 )))
             }
         }
@@ -93,7 +93,7 @@ impl TypeResolver {
             proto_ast::TypeName::Generic(name) => {
                 let found = generics.iter().find(|g| g.name == name).ok_or_else(|| {
                     SimpleError::new(format!(
-                        "Can't find generic {name} among types {:?}",
+                        "Can't find generic '{name}' among types {:?}",
                         generics
                     ))
                 })?;
@@ -171,11 +171,24 @@ impl TypeResolver {
 
     fn resolve_defined_name(
         &self,
-        defined: proto_ast::DefinedName,
+        source: proto_ast::DefinedName,
         generics: &[Rc<GenericParameter>],
         local_scope: &ProtoScope,
     ) -> Result<ast::DefinedTypeRef, SimpleError> {
-        todo!()
+        let mut generic_parameters = Vec::new();
+        for ele in source.generic_parameters {
+            let ele_ref = self.resolve_type_name(ele, generics, local_scope)?;
+            generic_parameters.push(ele_ref);
+        }
+
+        let resolved_scope = self.resolve_scope_reference(source.scope, local_scope)?;
+        let resolved_type = resolved_scope.types.get(&source.name)
+            .ok_or_else(|| SimpleError::new(format!("Could not find '{}' in scope '{:?}'", source.name, resolved_scope.full_name)))?;
+
+        Ok(ast::DefinedTypeRef {
+            definition: resolved_type.clone(),
+            generic_parameters,
+        })
     }
 
     fn resolve_function_name(
