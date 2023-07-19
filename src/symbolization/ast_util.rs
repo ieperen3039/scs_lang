@@ -2,58 +2,59 @@ use std::{collections::HashMap, rc::Rc};
 
 use super::ast::*;
 
-impl StructDefinition {
-}
-
 impl TypeDefinition {
     pub const STRING_TYPE: Rc<TypeDefinition> = Rc::from(TypeDefinition::build_native("String"));
-    
+
     pub const INT_TYPE: Rc<TypeDefinition> = Rc::from(TypeDefinition::build_native("int"));
 
-    pub const RESULT_TYPE: Rc<TypeDefinition> =
-        Rc::from(TypeDefinition { 
-            name: Rc::from("Result"), 
-            generic_parameters: vec![Rc::from("P"), Rc::from("N")], 
-            sub_type: TypeSubType::Variant { variants: vec![
-                VariantValue { name: Rc::from("pos"), value_type: TypeRef::Generic(Rc::from("P")) },
-                VariantValue { name: Rc::from("neg"), value_type: TypeRef::Generic(Rc::from("N")) }
-            ] } 
-        });
+    pub const RESULT_TYPE: Rc<TypeDefinition> = Rc::from(TypeDefinition {
+        name: Rc::from("Result"),
+        generic_parameters: vec![Rc::from("P"), Rc::from("N")],
+        sub_type: TypeSubType::Variant {
+            variants: vec![
+                VariantValue {
+                    name: Rc::from("pos"),
+                    value_type: TypeRef::Generic(Rc::from("P")),
+                },
+                VariantValue {
+                    name: Rc::from("neg"),
+                    value_type: TypeRef::Generic(Rc::from("N")),
+                },
+            ],
+        },
+    });
 
-    pub const OPTIONAL_TYPE: Rc<TypeDefinition> =
-        Rc::from(TypeDefinition::Variant(VariantDefinition {
-            name: Rc::from("Optional"),
-            values: vec![Rc::from("some"), Rc::from("none")],
-            derived_from: Some(DefinedTypeRef {
+    pub const OPTIONAL_TYPE: Rc<TypeDefinition> = Rc::from(TypeDefinition {
+        name: Rc::from("Optional"),
+        generic_parameters: vec![Rc::from("T")],
+        sub_type: TypeSubType::Base {
+            derived: Some(Box::from(TypeRef::Defined(DefinedTypeRef {
                 definition: TypeDefinition::RESULT_TYPE,
-                generic_parameters: vec![],
-            }),
-        }));
+                generic_parameters: vec![TypeRef::Generic(Rc::from("T")), TypeRef::Void],
+            }))),
+        },
+    });
 
-    pub const BOOLEAN_TYPE: Rc<TypeDefinition> =
-    Rc::from(TypeDefinition::Variant(VariantDefinition {
+    pub const BOOLEAN_TYPE: Rc<TypeDefinition> = Rc::from(TypeDefinition {
         name: Rc::from("boolean"),
-        values: vec![Rc::from("true"), Rc::from("false")],
-        derived_from: Some(DefinedTypeRef {
-            definition: TypeDefinition::RESULT_TYPE,
-            generic_parameters: ,
-        }),
-    }));
+        generic_parameters: Vec::new(),
+        sub_type: TypeSubType::Base {
+            derived: Some(Box::from(TypeRef::Defined(DefinedTypeRef {
+                definition: TypeDefinition::RESULT_TYPE,
+                generic_parameters: vec![TypeRef::Void, TypeRef::Void],
+            }))),
+        },
+    });
 
-    pub fn get_name(&self) -> Identifier {
-        match self {
-            TypeDefinition::Tuple(StructDefinition { name, .. }) => name.clone(),
-            TypeDefinition::Enum(EnumDefinition { name, .. }) => name.clone(),
-            TypeDefinition::Variant(VariantDefinition { name, .. }) => name.clone(),
-            TypeDefinition::Base(BaseType { name, .. }) => name.clone(),
-        }
-    }
+    pub fn get_name(&self) -> Identifier { self.name }
 
-    pub fn build_derived(name: &str, derived_from : TypeRef) -> TypeDefinition {
+    pub fn build_plain(name: &str, derived_from: Option<TypeRef>) -> TypeDefinition {
         TypeDefinition {
             name: Rc::from(name),
             generic_parameters: Vec::new(),
-            sub_type: TypeSubType::Base { derived },
+            sub_type: TypeSubType::Base {
+                derived: derived_from.map(Box::from),
+            },
         }
     }
 
@@ -72,9 +73,18 @@ impl Expression {
             Expression::StaticFunctionCall(fun) => fun.function.body.return_var.var_type,
             Expression::FunctionBlock(block) => block.return_var.var_type,
             Expression::Array(array) => array.element_type,
-            Expression::Literal(Literal::String(_)) => TypeRef::Defined(DefinedTypeRef { definition: TypeDefinition::STRING_TYPE, generic_parameters: Vec::new() }), 
-            Expression::Literal(Literal::Number(_)) => TypeRef::Defined(DefinedTypeRef { definition: TypeDefinition::INT_TYPE, generic_parameters: Vec::new() }),
-            Expression::Literal(Literal::Boolean(_)) => TypeRef::Defined(DefinedTypeRef { definition: TypeDefinition::BOOLEAN_TYPE, generic_parameters: Vec::new() }),
+            Expression::Literal(Literal::String(_)) => TypeRef::Defined(DefinedTypeRef {
+                definition: TypeDefinition::STRING_TYPE,
+                generic_parameters: Vec::new(),
+            }),
+            Expression::Literal(Literal::Number(_)) => TypeRef::Defined(DefinedTypeRef {
+                definition: TypeDefinition::INT_TYPE,
+                generic_parameters: Vec::new(),
+            }),
+            Expression::Literal(Literal::Boolean(_)) => TypeRef::Defined(DefinedTypeRef {
+                definition: TypeDefinition::BOOLEAN_TYPE,
+                generic_parameters: Vec::new(),
+            }),
             Expression::Variable(var) => var.var_type,
         }
     }
