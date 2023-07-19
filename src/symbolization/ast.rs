@@ -23,6 +23,7 @@ pub enum TypeRef {
     UnamedTuple(Vec<TypeRef>),
     Array(Box<TypeRef>),
     Function(FunctionRef),
+    Generic(Identifier),
     Void
 }
 

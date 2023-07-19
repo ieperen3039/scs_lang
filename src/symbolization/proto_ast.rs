@@ -13,6 +13,7 @@ pub enum TypeName {
     UnamedTuple(Vec<TypeName>),
     Array(Box<TypeName>),
     FunctionType(FunctionName),
+    Generic(Identifier),
     Void
 }
 

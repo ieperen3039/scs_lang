@@ -3,40 +3,22 @@ use std::{collections::HashMap, rc::Rc};
 use super::ast::*;
 
 impl StructDefinition {
-    pub fn build_plain(name: &str, fields: Vec<StructField>) -> StructDefinition {
-        StructDefinition {
-            name: Rc::from(name),
-            generic_parameters: Vec::new(),
-            derived_from: None,
-            fields,
-        }
-    }
-
-    pub fn build_native(name: &str) -> StructDefinition {
-        StructDefinition {
-            name: Rc::from(name),
-            generic_parameters: Vec::new(),
-            derived_from: None,
-            fields: Vec::new(),
-        }
-    }
 }
 
 impl TypeDefinition {
-    pub const STRING_TYPE: Rc<TypeDefinition> = Rc::from(TypeDefinition::Tuple(
-        StructDefinition::build_native("String"),
-    ));
+    pub const STRING_TYPE: Rc<TypeDefinition> = Rc::from(TypeDefinition::build_native("String"));
     
-    pub const INT_TYPE: Rc<TypeDefinition> = Rc::from(TypeDefinition::Tuple(
-        StructDefinition::build_native("int"),
-    ));
+    pub const INT_TYPE: Rc<TypeDefinition> = Rc::from(TypeDefinition::build_native("int"));
 
     pub const RESULT_TYPE: Rc<TypeDefinition> =
-        Rc::from(TypeDefinition::Variant(VariantDefinition {
-            name: Rc::from("Result"),
-            values: vec![Rc::from("pos"), Rc::from("neg")],
-            derived_from: None,
-        }));
+        Rc::from(TypeDefinition { 
+            name: Rc::from("Result"), 
+            generic_parameters: vec![Rc::from("P"), Rc::from("N")], 
+            sub_type: TypeSubType::Variant { variants: vec![
+                VariantValue { name: Rc::from("pos"), value_type: TypeRef::Generic(Rc::from("P")) },
+                VariantValue { name: Rc::from("neg"), value_type: TypeRef::Generic(Rc::from("N")) }
+            ] } 
+        });
 
     pub const OPTIONAL_TYPE: Rc<TypeDefinition> =
         Rc::from(TypeDefinition::Variant(VariantDefinition {
@@ -44,7 +26,7 @@ impl TypeDefinition {
             values: vec![Rc::from("some"), Rc::from("none")],
             derived_from: Some(DefinedTypeRef {
                 definition: TypeDefinition::RESULT_TYPE,
-                generic_parameters: ,
+                generic_parameters: vec![],
             }),
         }));
 
@@ -64,6 +46,22 @@ impl TypeDefinition {
             TypeDefinition::Enum(EnumDefinition { name, .. }) => name.clone(),
             TypeDefinition::Variant(VariantDefinition { name, .. }) => name.clone(),
             TypeDefinition::Base(BaseType { name, .. }) => name.clone(),
+        }
+    }
+
+    pub fn build_derived(name: &str, derived_from : TypeRef) -> TypeDefinition {
+        TypeDefinition {
+            name: Rc::from(name),
+            generic_parameters: Vec::new(),
+            sub_type: TypeSubType::Base { derived },
+        }
+    }
+
+    pub fn build_native(name: &str) -> TypeDefinition {
+        TypeDefinition {
+            name: Rc::from(name),
+            generic_parameters: Vec::new(),
+            sub_type: TypeSubType::Base { derived: None },
         }
     }
 }
