@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 use simple_error::SimpleError;
 
 use crate::parsing::{ebnf_parser, parser};
-use crate::symbolization::ast::{self, Scope, Program};
-use crate::symbolization::{meta_program};
+use crate::symbolization::ast::{self, Program, Scope};
+use crate::symbolization::meta_program;
 
 pub struct ScsCompiler {
     parser: parser::Parser,
@@ -76,7 +77,8 @@ impl ScsCompiler {
             meta_program::extract_includes(&syntax_tree, &this_path).into_iter();
 
         let mut program = Program {
-            definitions: Scope::new(&source_file.to_string_lossy()),
+            name: source_file.to_string_lossy().to_string(),
+            definitions: Scope::new(&source_file.to_string_lossy(), None),
             main: None,
         };
 
@@ -87,12 +89,9 @@ impl ScsCompiler {
             program.definitions.extend(include_program.definitions);
         }
 
-
-
         // start parsing the definitions?
 
-        self.file_cache
-            .insert(source_file.to_path_buf(), program);
+        self.file_cache.insert(source_file.to_path_buf(), program);
 
         todo!()
     }

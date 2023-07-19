@@ -1,5 +1,7 @@
 use crate::parsing::{rule_nodes::RuleNode, ebnf_parser, parser};
 
+use super::symbolizer;
+
 
 #[test]
 fn collect_types_1() {
@@ -11,8 +13,6 @@ fn collect_types_1() {
 
     let grammar = ebnf_parser::parse_ebnf(definition).unwrap();
     let parser = parser::Parser::new(grammar, None).unwrap();
-    let program_ast = parser.parse_program(&program);
-
-    let collector = TypeCollector::new();
-
+    let ast = parser.parse_program(&program).unwrap();
+    let program = symbolizer::convert_to_program("collect_types_1", ast).unwrap();
 }

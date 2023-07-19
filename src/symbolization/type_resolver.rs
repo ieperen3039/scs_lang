@@ -9,16 +9,16 @@ pub struct TypeResolver {
 }
 
 impl TypeResolver {
-    pub fn resolve_scope(&self, scope: &mut Scope) -> Result<Scope, SimpleError> {
+    pub fn resolve_scope(&self, scope: &mut Scope) -> Result<&Scope, SimpleError> {
         for (name, type_def) in &scope.types {
             **type_def = self.resolve_type(**type_def, scope)?;
         }
 
         for (subscope_name, subscope) in &mut scope.scopes {
-            *subscope = self.resolve_scope(subscope)?;
+            self.resolve_scope(subscope)?;
         }
 
-        todo!()
+        Ok(scope)
     }
 
     fn resolve_scope_reference<'a>(

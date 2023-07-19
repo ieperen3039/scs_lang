@@ -33,7 +33,7 @@ fn main() {
 
     let mut compiler = ScsCompiler::build(&definition, xml_output_file).unwrap();
     if let Some(result) = compiler.compile(&base_directory.join(program_file)) {
-        print!("{:?}", result.main.name);
+        print!("{:?}", result.name);
     }
 
 }

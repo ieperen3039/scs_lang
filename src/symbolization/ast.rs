@@ -3,7 +3,7 @@ use std::{collections::HashMap, rc::Rc};
 pub type Identifier = Rc<str>;
 
 pub struct Program {
-    pub name: Identifier,
+    pub name: String,
     pub definitions: Scope,
     pub main: Option<Rc<FunctionDefinition>>,
 }
@@ -85,7 +85,7 @@ pub struct VariantValue {
 pub struct FunctionDefinition {
     pub name: Identifier,
     // there are generic declarations; brand new identifiers
-    pub generic_parameters : Vec<Identifier>,
+    pub generic_parameters : Vec<Rc<GenericParameter>>,
     // parameter expansion must be resolved before the ast is constructed
     pub parameters: HashMap<Identifier, TypeRef>,
     pub body: FunctionBlock,
