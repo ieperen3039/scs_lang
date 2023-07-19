@@ -2,8 +2,6 @@ use std::{collections::HashMap, rc::Rc};
 
 pub type Identifier = Rc<str>;
 
-//#[derive(Hash, Eq, PartialEq)]
-
 pub struct Program {
     pub name: Identifier,
     pub definitions: Scope,
@@ -18,6 +16,7 @@ pub struct Scope {
 
 // -- references to types -- 
 
+#[derive(Debug, Hash, Eq, PartialEq)]
 pub enum TypeRef {
     Defined(DefinedTypeRef),
     UnamedTuple(Vec<TypeRef>),
@@ -27,6 +26,7 @@ pub enum TypeRef {
     Void
 }
 
+#[derive(Debug, Hash, Eq, PartialEq)]
 pub struct DefinedTypeRef {
     pub definition: Rc<TypeDefinition>,
     // implementation / our selection of types to use as generic parameters
@@ -34,6 +34,7 @@ pub struct DefinedTypeRef {
 }
 
 // an unspecific `fn<>` declaration
+#[derive(Debug, Hash, Eq, PartialEq)]
 pub struct FunctionRef {
     pub parameters: Vec<TypeRef>,
     pub return_type: Box<TypeRef>,
@@ -41,6 +42,7 @@ pub struct FunctionRef {
 
 // -- defined types --
 
+#[derive(Debug, Hash, Eq, PartialEq)]
 pub struct TypeDefinition {
     pub name: Identifier,
     // there are generic declarations; brand new identifiers
@@ -48,10 +50,12 @@ pub struct TypeDefinition {
     pub sub_type : TypeSubType,
 }
 
+#[derive(Debug, Hash, Eq, PartialEq)]
 pub struct GenericParameter {
-    name : Identifier
+    pub name : Identifier
 }
 
+#[derive(Debug, Hash, Eq, PartialEq)]
 pub enum TypeSubType {
     Base { derived : Option<Box<TypeRef>> },
     Enum { values : Vec<Identifier> },
@@ -59,6 +63,7 @@ pub enum TypeSubType {
     Tuple { elements : Vec<TypeRef> },
 }
 
+#[derive(Debug, Hash, Eq, PartialEq)]
 pub struct VariantValue {
     pub name : Identifier,
     pub value_type : TypeRef,
@@ -104,6 +109,7 @@ pub enum Expression {
     Variable(Rc<VariableDeclaration>),
 }
 
+#[derive(Debug)]
 pub enum Literal {
     Number(i32),
     String(Rc<str>),
