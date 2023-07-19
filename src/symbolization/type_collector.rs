@@ -4,17 +4,17 @@ use simple_error::SimpleError;
 
 use crate::parsing::rule_nodes::RuleNode;
 
-use super::proto_ast::*;
+use super::ast::*;
 
 pub fn read_scope_definitions(
     node: &RuleNode,
-    parent_scope: &ProtoScope,
-) -> Result<ProtoScope, SimpleError> {
+    parent_scope: &Scope,
+) -> Result<Scope, SimpleError> {
     debug_assert_eq!(node.rule_name, "scope");
 
     let scope_name = node.expect_node("scope_name")?;
 
-    let mut scope = ProtoScope::new(scope_name.tokens, Some(parent_scope));
+    let mut scope = Scope::new(scope_name.tokens, Some(parent_scope));
 
     for node in &node.sub_rules {
         read_definitions(node, &mut scope)?;
@@ -24,7 +24,7 @@ pub fn read_scope_definitions(
 }
 
 // scope | type_definition | enum_definition | variant_definition | implementation | function_definition
-fn read_definitions(node: &RuleNode, scope: &mut ProtoScope) -> Result<(), SimpleError> {
+fn read_definitions(node: &RuleNode, scope: &mut Scope) -> Result<(), SimpleError> {
     match node.rule_name {
         "scope" => {
             let sub_scope = read_scope_definitions(node, scope)?;
@@ -87,11 +87,11 @@ fn read_type_definition(node: &RuleNode) -> Result<TypeDefinition, SimpleError> 
     })
 }
 
-fn read_derived_type(derived_node: &RuleNode) -> Result<TypeName, SimpleError> {
+fn read_derived_type(derived_node: &RuleNode) -> Result<TypeRef, SimpleError> {
     let maybe_base_type_node = derived_node.find_node("base_type_ref");
 
     if let Some(base_type_node) = maybe_base_type_node {
-        return Ok(TypeName::Defined(read_scoped_base_type(
+        return Ok(TypeRef::UnresolvedName(read_scoped_base_type(
             derived_node,
             base_type_node,
         )?));
@@ -104,19 +104,19 @@ fn read_derived_type(derived_node: &RuleNode) -> Result<TypeName, SimpleError> {
     read_tuple_inst(tuple_inst_node)
 }
 
-fn read_tuple_inst(tuple_inst_node: &RuleNode) -> Result<TypeName, SimpleError> {
+fn read_tuple_inst(tuple_inst_node: &RuleNode) -> Result<TypeRef, SimpleError> {
     let mut types = Vec::new();
     for node in tuple_inst_node.find_nodes("type_ref") {
         types.push(read_type_ref(node)?)
     }
 
-    Ok(TypeName::UnamedTuple(types))
+    Ok(TypeRef::UnamedTuple(types))
 }
 
 fn read_scoped_base_type(
     derived_node: &RuleNode,
     base_type_node: &RuleNode,
-) -> Result<DefinedName, SimpleError> {
+) -> Result<UnresolvedName, SimpleError> {
     let scope = derived_node
         .find_nodes("scope_name")
         .into_iter()
@@ -134,7 +134,7 @@ fn read_scoped_base_type(
         }
     };
 
-    Ok(DefinedName {
+    Ok(UnresolvedName {
         name: name_node.as_identifier(),
         generic_parameters,
         scope,
@@ -200,18 +200,18 @@ fn read_variant_value(node: &RuleNode) -> Result<VariantValue, SimpleError> {
 
     Ok(VariantValue {
         name: name_node.as_identifier(),
-        type_name,
+        value_type: type_name,
     })
 }
 
 // type_ref = ( ( [ _scope_reference ], ".", base_type_ref ) | fn_type | tuple_inst ), { array_symbol };
-fn read_type_ref(node: &RuleNode) -> Result<TypeName, SimpleError> {
+fn read_type_ref(node: &RuleNode) -> Result<TypeRef, SimpleError> {
     if let Some(base_type_node) = node.find_node("base_type_decl") {
-        let defined_name = read_scoped_base_type(node, base_type_node)?;
-        Ok(TypeName::Defined(defined_name))
+        let unresolved_name = read_scoped_base_type(node, base_type_node)?;
+        Ok(TypeRef::UnresolvedName(unresolved_name))
     } else if let Some(fn_type_node) = node.find_node("fn_type") {
         let function_name = read_fn_type(fn_type_node)?;
-        Ok(TypeName::FunctionType(function_name))
+        Ok(TypeRef::Function(function_name))
     } else if let Some(tuple_inst_node) = node.find_node("tuple_inst") {
         read_tuple_inst(tuple_inst_node)
     } else {
@@ -221,7 +221,7 @@ fn read_type_ref(node: &RuleNode) -> Result<TypeName, SimpleError> {
 
 // fn_type = [ unnamed_parameter_list ], return_type;
 // unnamed_parameter_list = type_ref, { type_ref };
-fn read_fn_type(fn_type_node: &RuleNode<'_, '_>) -> Result<FunctionName, SimpleError> {
+fn read_fn_type(fn_type_node: &RuleNode<'_, '_>) -> Result<FunctionType, SimpleError> {
     let parameters = {
         let mut parameters = Vec::new();
         let parameter_list_node = fn_type_node.find_node("unnamed_parameter_list");
@@ -235,14 +235,14 @@ fn read_fn_type(fn_type_node: &RuleNode<'_, '_>) -> Result<FunctionName, SimpleE
     let return_type_node = fn_type_node.expect_node("return_type")?;
     let return_type = read_type_ref(return_type_node)?;
     
-    Ok(FunctionName {
+    Ok(FunctionType {
         parameters,
         return_type: Box::from(return_type),
     })
 }
 
 // generic_types = identifier, { identifier };
-fn read_generic_types_decl(node: &RuleNode) -> Result<Vec<Identifier>, SimpleError> {
+fn read_generic_types_decl(node: &RuleNode) -> Result<Vec<Rc<GenericParameter>>, SimpleError> {
     debug_assert_eq!(node.rule_name, "generic_types_decl");
     let mut generic_types = Vec::new();
 
@@ -251,14 +251,14 @@ fn read_generic_types_decl(node: &RuleNode) -> Result<Vec<Identifier>, SimpleErr
             return Err(SimpleError::new("expected identifier"));
         }
 
-        generic_types.push(generic_type_node.as_identifier());
+        generic_types.push(Rc::from(GenericParameter { name: generic_type_node.as_identifier() }));
     }
 
     Ok(generic_types)
 }
 
 // generic_types_inst = type_name, { type_name };
-fn read_generic_types_inst(node: &RuleNode) -> Result<Vec<TypeName>, SimpleError> {
+fn read_generic_types_inst(node: &RuleNode) -> Result<Vec<TypeRef>, SimpleError> {
     debug_assert_eq!(node.rule_name, "generic_types_inst");
     let mut generic_types = Vec::new();
 

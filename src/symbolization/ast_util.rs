@@ -100,12 +100,20 @@ impl Expression {
 }
 
 impl Scope {
-    pub fn new() -> Scope {
+    pub fn new(name: &str, parent: Option<&Scope>) -> Scope {
+        let mut full_name = parent.map(|sc| sc.full_name.clone()).unwrap_or(Vec::new());
+        full_name.push(Rc::from(name));
+
         Scope {
+            full_name,
             scopes: HashMap::new(),
             types: HashMap::new(),
             functions: HashMap::new(),
         }
+    }
+
+    pub fn get_name(&self) -> Identifier {
+        self.full_name.last().unwrap().to_owned()
     }
 
     pub fn extend(&mut self, other: Scope) {

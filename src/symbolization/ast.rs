@@ -9,6 +9,7 @@ pub struct Program {
 }
 
 pub struct Scope {
+    pub full_name : Vec<Identifier>,
     pub scopes: HashMap<Identifier, Scope>,
     pub types: HashMap<Identifier, Rc<TypeDefinition>>,
     pub functions: HashMap<Identifier, Rc<FunctionDefinition>>,
@@ -18,24 +19,34 @@ pub struct Scope {
 
 #[derive(Debug, Hash, Eq, PartialEq)]
 pub enum TypeRef {
+    UnresolvedName(UnresolvedName),
     Defined(DefinedTypeRef),
     UnamedTuple(Vec<TypeRef>),
     Array(Box<TypeRef>),
-    Function(FunctionRef),
+    Function(FunctionType),
     Generic(Rc<GenericParameter>),
     Void
 }
 
 #[derive(Debug, Hash, Eq, PartialEq)]
+// could be a base type, but also an enum variant or a named tuple
 pub struct DefinedTypeRef {
     pub definition: Rc<TypeDefinition>,
     // implementation / our selection of types to use as generic parameters
     pub generic_parameters : Vec<TypeRef>,
 }
 
+#[derive(Debug, Hash, Eq, PartialEq)]
+pub struct UnresolvedName {
+    pub name: Identifier,
+    pub scope : Vec<Identifier>,
+    // implementation / our selection of types to use as generic parameters
+    pub generic_parameters : Vec<TypeRef>,
+}
+
 // an unspecific `fn<>` declaration
 #[derive(Debug, Hash, Eq, PartialEq)]
-pub struct FunctionRef {
+pub struct FunctionType {
     pub parameters: Vec<TypeRef>,
     pub return_type: Box<TypeRef>,
 }

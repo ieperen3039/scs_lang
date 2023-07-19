@@ -48,7 +48,7 @@ pub fn read_function_block(
 
 pub fn read_function_body(
     node: &RuleNode<'_, '_>,
-    parameters: HashMap<Identifier, TypeName>,
+    parameters: HashMap<Identifier, TypeRef>,
     return_var: Rc<VariableDeclaration>,
 ) -> Result<FunctionBlock, SimpleError> {
     debug_assert_eq!(node.rule_name, "function_block");
@@ -137,7 +137,7 @@ fn read_expression(
 }
 
 // _mutator                = method_call | method_to_function_call | operator;
-fn read_mutator(expression_type: TypeName, mutator_node: &RuleNode<'_, '_>, variables: &mut VarStorage) -> Result<Mutator, SimpleError> {
+fn read_mutator(expression_type: TypeRef, mutator_node: &RuleNode<'_, '_>, variables: &mut VarStorage) -> Result<Mutator, SimpleError> {
     todo!()
 }
 

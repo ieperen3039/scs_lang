@@ -5,7 +5,7 @@ use simple_error::SimpleError;
 use crate::{
     parsing::rule_nodes::RuleNode,
     symbolization::{
-        proto_ast::ProtoScope,
+        ast::Scope,
         type_collector,
         type_resolver::TypeResolver,
     },
@@ -17,7 +17,7 @@ pub fn convert_to_program(name: &str, tree: RuleNode) -> Result<Program, SimpleE
     debug_assert_eq!(tree.rule_name, "scs_program");
 
     // first collect definitions
-    let mut proto_scope = ProtoScope::new(name, None);
+    let mut proto_scope = Scope::new(name, None);
 
     for node in tree.sub_rules {
         match node.rule_name {
@@ -31,7 +31,7 @@ pub fn convert_to_program(name: &str, tree: RuleNode) -> Result<Program, SimpleE
     }
 
     // then resolve type cross-references
-    let resolver = TypeResolver { proto_scope, };
+    let resolver = TypeResolver { root_scope: proto_scope, };
     let mut resolved_scope = resolver.resolve_scope(proto_scope)?;
 
     let symbolizer = Symbolizer {};
@@ -94,7 +94,7 @@ impl Symbolizer {
         let generic_parameters = {
             let generic_types_node = signature_node.find_node("generic_types_decl");
             if let Some(generic_types_node) = generic_types_node {
-                read_generic_types_decl(generic_types_node)?
+                self.read_generic_types_decl(generic_types_node)?
             } else {
                 Vec::new()
             }
@@ -211,7 +211,7 @@ impl Symbolizer {
             let return_type_node = fn_type_node.expect_node("return_type")?;
             let return_type = self.read_type_ref(return_type_node)?;
 
-            Ok(TypeRef::Function(FunctionRef {
+            Ok(TypeRef::Function(FunctionType {
                 parameters,
                 return_type: Box::from(return_type),
             }))
