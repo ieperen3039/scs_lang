@@ -23,7 +23,7 @@ pub enum TypeRef {
     UnamedTuple(Vec<TypeRef>),
     Array(Box<TypeRef>),
     Function(FunctionRef),
-    Generic(Identifier),
+    Generic(Rc<GenericParameter>),
     Void
 }
 
@@ -44,8 +44,12 @@ pub struct FunctionRef {
 pub struct TypeDefinition {
     pub name: Identifier,
     // there are generic declarations; brand new identifiers
-    pub generic_parameters : Vec<Identifier>,
+    pub generic_parameters : Vec<Rc<GenericParameter>>,
     pub sub_type : TypeSubType,
+}
+
+pub struct GenericParameter {
+    name : Identifier
 }
 
 pub enum TypeSubType {

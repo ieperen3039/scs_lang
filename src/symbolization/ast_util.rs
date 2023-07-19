@@ -7,33 +7,40 @@ impl TypeDefinition {
 
     pub const INT_TYPE: Rc<TypeDefinition> = Rc::from(TypeDefinition::build_native("int"));
 
-    pub const RESULT_TYPE: Rc<TypeDefinition> = Rc::from(TypeDefinition {
-        name: Rc::from("Result"),
-        generic_parameters: vec![Rc::from("P"), Rc::from("N")],
-        sub_type: TypeSubType::Variant {
-            variants: vec![
-                VariantValue {
-                    name: Rc::from("pos"),
-                    value_type: TypeRef::Generic(Rc::from("P")),
-                },
-                VariantValue {
-                    name: Rc::from("neg"),
-                    value_type: TypeRef::Generic(Rc::from("N")),
-                },
-            ],
-        },
-    });
+    pub const RESULT_TYPE: Rc<TypeDefinition> = {
+        let generic_pos = Rc::from(GenericParameter{ name: Rc::from("P")});
+        let generic_neg = Rc::from(GenericParameter{ name: Rc::from("N")});
+        Rc::from(TypeDefinition {
+            name: Rc::from("Result"),
+            generic_parameters: vec![generic_pos, generic_neg],
+            sub_type: TypeSubType::Variant {
+                variants: vec![
+                    VariantValue {
+                        name: Rc::from("pos"),
+                        value_type: TypeRef::Generic(generic_pos),
+                    },
+                    VariantValue {
+                        name: Rc::from("neg"),
+                        value_type: TypeRef::Generic(generic_neg),
+                    },
+                ],
+            },
+        })
+    };
 
-    pub const OPTIONAL_TYPE: Rc<TypeDefinition> = Rc::from(TypeDefinition {
-        name: Rc::from("Optional"),
-        generic_parameters: vec![Rc::from("T")],
-        sub_type: TypeSubType::Base {
-            derived: Some(Box::from(TypeRef::Defined(DefinedTypeRef {
-                definition: TypeDefinition::RESULT_TYPE,
-                generic_parameters: vec![TypeRef::Generic(Rc::from("T")), TypeRef::Void],
-            }))),
-        },
-    });
+    pub const OPTIONAL_TYPE: Rc<TypeDefinition> = {
+        let generic_type = Rc::from(GenericParameter{ name: Rc::from("T") });
+        Rc::from(TypeDefinition {
+            name: Rc::from("Optional"),
+            generic_parameters: vec![generic_type],
+            sub_type: TypeSubType::Base {
+                derived: Some(Box::from(TypeRef::Defined(DefinedTypeRef {
+                    definition: TypeDefinition::RESULT_TYPE,
+                    generic_parameters: vec![TypeRef::Generic(generic_type), TypeRef::Void],
+                }))),
+            },
+        })
+    };
 
     pub const BOOLEAN_TYPE: Rc<TypeDefinition> = Rc::from(TypeDefinition {
         name: Rc::from("boolean"),
@@ -46,7 +53,9 @@ impl TypeDefinition {
         },
     });
 
-    pub fn get_name(&self) -> Identifier { self.name }
+    pub fn get_name(&self) -> Identifier {
+        self.name
+    }
 
     pub fn build_plain(name: &str, derived_from: Option<TypeRef>) -> TypeDefinition {
         TypeDefinition {
