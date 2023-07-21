@@ -6,7 +6,12 @@ use crate::parsing::rule_nodes::RuleNode;
 
 use super::ast::*;
 
+struct TypeCollector {
+    next_id: u32,
+}
+
 pub fn read_scope_definitions(
+    &mut self,
     node: &RuleNode,
     parent_scope: &Scope,
 ) -> Result<Scope, SimpleError> {
@@ -24,7 +29,7 @@ pub fn read_scope_definitions(
 }
 
 // scope | type_definition | enum_definition | variant_definition | implementation | function_definition
-fn read_definitions(node: &RuleNode, scope: &mut Scope) -> Result<(), SimpleError> {
+fn read_definitions(&mut self, node: &RuleNode, scope: &mut Scope) -> Result<(), SimpleError> {
     match node.rule_name {
         "scope" => {
             let sub_scope = read_scope_definitions(node, scope)?;
@@ -32,15 +37,15 @@ fn read_definitions(node: &RuleNode, scope: &mut Scope) -> Result<(), SimpleErro
         }
         "type_definition" => {
             let type_def = read_type_definition(node)?;
-            scope.types.insert(type_def.name, Rc::from(type_def));
+            scope.types.insert(type_def.name, type_def);
         }
         "enum_definition" => {
             let enum_def = read_enum(node)?;
-            scope.types.insert(enum_def.name, Rc::from(enum_def));
+            scope.types.insert(enum_def.name, enum_def);
         }
         "variant_definition" => {
             let variant_def = read_variant(node)?;
-            scope.types.insert(variant_def.name, Rc::from(variant_def));
+            scope.types.insert(variant_def.name, variant_def);
         }
         _ => {}
     }
@@ -49,7 +54,7 @@ fn read_definitions(node: &RuleNode, scope: &mut Scope) -> Result<(), SimpleErro
 }
 
 // base_type, [ derived_type | native_decl ], { field_declaration };
-pub fn read_type_definition(node: &RuleNode) -> Result<TypeDefinition, SimpleError> {
+pub fn read_type_definition(&mut self, node: &RuleNode) -> Result<TypeDefinition, SimpleError> {
     debug_assert_eq!(node.rule_name, "type_definition");
 
     // base_type = identifier, [ generic_types_decl ];
@@ -80,6 +85,7 @@ pub fn read_type_definition(node: &RuleNode) -> Result<TypeDefinition, SimpleErr
 
     Ok(TypeDefinition {
         name: base_type_name,
+        id: ,
         generic_parameters: generic_types,
         sub_type: TypeSubType::Base {
             derived: derived_from,
@@ -87,7 +93,7 @@ pub fn read_type_definition(node: &RuleNode) -> Result<TypeDefinition, SimpleErr
     })
 }
 
-pub fn read_derived_type(derived_node: &RuleNode) -> Result<TypeRef, SimpleError> {
+pub fn read_derived_type(&mut self, derived_node: &RuleNode) -> Result<TypeRef, SimpleError> {
     let maybe_base_type_node = derived_node.find_node("base_type_ref");
 
     if let Some(base_type_node) = maybe_base_type_node {
@@ -104,7 +110,7 @@ pub fn read_derived_type(derived_node: &RuleNode) -> Result<TypeRef, SimpleError
     read_tuple_inst(tuple_inst_node)
 }
 
-pub fn read_tuple_inst(tuple_inst_node: &RuleNode) -> Result<TypeRef, SimpleError> {
+pub fn read_tuple_inst(&mut self, tuple_inst_node: &RuleNode) -> Result<TypeRef, SimpleError> {
     let mut types = Vec::new();
     for node in tuple_inst_node.find_nodes("type_ref") {
         types.push(read_type_ref(node)?)
@@ -114,6 +120,7 @@ pub fn read_tuple_inst(tuple_inst_node: &RuleNode) -> Result<TypeRef, SimpleErro
 }
 
 pub fn read_scoped_base_type(
+    &mut self, 
     derived_node: &RuleNode,
     base_type_node: &RuleNode,
 ) -> Result<UnresolvedName, SimpleError> {
@@ -142,7 +149,7 @@ pub fn read_scoped_base_type(
 }
 
 // enum_definition = identifier, { identifier };
-pub fn read_enum(node: &RuleNode) -> Result<TypeDefinition, SimpleError> {
+pub fn read_enum(&mut self, node: &RuleNode) -> Result<TypeDefinition, SimpleError> {
     debug_assert_eq!(node.rule_name, "enum_definition");
 
     let name_node = node.expect_node("identifier")?;
@@ -163,7 +170,7 @@ pub fn read_enum(node: &RuleNode) -> Result<TypeDefinition, SimpleError> {
 }
 
 // variant_definition = identifier, [ generic_types_decl ], variant_value_decl, { variant_value_decl };
-pub fn read_variant(node: &RuleNode) -> Result<TypeDefinition, SimpleError> {
+pub fn read_variant(&mut self, node: &RuleNode) -> Result<TypeDefinition, SimpleError> {
     debug_assert_eq!(node.rule_name, "variant_definition");
 
     let name_node = node.expect_node("identifier")?;
@@ -193,7 +200,7 @@ pub fn read_variant(node: &RuleNode) -> Result<TypeDefinition, SimpleError> {
 }
 
 // variant_value_decl = identifier, type_ref;
-pub fn read_variant_value(node: &RuleNode) -> Result<VariantValue, SimpleError> {
+pub fn read_variant_value(&mut self, node: &RuleNode) -> Result<VariantValue, SimpleError> {
     let name_node = node.expect_node("identifier")?;
     let type_node = node.expect_node("type_ref")?;
     let type_name = read_type_ref(type_node)?;
@@ -205,7 +212,7 @@ pub fn read_variant_value(node: &RuleNode) -> Result<VariantValue, SimpleError> 
 }
 
 // type_ref = ( ( [ _scope_reference ], ".", base_type_ref ) | fn_type | tuple_inst ), { array_symbol };
-pub fn read_type_ref(node: &RuleNode) -> Result<TypeRef, SimpleError> {
+pub fn read_type_ref(&mut self, node: &RuleNode) -> Result<TypeRef, SimpleError> {
     if let Some(base_type_node) = node.find_node("base_type_decl") {
         let unresolved_name = read_scoped_base_type(node, base_type_node)?;
         Ok(TypeRef::UnresolvedName(unresolved_name))
@@ -221,7 +228,7 @@ pub fn read_type_ref(node: &RuleNode) -> Result<TypeRef, SimpleError> {
 
 // fn_type = [ unnamed_parameter_list ], return_type;
 // unnamed_parameter_list = type_ref, { type_ref };
-pub fn read_fn_type(fn_type_node: &RuleNode<'_, '_>) -> Result<FunctionType, SimpleError> {
+pub fn read_fn_type(&mut self, fn_type_node: &RuleNode<'_, '_>) -> Result<FunctionType, SimpleError> {
     let parameters = {
         let mut parameters = Vec::new();
         let parameter_list_node = fn_type_node.find_node("unnamed_parameter_list");
@@ -242,7 +249,7 @@ pub fn read_fn_type(fn_type_node: &RuleNode<'_, '_>) -> Result<FunctionType, Sim
 }
 
 // generic_types = identifier, { identifier };
-pub fn read_generic_types_decl(node: &RuleNode) -> Result<Vec<Rc<GenericParameter>>, SimpleError> {
+pub fn read_generic_types_decl(&mut self, node: &RuleNode) -> Result<Vec<Rc<GenericParameter>>, SimpleError> {
     debug_assert_eq!(node.rule_name, "generic_types_decl");
     let mut generic_types = Vec::new();
 
@@ -258,7 +265,7 @@ pub fn read_generic_types_decl(node: &RuleNode) -> Result<Vec<Rc<GenericParamete
 }
 
 // generic_types_inst = type_name, { type_name };
-pub fn read_generic_types_inst(node: &RuleNode) -> Result<Vec<TypeRef>, SimpleError> {
+pub fn read_generic_types_inst(&mut self, node: &RuleNode) -> Result<Vec<TypeRef>, SimpleError> {
     debug_assert_eq!(node.rule_name, "generic_types_inst");
     let mut generic_types = Vec::new();
 

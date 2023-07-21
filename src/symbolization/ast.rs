@@ -11,8 +11,8 @@ pub struct Program {
 pub struct Scope {
     pub full_name : Vec<Identifier>,
     pub scopes: HashMap<Identifier, Scope>,
-    pub types: HashMap<Identifier, Rc<TypeDefinition>>,
-    pub functions: HashMap<Identifier, Rc<FunctionDefinition>>,
+    pub types: HashMap<Identifier, TypeDefinition>,
+    pub functions: HashMap<Identifier, FunctionDefinition>,
 }
 
 // -- references to types -- 
@@ -31,7 +31,7 @@ pub enum TypeRef {
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 // could be a base type, but also an enum variant or a named tuple
 pub struct DefinedTypeRef {
-    pub definition: Rc<TypeDefinition>,
+    pub id: u32,
     // implementation / our selection of types to use as generic parameters
     pub generic_parameters : Vec<TypeRef>,
 }
@@ -56,6 +56,7 @@ pub struct FunctionType {
 #[derive(Debug, Hash, Eq, PartialEq)]
 pub struct TypeDefinition {
     pub name: Identifier,
+    pub id: u32,
     // there are generic declarations; brand new identifiers
     pub generic_parameters : Vec<Rc<GenericParameter>>,
     pub sub_type : TypeSubType,

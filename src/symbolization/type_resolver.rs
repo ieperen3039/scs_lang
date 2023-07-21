@@ -10,8 +10,8 @@ pub struct TypeResolver {
 
 impl TypeResolver {
     pub fn resolve_scope(&self, scope: &mut Scope) -> Result<(), SimpleError> {
-        for (_type_name, mut type_def) in &scope.types {
-            self.resolve_type(type_def.borrow_mut(), scope)?;
+        for (_type_name, type_def) in &mut scope.types {
+            self.resolve_type(type_def, scope)?;
         }
 
         for (_subscope_name, subscope) in &mut scope.scopes {
@@ -145,7 +145,7 @@ impl TypeResolver {
             })?;
 
         Ok(DefinedTypeRef {
-            definition: resolved_type.clone(),
+            id: resolved_type.id,
             generic_parameters,
         })
     }
