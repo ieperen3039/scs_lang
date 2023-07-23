@@ -1,108 +1,37 @@
 use std::{collections::HashMap, rc::Rc};
 
-use super::ast::*;
+use super::{ast::*, build_in_types::{TYPE_ID_STRING, TYPE_ID_INT, TYPE_ID_BOOLEAN}};
 
 impl TypeDefinition {
-    pub const STRING: Rc<TypeDefinition> = Rc::from(TypeDefinition::build_native("String"));
-
-    pub const NUMBER: Rc<TypeDefinition> = Rc::from(TypeDefinition::build_native("int"));
-
-    pub const RESULT: Rc<TypeDefinition> = {
-        let generic_pos = Rc::from(GenericParameter{ name: Rc::from("P")});
-        let generic_neg = Rc::from(GenericParameter{ name: Rc::from("N")});
-        Rc::from(TypeDefinition {
-            name: Rc::from("Result"),
-            generic_parameters: vec![generic_pos, generic_neg],
-            sub_type: TypeSubType::Variant {
-                variants: vec![
-                    VariantValue {
-                        name: Rc::from("pos"),
-                        value_type: TypeRef::Generic(generic_pos),
-                    },
-                    VariantValue {
-                        name: Rc::from("neg"),
-                        value_type: TypeRef::Generic(generic_neg),
-                    },
-                ],
-            },
-        })
-    };
-
-    pub const OPTIONAL: Rc<TypeDefinition> = {
-        let generic_type = Rc::from(GenericParameter{ name: Rc::from("T") });
-        Rc::from(TypeDefinition {
-            name: Rc::from("Optional"),
-            generic_parameters: vec![generic_type],
-            sub_type: TypeSubType::Base {
-                derived: Some(Box::from(TypeRef::Defined(DefinedTypeRef {
-                    definition: TypeDefinition::RESULT,
-                    generic_parameters: vec![TypeRef::Generic(generic_type), TypeRef::Void],
-                }))),
-            },
-        })
-    };
-
-    pub const BOOLEAN: Rc<TypeDefinition> = Rc::from(TypeDefinition {
-        name: Rc::from("boolean"),
-        generic_parameters: Vec::new(),
-        sub_type: TypeSubType::Base {
-            derived: Some(Box::from(TypeRef::Defined(DefinedTypeRef {
-                definition: TypeDefinition::RESULT,
-                generic_parameters: vec![TypeRef::Void, TypeRef::Void],
-            }))),
-        },
-    });
-
-    pub fn get_name(&self) -> Identifier {
-        self.name
-    }
-
-    pub fn build_plain(name: &str, derived_from: Option<TypeRef>) -> TypeDefinition {
-        TypeDefinition {
-            name: Rc::from(name),
-            generic_parameters: Vec::new(),
-            sub_type: TypeSubType::Base {
-                derived: derived_from.map(Box::from),
-            },
-        }
-    }
-
-    pub fn build_native(name: &str) -> TypeDefinition {
-        TypeDefinition {
-            name: Rc::from(name),
-            generic_parameters: Vec::new(),
-            sub_type: TypeSubType::Base { derived: None },
-        }
-    }
 }
 
 impl TypeRef {
-    pub const STRING : TypeRef = TypeRef::Defined(DefinedTypeRef {
-        definition: TypeDefinition::STRING,
+    pub const STRING: TypeRef = TypeRef::Defined(DefinedRef {
+        id: TYPE_ID_STRING,
         generic_parameters: Vec::new(),
     });
 
-    pub const NUMBER : TypeRef = TypeRef::Defined(DefinedTypeRef {
-        definition: TypeDefinition::NUMBER,
+    pub const NUMBER: TypeRef = TypeRef::Defined(DefinedRef {
+        id: TYPE_ID_INT,
         generic_parameters: Vec::new(),
     });
 
-    pub const BOOLEAN : TypeRef = TypeRef::Defined(DefinedTypeRef {
-        definition: TypeDefinition::BOOLEAN,
+    pub const BOOLEAN: TypeRef = TypeRef::Defined(DefinedRef {
+        id: TYPE_ID_BOOLEAN,
         generic_parameters: Vec::new(),
     });
 }
 
 impl Expression {
-    pub fn get_type(&self) -> &TypeRef {
+    pub fn get_type(&self) -> TypeRef {
         match &self {
-            Expression::StaticFunctionCall(fun) => &fun.function.body.return_var.var_type,
-            Expression::FunctionBlock(block) => &block.return_var.var_type,
-            Expression::Array(array) => &array.element_type,
-            Expression::Literal(Literal::String(_)) => &TypeRef::STRING,
-            Expression::Literal(Literal::Number(_)) => &TypeRef::NUMBER,
-            Expression::Literal(Literal::Boolean(_)) => &TypeRef::BOOLEAN,
-            Expression::Variable(var) => &var.var_type,
+            Expression::StaticFunctionCall(fun) => fun.function.body.return_var.var_type.clone(),
+            Expression::FunctionBlock(block) => block.return_var.var_type.clone(),
+            Expression::Array(array) => array.element_type.clone(),
+            Expression::Literal(Literal::String(_)) => TypeRef::STRING.clone(),
+            Expression::Literal(Literal::Number(_)) => TypeRef::NUMBER.clone(),
+            Expression::Literal(Literal::Boolean(_)) => TypeRef::BOOLEAN.clone(),
+            Expression::Variable(var) => var.var_type.clone(),
         }
     }
 }
@@ -120,6 +49,18 @@ impl Scope {
         }
     }
 
+    pub fn add_sub_scope(&mut self, scope_to_add : Scope) {
+        self.scopes.insert(scope_to_add.get_name(), scope_to_add);
+    }
+
+    pub fn add_type(&mut self, type_to_add : TypeDefinition) {
+        self.types.insert(type_to_add.name.clone(), type_to_add);
+    }
+
+    pub fn add_function(&mut self, fn_to_add : FunctionDefinition) {
+        self.functions.insert(fn_to_add.name.clone(), fn_to_add);
+    }
+
     pub fn get_name(&self) -> Identifier {
         self.full_name.last().unwrap().to_owned()
     }
@@ -134,7 +75,7 @@ impl Scope {
         self
     }
 
-    pub fn get(&self, name: &str) -> Option<Rc<TypeDefinition>> {
-        self.types.get(name).map(Rc::clone)
+    pub fn get(&self, name: &str) -> Option<&TypeDefinition> {
+        self.types.get(name)
     }
 }

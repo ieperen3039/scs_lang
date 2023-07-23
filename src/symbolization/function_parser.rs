@@ -87,7 +87,7 @@ pub fn read_statement(
 
     let mut expression_type = expression.get_type();
     for mutator_node in &node.sub_rules[1..] {
-        let mutator = read_mutator(expression_type, mutator_node, variables)?;
+        let mutator = read_mutator(&expression_type, mutator_node, variables)?;
     }
 
     todo!()

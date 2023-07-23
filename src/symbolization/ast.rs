@@ -1,6 +1,7 @@
 use std::{collections::HashMap, rc::Rc};
 
 pub type Identifier = Rc<str>;
+pub type NumericIdentifier = u32;
 
 pub struct Program {
     pub name: String,
@@ -20,7 +21,7 @@ pub struct Scope {
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub enum TypeRef {
     UnresolvedName(UnresolvedName),
-    Defined(DefinedTypeRef),
+    Defined(DefinedRef),
     UnamedTuple(Vec<TypeRef>),
     Array(Box<TypeRef>),
     Function(FunctionType),
@@ -30,8 +31,8 @@ pub enum TypeRef {
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 // could be a base type, but also an enum variant or a named tuple
-pub struct DefinedTypeRef {
-    pub id: u32,
+pub struct DefinedRef {
+    pub id: NumericIdentifier,
     // implementation / our selection of types to use as generic parameters
     pub generic_parameters : Vec<TypeRef>,
 }
@@ -56,7 +57,7 @@ pub struct FunctionType {
 #[derive(Debug, Hash, Eq, PartialEq)]
 pub struct TypeDefinition {
     pub name: Identifier,
-    pub id: u32,
+    pub id: NumericIdentifier,
     // there are generic declarations; brand new identifiers
     pub generic_parameters : Vec<Rc<GenericParameter>>,
     pub sub_type : TypeSubType,

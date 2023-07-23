@@ -4,7 +4,7 @@ use simple_error::SimpleError;
 
 use crate::{
     parsing::rule_nodes::RuleNode,
-    symbolization::{ast::Scope, function_parser, type_collector, type_resolver::TypeResolver},
+    symbolization::{ast::Scope, function_parser, type_collector::{self, TypeCollector}, type_resolver::TypeResolver},
 };
 
 use super::ast::*;
@@ -14,14 +14,15 @@ pub fn convert_to_program(name: &str, tree: RuleNode) -> Result<Program, SimpleE
 
     // first collect definitions
     let mut root_scope = Scope::new(name, None);
+    let mut type_collector = TypeCollector::new();
 
-    for node in tree.sub_rules {
+    for node in &tree.sub_rules {
         match node.rule_name {
             "version_declaration" | "include_declaration" => {}
             "function_interface" | "function_block" => {}
             "scope" => {
-                let new_scope = type_collector::read_scope_definitions(&node, &root_scope)?;
-                root_scope.scopes.insert(new_scope.get_name(), new_scope);
+                let new_scope = type_collector.read_scope_definitions(&node, &root_scope)?;
+                root_scope.add_sub_scope(new_scope);
             }
             _ => {}
         }
@@ -31,7 +32,7 @@ pub fn convert_to_program(name: &str, tree: RuleNode) -> Result<Program, SimpleE
     let resolver = TypeResolver { root_scope };
     resolver.resolve_scope(&mut root_scope)?;
 
-    let symbolizer = Symbolizer {};
+    let symbolizer = Symbolizer { type_collector };
 
     // parse functions
     for node in tree.sub_rules {
@@ -47,7 +48,9 @@ pub fn convert_to_program(name: &str, tree: RuleNode) -> Result<Program, SimpleE
     todo!()
 }
 
-pub struct Symbolizer {}
+pub struct Symbolizer {
+    type_collector : TypeCollector
+}
 
 impl Symbolizer {
     fn read_implementations(
@@ -61,11 +64,11 @@ impl Symbolizer {
             }
             "implementation" => {
                 let fn_def = self.read_function(node)?;
-                this_scope.functions.insert(fn_def.name, Rc::from(fn_def));
+                this_scope.functions.insert(fn_def.name, fn_def);
             }
             "function_definition" => {
                 let fn_def = self.read_function(node)?;
-                this_scope.functions.insert(fn_def.name, Rc::from(fn_def));
+                this_scope.functions.insert(fn_def.name, fn_def);
             }
             _ => {}
         }
@@ -84,7 +87,7 @@ impl Symbolizer {
         let generic_parameters = {
             let generic_types_node = signature_node.find_node("generic_types_decl");
             if let Some(generic_types_node) = generic_types_node {
-                type_collector::read_generic_types_decl(generic_types_node)?
+                self.type_collector.read_generic_types_decl(generic_types_node)?
             } else {
                 Vec::new()
             }
@@ -104,7 +107,7 @@ impl Symbolizer {
 
             debug_assert_eq!(return_type_node.sub_rules.len(), 1);
             let return_type =
-                type_collector::read_type_ref(return_type_node.sub_rules.first().unwrap())?;
+                self.type_collector.read_type_ref(return_type_node.sub_rules.first().unwrap())?;
 
             Rc::from(VariableDeclaration {
                 name: Rc::from("return"),
@@ -148,7 +151,7 @@ impl Symbolizer {
         let mut parameters = HashMap::new();
         for parameter_node in parameter_nodes {
             let type_node = parameter_node.expect_node("type_ref")?;
-            let type_name = type_collector::read_type_ref(type_node)?;
+            let type_name = self.type_collector.read_type_ref(type_node)?;
             let expansion_node = parameter_node.find_node("expansion_decl");
             let name_node = parameter_node.expect_node("identifier")?;
 

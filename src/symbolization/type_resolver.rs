@@ -10,8 +10,14 @@ pub struct TypeResolver {
 
 impl TypeResolver {
     pub fn resolve_scope(&self, scope: &mut Scope) -> Result<(), SimpleError> {
-        for (_type_name, type_def) in &mut scope.types {
-            self.resolve_type(type_def, scope)?;
+        // we first collect all keys to iterate over, to allow us to modify the element of the scope
+        let types_in_scope = scope.types.keys().map(Rc::clone).collect::<Vec<_>>();
+
+        for type_name in types_in_scope {
+            // we remove this type from the scope, in order to allow passing the scope to resolve_type
+            let mut type_def = scope.types.remove(&type_name).unwrap();
+            self.resolve_type(&mut type_def, scope)?;
+            scope.types.insert(type_name.clone(), type_def);
         }
 
         for (_subscope_name, subscope) in &mut scope.scopes {
@@ -125,7 +131,7 @@ impl TypeResolver {
         type_to_resolve: &UnresolvedName,
         generics: &[Rc<GenericParameter>],
         local_scope: &Scope,
-    ) -> Result<DefinedTypeRef, SimpleError> {
+    ) -> Result<DefinedRef, SimpleError> {
         let mut generic_parameters = Vec::new();
         for ele in &type_to_resolve.generic_parameters {
             let mut ele_ref = ele.clone();
@@ -144,7 +150,7 @@ impl TypeResolver {
                 ))
             })?;
 
-        Ok(DefinedTypeRef {
+        Ok(DefinedRef {
             id: resolved_type.id,
             generic_parameters,
         })
