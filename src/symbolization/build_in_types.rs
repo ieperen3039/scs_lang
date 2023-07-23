@@ -13,10 +13,11 @@ pub const FIRST_CUSTOM_TYPE_ID : u32 = 5;
 
 pub fn get_implicit_scope(name: &str) -> Result<Scope, SimpleError>
 {
-    let scope = Scope::new(name, None);
+    let mut scope = Scope::new(name, None);
 
-    let type_int = build_native("int", 0);
-    let type_string = build_native("String", 1);
+    let type_int = build_native("int", TYPE_ID_INT);
+    let type_string = build_native("String", TYPE_ID_STRING);
+
     let type_result = {
         let generic_pos = Rc::from(GenericParameter {
             name: Rc::from("P"),
@@ -26,7 +27,7 @@ pub fn get_implicit_scope(name: &str) -> Result<Scope, SimpleError>
         });
         TypeDefinition {
             name: Rc::from("Result"),
-            id: 2,
+            id: TYPE_ID_RESULT,
             generic_parameters: vec![generic_pos.clone(), generic_neg.clone()],
             sub_type: TypeSubType::Variant {
                 variants: vec![
@@ -47,9 +48,9 @@ pub fn get_implicit_scope(name: &str) -> Result<Scope, SimpleError>
         let generic_type = Rc::from(GenericParameter {
             name: Rc::from("T"),
         });
-        Rc::from(TypeDefinition {
+        TypeDefinition {
             name: Rc::from("Optional"),
-            id: 3,
+            id: TYPE_ID_OPTIONAL,
             generic_parameters: vec![generic_type.clone()],
             sub_type: TypeSubType::Base {
                 derived: Some(Box::from(TypeRef::Defined(DefinedRef {
@@ -57,12 +58,12 @@ pub fn get_implicit_scope(name: &str) -> Result<Scope, SimpleError>
                     generic_parameters: vec![TypeRef::Generic(generic_type), TypeRef::Void],
                 }))),
             },
-        })
+        }
     };
 
     let type_boolean = TypeDefinition {
         name: Rc::from("boolean"),
-        id: 4,
+        id: TYPE_ID_BOOLEAN,
         generic_parameters: Vec::new(),
         sub_type: TypeSubType::Base {
             derived: Some(Box::from(TypeRef::Defined(DefinedRef {
@@ -71,6 +72,12 @@ pub fn get_implicit_scope(name: &str) -> Result<Scope, SimpleError>
             }))),
         },
     };
+
+    scope.add_type(type_int);
+    scope.add_type(type_string);
+    scope.add_type(type_result);
+    scope.add_type(type_optional);
+    scope.add_type(type_boolean);
 
     Ok(scope)
 }

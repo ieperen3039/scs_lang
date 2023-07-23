@@ -131,7 +131,7 @@ impl TypeResolver {
         type_to_resolve: &UnresolvedName,
         generics: &[Rc<GenericParameter>],
         local_scope: &Scope,
-    ) -> Result<DefinedRef, SimpleError> {
+    ) -> Result<ResolvedName, SimpleError> {
         let mut generic_parameters = Vec::new();
         for ele in &type_to_resolve.generic_parameters {
             let mut ele_ref = ele.clone();
@@ -150,7 +150,7 @@ impl TypeResolver {
                 ))
             })?;
 
-        Ok(DefinedRef {
+        Ok(ResolvedName {
             id: resolved_type.id,
             generic_parameters,
         })
