@@ -5,7 +5,7 @@ pub mod ast_util;
 mod function_parser;
 pub mod type_collector;
 pub mod type_resolver;
+pub mod built_in_types;
 
 #[cfg(test)]
 mod tests;
-mod build_in_types;

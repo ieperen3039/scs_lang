@@ -1,0 +1,42 @@
+impl T {
+    fn identity : T { this }
+    fn equalTo<T>(T other) : boolean extern
+    fn not(fn<(T)boolean> expression) : boolean { expression invert }
+}
+
+// we call this a "buffer" (because it is not implemented as a true array)
+impl T[] {
+    op ">" : map
+    op "+" : append
+
+    fn reduce(fn<(T, T)T> collector) : T extern
+    fn reduce<Acc>(Acc accumulator, fn<(Acc, T)Acc> collector) : Acc extern
+    fn map<R>(fn<(T)R> mapping) : R[] extern
+    fn first : Maybe<T> extern
+    fn append(T new_element) : T[] extern
+
+    // combines every two adjacent elements into a new element (resulting in an buffer of 1 less length)
+    fn derive<R>(fn<(T, T)R> mapping) : R[] extern
+    // maps each element, using its neighboring elements (SCP_2)
+    fn transform<R>(fn<(Maybe<T>, T, Maybe<T>)R> mapping) : R[] extern
+    // maps each element sequentially, based on a stateful processor (SCP_4)
+    fn process<Proc>(Proc processor, fn<([Proc, T])[Proc, T]> collector) : T[] extern
+    // split the buffer along specific elements, keeping adjacent elements in the same order
+    fn split(T separator) : T[][] extern
+
+    // partition does not change the number of elements in the buffer.
+    fn partition(fn<(T)boolean> predicate) : Result<T, T>[] {
+        this > (elt) { 
+            predicate(elt) !: elt ?: elt 
+        }
+    }
+
+    fn filter(fn<(T)boolean> predicate) : T[] { 
+        this > (elt) { 
+            elt predicate ?: elt 
+        }
+        filter_pos
+    }
+
+    fn append(T[] other) : T[] { other reduce(this, append) }
+}

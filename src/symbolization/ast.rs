@@ -9,6 +9,7 @@ pub struct Program {
     pub main: Option<Rc<FunctionDefinition>>,
 }
 
+#[derive(Clone)]
 pub struct Scope {
     pub full_name : Vec<Identifier>,
     pub scopes: HashMap<Identifier, Scope>,
@@ -54,7 +55,7 @@ pub struct FunctionType {
 
 // -- defined types --
 
-#[derive(Debug, Hash, Eq, PartialEq)]
+#[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct TypeDefinition {
     pub name: Identifier,
     pub id: NumericIdentifier,
@@ -68,7 +69,7 @@ pub struct GenericParameter {
     pub name : Identifier
 }
 
-#[derive(Debug, Hash, Eq, PartialEq)]
+#[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub enum TypeSubType {
     Base { derived : Option<Box<TypeRef>> },
     Enum { values : Vec<Identifier> },
@@ -76,7 +77,7 @@ pub enum TypeSubType {
     Tuple { elements : Vec<TypeRef> },
 }
 
-#[derive(Debug, Hash, Eq, PartialEq)]
+#[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct VariantValue {
     pub name : Identifier,
     pub value_type : TypeRef,
@@ -84,6 +85,7 @@ pub struct VariantValue {
 
 // -- implementations --
 
+#[derive(Clone)]
 pub struct FunctionDefinition {
     pub name: Identifier,
     // there are generic declarations; brand new identifiers
@@ -100,6 +102,7 @@ pub struct VariableDeclaration {
     pub name: Identifier,
 }
 
+#[derive(Clone)]
 pub struct FunctionBlock {
     pub statements: Vec<Statement>,
     pub return_var: Rc<VariableDeclaration>,
@@ -108,11 +111,13 @@ pub struct FunctionBlock {
 // an expression, followed by mutations on the expression
 // this could be considered an expression by itself
 // this is represented in Expression::FunctionBlock (which is a vec of statements)
+#[derive(Clone)]
 pub struct Statement {
     pub base_element: Expression,
     pub mutations: Vec<Mutator>,
 }
 
+#[derive(Clone)]
 pub enum Expression {
     StaticFunctionCall(FunctionCall),
     FunctionBlock(FunctionBlock),
@@ -122,29 +127,32 @@ pub enum Expression {
     Variable(Rc<VariableDeclaration>),
 }
 
-#[derive(Debug)]
+#[derive(Clone)]
 pub enum Literal {
     Number(i32),
     String(Rc<str>),
-    Boolean(bool),
 }
 
 // mutations of expressions
+#[derive(Clone)]
 pub enum Mutator {
     FunctionCall(FunctionCall),
     Assignment(Rc<VariableDeclaration>),
 }
 
+#[derive(Clone)]
 pub struct FunctionCall {
     pub function: Rc<FunctionDefinition>,
     pub arguments: Vec<Argument>,
 }
 
+#[derive(Clone)]
 pub struct Argument {
     pub parameter_name: Identifier,
     pub value : Expression,
 }
 
+#[derive(Clone)]
 pub struct ArrayInitialisation {
     pub element_type : TypeRef,
     pub elements : Vec<Expression>,

@@ -1,21 +1,24 @@
-enum ShellType [
-    Batch,
-    Bash
-]
 
-enum OperatingSystem [
-    Windows,
-    Unix,
-    MacOS
-]
+system {
+    enum ShellType [
+        Batch,
+        Bash
+    ]
 
-fn getOS : OperatingSystem native
-fn getShellType : ShellType native
+    enum OperatingSystem [
+        Windows,
+        Unix,
+        MacOS
+    ]
 
-// functions to run terminal commands
-impl ShellType {
-    // for enum member functions, the parameter `T ... a` evalutes to a series of parameters of type T, with the name of the variant as argument name.
-    // inside the function, `a` will evaluate to the argument that corresponds to `this`, or when passed to another `T ... a`: expand to the original series of arguments.
-    fn run(String ... command): Result<ShellType> native
-    fn readVariable(String variable_name) : Maybe<String> native
+    fn getOS : OperatingSystem native
+    fn getShellType : ShellType native
+
+    // functions to run terminal commands
+    impl ShellType {
+        // for enum member functions, the parameter `T ... a` evalutes to a series of parameters of type T, with the name of the variant as argument name.
+        // inside the function, `a` will evaluate to the argument that corresponds to `this`, or when passed to another `T ... a`: expand to the original series of arguments.
+        fn run(String ... command): Result<ShellType> native
+        fn readVariable(String variable_name) : Maybe<String> native
+    }
 }

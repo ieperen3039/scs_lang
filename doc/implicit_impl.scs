@@ -1,31 +1,16 @@
-// primitives
-type void = extern // zero-sized nothing-type
-type character = extern
-type String = extern
-type int = extern 
-type float = extern 
-
-// structures
+// all types that can be written in scs
 variant Result<P, N> [
     Pos(P),
     Neg(N),
 ]
 
-// derived
 type Maybe<T> = Result<T, void>
-type boolean = Result<void, void> // = Maybe<void>
-// fn does not have actual generic parameters
-// type fn<R> = fn<()R>
-// type fn = fn<void>
+type boolean = Result<void, void>
+
+const boolean true = boolean.Pos(void)
+const boolean false = boolean.Neg(void)
 
 // implementations
-impl boolean {
-    fn or(boolean else) : boolean { this !: else }
-    fn and(boolean else) : boolean { this ?: else }
-
-    op "||" : or
-    op "&&" : and
-}
 impl int {
     fn less_than(int other): boolean extern
     fn less_or_equal_to(int other): boolean { 
@@ -40,10 +25,12 @@ impl int {
     fn equal_to(int other) : boolean extern
     fn as_float : float extern
 }
+
 impl float {
     fn less_than(float other): boolean extern
     fn greater_than(float other): boolean extern
 }
+
 impl String {
     fn equal_to(String other): boolean extern
     fn is: LogicBuilder<String> extern
@@ -58,8 +45,8 @@ impl Result<P, N> {
         this switch(Pos: Result.Neg, Neg: Result.Pos)
     }
 
-    fn unwrap_pos_or(N default) : P switch(Pos: identity, Neg: default)
-    fn unwrap_neg_or(P default) : N switch(Pos: default, Neg: identity)
+    fn unwrap_pos_or(N default) : P switch(Pos: identity, Neg: { : default })
+    fn unwrap_neg_or(P default) : N switch(Pos: { : default }, Neg: identity)
     
     fn map_both(fn<(P)R> pos, fn<(N)R> neg) {
         this ? pos ! neg = return; 
@@ -77,22 +64,33 @@ impl Result<P, N>[] {
     fn filter_neg: N[] extern
 }
 
+impl Maybe<T> {
+    const Maybe<T> None = Maybe.Neg(void)
+
+    fn Some(T element) : Maybe<T> {
+        Maybe.Pos(element)
+    }
+}
+
+impl boolean {
+    fn or(boolean else) : boolean { this !: else }
+    fn and(boolean else) : boolean { this ?: else }
+
+    op "||" : or
+    op "&&" : and
+}
+
 impl Maybe<T>[] {
     fn filter: T[] { this filter_pos }
 }
 
 impl<T> T {
-    op "=" : _assign_to_variable
-    op ":" : _replace_with
+    // op "=" : assign_to_variable
+    // op ":" : replace_with
 
     fn identity : T { this }
     fn equalTo<T>(T other) : boolean extern
     fn not(fn<(T)boolean> expression) : boolean { expression invert }
-
-    // discards `this` and returns `new_value`
-    fn _replace_with<R>(R new_value) : R { new_value }
-     // creates a new name in the scope
-    fn _assign_to_variable(...) : void extern
 }
 
 // we call this a "buffer" (because it is not implemented as a true array)

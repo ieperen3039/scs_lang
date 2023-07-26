@@ -1,4 +1,4 @@
-scs_program             = [ _shebang ], _, [ version_declaration, _ ], { ( _definition | include_declaration ), _ }, [ program_interface, _, function_block ], _;
+scs_program             = [ _shebang ], _, [ version_declaration, _ ], { include_declaration, _ }, { _definition, _ }, [ program_interface, _, function_block ], _;
 program_interface       = _function_interface;
 
 (* version *)
@@ -16,7 +16,7 @@ directory               = _file_name;
 file                    = _file_name;
 
 (* scopes and definitions *)
-_definition             = scope | type_definition | enum_definition | variant_definition | implementation | function_definition;
+_definition             = constant_def | scope | type_definition | enum_definition | variant_definition | implementation | function_definition;
 scope_name              = _name;
 scope                   = scope_name, _, "{", _, { _definition, _ }, "}";
 _scope_reference        = scope_name, { ".", scope_name };
@@ -44,6 +44,8 @@ variant_definition      = _keyword_variant, _, identifier, _, [ generic_types_de
 variant_value_decl      = identifier, _, "(", _, type_ref, _, ")";
 (* generics are not instantiated, hence a base_type_decl *)
 implementation          = _keyword_start_implementation, _, base_type_decl, { _, array_symbol }, _, "{", _, { function_definition, _ }, "}";
+
+constant_def            = _keyword_const, _, type_ref, _, identifier, _, "=", _, statement;
 
 (* function definitions and parameters *)
 function_definition     = function_signature, _, ( function_block | native_decl );
@@ -111,6 +113,7 @@ _keyword_fn = "fn";
 _keyword_enum = "enum";
 _keyword_variant = "variant";
 _keyword_extern = "extern";
+_keyword_const = "const";
 _keyword_this = "this";
 _keyword_return = "return";
 (* _keyword_static = "static"; *)

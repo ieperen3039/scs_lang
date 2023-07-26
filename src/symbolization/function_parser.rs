@@ -48,7 +48,7 @@ pub fn read_function_block(
 
 pub fn read_function_body(
     node: &RuleNode<'_, '_>,
-    parameters: HashMap<Identifier, TypeRef>,
+    parameters: &HashMap<Identifier, TypeRef>,
     return_var: Rc<VariableDeclaration>,
 ) -> Result<FunctionBlock, SimpleError> {
     debug_assert_eq!(node.rule_name, "function_block");
@@ -62,8 +62,8 @@ pub fn read_function_body(
         variables.insert(
             identifier.clone(),
             Rc::from(VariableDeclaration {
-                var_type: type_name,
-                name: identifier,
+                var_type: type_name.to_owned(),
+                name: identifier.to_owned(),
             }),
         );
     }

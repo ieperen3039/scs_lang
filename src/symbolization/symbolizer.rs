@@ -4,33 +4,31 @@ use simple_error::SimpleError;
 
 use crate::{
     parsing::rule_nodes::RuleNode,
-    symbolization::{ast::Scope, function_parser, type_collector::{self, TypeCollector}, type_resolver::TypeResolver},
+    symbolization::{ast::Scope, function_parser, type_collector::TypeCollector, type_resolver::{self}},
 };
 
 use super::ast::*;
 
-pub fn convert_to_program(name: &str, tree: RuleNode) -> Result<Program, SimpleError> {
+pub fn parse_symbols(tree: RuleNode, external_scope: &Scope, type_collector: &mut TypeCollector) -> Result<Scope, SimpleError> {
     debug_assert_eq!(tree.rule_name, "scs_program");
 
     // first collect definitions
-    let mut root_scope = Scope::new(name, None);
-    let mut type_collector = TypeCollector::new();
+    let mut proto_scope = Scope::new("", None);
 
     for node in &tree.sub_rules {
         match node.rule_name {
             "version_declaration" | "include_declaration" => {}
             "function_interface" | "function_block" => {}
             "scope" => {
-                let new_scope = type_collector.read_scope_definitions(&node, &root_scope)?;
-                root_scope.add_sub_scope(new_scope);
+                let new_scope = type_collector.read_scope_definitions(&node, &proto_scope)?;
+                proto_scope.add_sub_scope(new_scope);
             }
             _ => {}
         }
     }
 
     // then resolve type cross-references
-    let resolver = TypeResolver { root_scope };
-    resolver.resolve_scope(&mut root_scope)?;
+    let mut root_scope = type_resolver::resolve_scope(external_scope, proto_scope)?;
 
     let symbolizer = Symbolizer { type_collector };
 
@@ -45,14 +43,14 @@ pub fn convert_to_program(name: &str, tree: RuleNode) -> Result<Program, SimpleE
         }
     }
 
-    todo!()
+    Ok(root_scope)
 }
 
-pub struct Symbolizer {
-    type_collector : TypeCollector
+pub struct Symbolizer<'a> {
+    type_collector : &'a TypeCollector
 }
 
-impl Symbolizer {
+impl<'a> Symbolizer<'a> {
     fn read_implementations(
         &self,
         node: &RuleNode<'_, '_>,
@@ -64,11 +62,11 @@ impl Symbolizer {
             }
             "implementation" => {
                 let fn_def = self.read_function(node)?;
-                this_scope.functions.insert(fn_def.name, fn_def);
+                this_scope.add_function(fn_def);
             }
             "function_definition" => {
                 let fn_def = self.read_function(node)?;
-                this_scope.functions.insert(fn_def.name, fn_def);
+                this_scope.add_function(fn_def);
             }
             _ => {}
         }
@@ -118,7 +116,7 @@ impl Symbolizer {
         let function_block_node = node.find_node("function_block");
         let function_body = {
             if let Some(function_block_node) = function_block_node {
-                function_parser::read_function_body(function_block_node, parameters, return_var)?
+                function_parser::read_function_body(function_block_node, &parameters, return_var)?
             } else {
                 signature_node.expect_node("native_decl")?;
                 FunctionBlock {
@@ -171,13 +169,13 @@ impl Symbolizer {
         let this_scope_name = node
             .expect_node("scope_name")
             .map(RuleNode::as_identifier)?;
-        let mut this_scope = super_scope
+        let this_scope = super_scope
             .scopes
-            .get(&this_scope_name)
+            .get_mut(&this_scope_name)
             .ok_or_else(|| SimpleError::new(format!("Could not find scope {this_scope_name}")))?;
 
         for node in &node.sub_rules {
-            self.read_implementations(node, &mut this_scope)?;
+            self.read_implementations(node, this_scope)?;
         }
 
         Ok(())

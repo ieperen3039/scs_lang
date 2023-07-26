@@ -4,7 +4,7 @@ use simple_error::SimpleError;
 
 use crate::parsing::rule_nodes::RuleNode;
 
-use super::{ast::*, build_in_types::FIRST_CUSTOM_TYPE_ID};
+use super::{ast::*, built_in_types::FIRST_CUSTOM_TYPE_ID};
 
 pub struct TypeCollector {
     next_id: u32,

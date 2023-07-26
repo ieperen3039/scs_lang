@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use super::{ast::*, build_in_types::{TYPE_ID_STRING, TYPE_ID_INT, TYPE_ID_BOOLEAN}};
+use super::{ast::*, built_in_types::{TYPE_ID_STRING, TYPE_ID_INT}};
 
 impl TypeDefinition {
 }
@@ -15,11 +15,6 @@ impl TypeRef {
         id: TYPE_ID_INT,
         generic_parameters: Vec::new(),
     });
-
-    pub const BOOLEAN: TypeRef = TypeRef::Defined(DefinedRef {
-        id: TYPE_ID_BOOLEAN,
-        generic_parameters: Vec::new(),
-    });
 }
 
 impl Expression {
@@ -30,7 +25,6 @@ impl Expression {
             Expression::Array(array) => array.element_type.clone(),
             Expression::Literal(Literal::String(_)) => TypeRef::STRING.clone(),
             Expression::Literal(Literal::Number(_)) => TypeRef::NUMBER.clone(),
-            Expression::Literal(Literal::Boolean(_)) => TypeRef::BOOLEAN.clone(),
             Expression::Variable(var) => var.var_type.clone(),
         }
     }

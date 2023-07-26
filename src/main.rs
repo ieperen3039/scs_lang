@@ -1,3 +1,5 @@
+
+
 #[allow(dead_code)]
 use crate::commandline_parser::ArgumentParser;
 use crate::compiler::ScsCompiler;
@@ -32,8 +34,10 @@ fn main() {
     let xml_output_file = arg_parser.get_parameter("--xml").map(std::fs::File::create).map(Result::ok).flatten();
 
     let mut compiler = ScsCompiler::build(&definition, xml_output_file).unwrap();
-    if let Some(result) = compiler.compile(&base_directory.join(program_file)) {
-        print!("{:?}", result.name);
+    let compile_result = compiler.compile(&base_directory.join(program_file));
+    match compile_result {
+        Ok(program) => print!("{}", program.name),
+        Err(simple_error) => print!("{}", simple_error),
     }
 
 }
