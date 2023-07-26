@@ -4,10 +4,14 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+        
         {
             "type": "lldb",
             "request": "launch",
             "name": "Debug executable 'faux_lang'",
+            "args": ["--definition", "doc/definition.ebnf", "--program", "doc/example.faux", "--xml", "target/output_run.xml"],
+            // "args": ["--help"],
+            "cwd": "${workspaceFolder}",
             "cargo": {
                 "args": [
                     "build",
@@ -19,8 +23,6 @@
                     "kind": "bin"
                 }
             },
-            "args": ["--definition", "doc/definition.ebnf", "--program", "doc/example.faux", "--xml", "target/output_run.xml"],
-            "cwd": "${workspaceFolder}"
         }
     ]
 }
