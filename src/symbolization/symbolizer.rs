@@ -10,7 +10,7 @@ use crate::{
 use super::ast::*;
 
 pub fn parse_symbols(tree: RuleNode, external_scope: &Scope, type_collector: &mut TypeCollector) -> Result<Scope, SimpleError> {
-    debug_assert_eq!(tree.rule_name, "scs_program");
+    debug_assert_eq!(tree.rule_name, "faux_program");
 
     // first collect definitions
     let mut proto_scope = Scope::new("", None);

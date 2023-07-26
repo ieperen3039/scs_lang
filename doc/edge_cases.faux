@@ -1,4 +1,4 @@
-version scs 0.0.1
+version faux 0.0.1
 
 type Value : String
 type Error : String
@@ -20,7 +20,7 @@ fn fn_par_fn_ret(fn<(Value)Value> first) : fn<(Value)Value> native
 
 // etc...
 
-// also, from implicit.scs:
+// also, from implicit.faux:
 impl Result<Value, Error> {
     // implicit parameter `Result<Value, Error>> this`
     fn on_pos(fn<(Value)Value> mapping) : Result<Value, Error>> native

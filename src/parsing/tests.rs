@@ -290,9 +290,9 @@ fn test_implicit_operator()
 }
 
 #[test]
-fn try_parse_example_scs() {
+fn try_parse_example_faux() {
     let definition = include_str!("../../doc/definition.ebnf");
-    let program = include_str!("../../doc/example.scs");
+    let program = include_str!("../../doc/example.faux");
 
     let grammar = ebnf_parser::parse_ebnf(definition)
         .map_err(|err| {
@@ -304,7 +304,7 @@ fn try_parse_example_scs() {
         })
         .unwrap();
 
-    let xml_out = std::fs::File::create("test_try_parse_example_scs_output.xml").unwrap();
+    let xml_out = std::fs::File::create("test_try_parse_example_faux_output.xml").unwrap();
 
     let parser = parser::Parser::new(grammar, Some(xml_out)).unwrap();
     let parse_result = parser.parse_program(program);
@@ -325,5 +325,5 @@ fn try_parse_example_scs() {
     
     let program_ast = parse_result.unwrap();
 
-    assert!(program_ast.rule_name == "scs_program")
+    assert!(program_ast.rule_name == "faux_program")
 }

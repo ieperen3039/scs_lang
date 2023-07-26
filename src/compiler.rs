@@ -9,15 +9,15 @@ use crate::symbolization::ast::{self, Program};
 use crate::symbolization::type_collector::TypeCollector;
 use crate::symbolization::{meta_program, symbolizer, built_in_types};
 
-pub struct ScsCompiler {
+pub struct FauxCompiler {
     parser: Rc<parser::Parser>,
     parse_stack: Vec<PathBuf>,
     file_cache: HashMap<PathBuf, Rc<ast::Program>>,
     type_collector: TypeCollector
 }
 
-impl ScsCompiler {
-    pub fn build(definition: &str, xml_out: Option<std::fs::File>) -> Option<ScsCompiler> {
+impl FauxCompiler {
+    pub fn build(definition: &str, xml_out: Option<std::fs::File>) -> Option<FauxCompiler> {
         let grammar = ebnf_parser::parse_ebnf(definition);
         if let Err(err) = grammar {
             println!(
@@ -33,7 +33,7 @@ impl ScsCompiler {
             return None;
         }
 
-        Some(ScsCompiler {
+        Some(FauxCompiler {
             parser: Rc::from(parser.unwrap()),
             file_cache: HashMap::new(),
             parse_stack: Vec::new(),

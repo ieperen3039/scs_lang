@@ -20,7 +20,7 @@ fn collect_types_1() {
 
 fn parse_implicit() {
     let definition = include_str!("../../doc/definition.ebnf");
-    let program = include_str!("../../doc/implicit_impl.scs");
+    let program = include_str!("../../doc/implicit_impl.faux");
 
     let type_result = {
         let generic_pos = Rc::from(GenericParameter {

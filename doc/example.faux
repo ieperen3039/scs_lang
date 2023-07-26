@@ -3,7 +3,7 @@
 // also, 'solid_command_sequence.exe' because we verbose
 
 // definitely start with the language version
-version scs 0.0.0
+version faux 0.0.0
 
 // include other files
 use "filesystem"

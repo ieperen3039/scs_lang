@@ -1,3 +1,4 @@
+version faux 0.0.0
 
 system {
     enum ShellType [

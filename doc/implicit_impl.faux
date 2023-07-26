@@ -1,4 +1,4 @@
-// all types that can be written in scs
+// all types that can be written in faux_lang
 variant Result<P, N> [
     Pos(P),
     Neg(N),

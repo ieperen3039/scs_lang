@@ -12,6 +12,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "faux_lang"
+version = "0.1.0"
+dependencies = [
+ "regex",
+ "simple-error",
+]
+
+[[package]]
 name = "memchr"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -33,14 +41,6 @@ name = "regex-syntax"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "436b050e76ed2903236f032a59761c1eb99e1b0aead2c257922771dab1fc8c78"
-
-[[package]]
-name = "scs_lang"
-version = "0.1.0"
-dependencies = [
- "regex",
- "simple-error",
-]
 
 [[package]]
 name = "simple-error"

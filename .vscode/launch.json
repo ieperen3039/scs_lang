@@ -7,19 +7,19 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'scs_lang'",
+            "name": "Debug executable 'faux_lang'",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=scs_lang",
-                    "--package=scs_lang"
+                    "--bin=faux_lang",
+                    "--package=faux_lang"
                 ],
                 "filter": {
-                    "name": "scs_lang",
+                    "name": "faux_lang",
                     "kind": "bin"
                 }
             },
-            "args": ["--definition", "doc/definition.ebnf", "--program", "doc/example.scs", "--xml", "target/output_run.xml"],
+            "args": ["--definition", "doc/definition.ebnf", "--program", "doc/example.faux", "--xml", "target/output_run.xml"],
             "cwd": "${workspaceFolder}"
         }
     ]

@@ -2,7 +2,7 @@ use crate::parsing::rule_nodes::RuleNode;
 use std::path::PathBuf;
 
 pub fn extract_includes(tree: &RuleNode<'_, '_>, file_path : &std::path::Path) -> Vec<PathBuf> {
-    assert_eq!(tree.rule_name, "scs_program");
+    assert_eq!(tree.rule_name, "faux_program");
     tree.sub_rules.iter()
         .filter(|r| r.rule_name == "include_declaration")
         .flat_map(|r| &r.sub_rules)

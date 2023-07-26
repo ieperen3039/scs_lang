@@ -1,4 +1,4 @@
-scs_program             = [ _shebang ], _, [ version_declaration, _ ], { include_declaration, _ }, { _definition, _ }, [ program_interface, _, function_block ], _;
+faux_program             = [ _shebang ], _, [ version_declaration, _ ], { include_declaration, _ }, { _definition, _ }, [ program_interface, _, function_block ], _;
 program_interface       = _function_interface;
 
 (* version *)

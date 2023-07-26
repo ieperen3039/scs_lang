@@ -1,3 +1,5 @@
+version faux 0.0.0
+
 use "system"
 
 fs {
