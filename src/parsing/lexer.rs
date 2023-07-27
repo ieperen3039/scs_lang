@@ -1,32 +1,8 @@
-use regex::Regex;
-use simple_error::SimpleError;
-
-use super::parser::Failure;
+use super::token::{TokenClass, Token};
 
 const LEXER_ERROR_INDICATOR_OFFSET: usize = 20;
 
 pub struct Lexer {}
-
-#[derive(Clone, Debug)]
-pub enum TokenClass {
-    IDENTIFIER,
-    NUMERIC,
-    WHITESPACE,
-    SYMBOL,
-}
-
-#[derive(Clone, Debug)]
-pub struct Token<'a> {
-    pub class: TokenClass,
-    pub slice: &'a str,
-    pub char_idx: usize,
-}
-
-enum LexMethod {
-    Literal(&'static str, usize),
-    Regex(Regex),
-    CaptureRegex(Regex),
-}
 
 impl Lexer {
     pub fn read_tokens(&self, program: &str) -> Option<(TokenClass, usize)> {
@@ -42,6 +18,23 @@ impl Lexer {
         }
 
         let first_char = chars.clone().next().unwrap();
+        if first_char == '\"' {
+            let mut chars = chars.skip(1);
+            let mut num_chars = 0;
+            while let Some(c) = chars.next() {
+                if c == '\"' {
+                    break;
+                }
+                else if c == '\\' {
+                    // escape the next char, whatever it is
+                    chars.next();
+                }
+
+                num_chars += 1;
+            }
+            return Some((TokenClass::STRING, num_chars));
+        }
+
         if first_char == '_' || first_char.is_alphabetic() {
             let num_chars = Lexer::count(chars, |c| c == '_' || c.is_alphanumeric());
             return Some((TokenClass::IDENTIFIER, num_chars));
@@ -49,7 +42,7 @@ impl Lexer {
 
         if first_char.is_numeric() {
             let num_chars =
-                Lexer::count(chars, |c| c == '_' || c == '.' || c.is_alphanumeric());
+                Lexer::count(chars, |c| c == '_' || c.is_alphanumeric());
             return Some((TokenClass::IDENTIFIER, num_chars));
         }
 

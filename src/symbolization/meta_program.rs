@@ -7,14 +7,6 @@ pub fn extract_includes(tree: &RuleNode<'_, '_>, file_path : &std::path::Path) -
         .filter(|r| r.rule_name == "include_declaration")
         .flat_map(|r| &r.sub_rules)
         .filter(|r| r.rule_name == "include_file")
-        .map(|r| to_path(file_path, &r.sub_rules))
+        .map(|r| std::path::PathBuf::from(r.tokens_as_string()))
         .collect()
-}
-
-fn to_path(file_path: &std::path::Path, sub_rules: &Vec<RuleNode<'_, '_>>) -> PathBuf {
-    let mut new_path = std::path::PathBuf::from(file_path);
-    for ele in sub_rules {
-        new_path = new_path.join(ele.tokens);
-    }
-    new_path
 }

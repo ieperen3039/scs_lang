@@ -1,6 +1,6 @@
 use crate::parsing::{
     ebnf_parser,
-    parser, rule_nodes::RuleNode,
+    parser, rule_nodes::RuleNode, token::{Token, TokenClass},
 };
 
 #[test]
@@ -21,24 +21,24 @@ fn simple_parser() {
     let parser = parser::Parser::new(grammar, None).unwrap();
     let program_ast = parser.parse_program(formula).unwrap();
 
-    assert_eq!(
-        program_ast,
-        RuleNode {
+    assert!(
+        program_ast.is_similar_to(
+        &RuleNode {
             rule_name: "addition",
-            tokens: "1+2",
+            tokens: &[],
             sub_rules: vec![
                 RuleNode {
                     rule_name: "number",
-                    tokens: "1",
+                    tokens: &[Token { class: TokenClass::NUMERIC, slice: "1", char_idx: 0 }],
                     sub_rules: Vec::new()
                 },
                 RuleNode {
                     rule_name: "number",
-                    tokens: "2",
+                    tokens: &[Token { class: TokenClass::NUMERIC, slice: "2", char_idx: 2 }],
                     sub_rules: Vec::new()
                 },
             ]
-        }
+        })
     )
 }
 
@@ -61,24 +61,64 @@ fn simple_parser_with_simple_ignore() {
     let parser = parser::Parser::new(grammar, None).unwrap();
     let program_ast = parser.parse_program(formula).unwrap();
 
-    assert_eq!(
-        program_ast,
-        RuleNode {
+    assert!(
+        program_ast.is_similar_to(
+        &RuleNode {
             rule_name: "addition",
-            tokens: "1 + 2",
+            tokens: &[],
             sub_rules: vec![
                 RuleNode {
                     rule_name: "number",
-                    tokens: "1",
+                    tokens: &[Token { class: TokenClass::NUMERIC, slice: "1", char_idx: 0 }],
                     sub_rules: Vec::new()
                 },
                 RuleNode {
                     rule_name: "number",
-                    tokens: "2",
+                    tokens: &[Token { class: TokenClass::NUMERIC, slice: "2", char_idx: 2 }],
                     sub_rules: Vec::new()
                 },
             ]
-        }
+        })
+    )
+}
+
+#[test]
+fn simple_parser_with_token_usage() {
+    let definition = r#"
+        addition = number, _, "+", _, number;
+        number = ? NUMERIC ?;
+        _ = ? WHITESPACE ?;
+    "#;
+    let formula = r#"1 + 2"#;
+
+    let grammar = ebnf_parser::parse_ebnf(definition)
+        .map_err(|err| {
+            println!("{}", ebnf_parser::error_string(&err, definition));
+            err
+        })
+        .unwrap();
+
+    let parser = parser::Parser::new(grammar, None).unwrap();
+    let program_ast = parser.parse_program(formula).unwrap();
+
+    assert!(
+        program_ast.is_similar_to(
+        &RuleNode {
+            rule_name: "addition",
+            tokens: &[],
+            sub_rules: vec![
+                RuleNode {
+                    rule_name: "number",
+                    tokens: &[Token { class: TokenClass::NUMERIC, slice: "1", char_idx: 0 }],
+                    sub_rules: Vec::new()
+                },
+                RuleNode {
+                    rule_name: "number",
+                    tokens: &[Token { class: TokenClass::NUMERIC, slice: "2", char_idx: 2 }],
+                    sub_rules: Vec::new()
+                },
+            ]
+        })
     )
 }
 
@@ -165,45 +205,6 @@ fn complex_parser_with_complex_ignore() {
 }
 
 #[test]
-fn simple_parser_with_regex() {
-    let definition = r#"
-        addition = number, "+", number;
-        number = "/\d+/";
-    "#;
-    let formula = "1+2";
-
-    let grammar = ebnf_parser::parse_ebnf(definition)
-        .map_err(|err| {
-            println!("{}", ebnf_parser::error_string(&err, definition));
-            err
-        })
-        .unwrap();
-
-    let parser = parser::Parser::new(grammar, None).unwrap();
-    let program_ast = parser.parse_program(formula).unwrap();
-
-    assert_eq!(
-        program_ast,
-        RuleNode {
-            rule_name: "addition",
-            tokens: "1+2",
-            sub_rules: vec![
-                RuleNode {
-                    rule_name: "number",
-                    tokens: "1",
-                    sub_rules: Vec::new()
-                },
-                RuleNode {
-                    rule_name: "number",
-                    tokens: "2",
-                    sub_rules: Vec::new()
-                },
-            ]
-        }
-    )
-}
-
-#[test]
 fn test_implicit_operator()
 {
     // based on the observation that an implicit operator in the example could not be parsed
@@ -212,9 +213,9 @@ fn test_implicit_operator()
         _chain = chain_plus | chain_minus | chain_multiply;
         chain_plus = "+", _space, number;
         chain_minus = "-", _space, number;
-        chain_multiply = number;
-        _space = { "/[\s\n]+/" };
-        number = "/\d+/";
+        chain_multiply = [ "*" ], number;
+        _space = ? WHITESPACE ?;
+        number = ? NUMERIC ?;
     "#;
     let formula = "1 + 2 - 3 4 + 5;";
 

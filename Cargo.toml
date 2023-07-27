@@ -7,5 +7,4 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.*", features = ["derive"] }
-regex = "*"
 simple-error = "0.2.*"

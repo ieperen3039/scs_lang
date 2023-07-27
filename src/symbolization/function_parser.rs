@@ -2,7 +2,7 @@ use std::{collections::HashMap, rc::Rc};
 
 use simple_error::SimpleError;
 
-use crate::parsing::rule_nodes::RuleNode;
+use crate::parsing::{rule_nodes::RuleNode, token::Token};
 
 use super::ast::*;
 
@@ -100,7 +100,7 @@ fn read_expression(
 ) -> Result<Expression, SimpleError> {
     match expression_node.rule_name {
         "identifier" => {
-            let variable = expect_variable(variables, expression_node.tokens)?;
+            let variable = expect_variable(variables, &expression_node.tokens_as_string())?;
             Ok(Expression::Variable(variable))
         }
         "static_function_call" => {
@@ -122,13 +122,13 @@ fn read_expression(
             Ok(Expression::Literal(Literal::String(string_value)))
         }
         "integer_literal" => {
-            let parse_result = expression_node.tokens.parse::<i32>();
+            let as_string = expression_node.tokens_as_string();
+            let parse_result = as_string.parse::<i32>();
 
             match parse_result {
                 Ok(integer_value) => Ok(Expression::Literal(Literal::Number(integer_value))),
                 Err(err) => Err(SimpleError::new(format!(
-                    "Could not parse integer literal \"{}\": {}",
-                    expression_node.tokens, err
+                    "Could not parse integer literal \"{as_string}\": {err}"
                 ))),
             }
         }
@@ -142,9 +142,9 @@ fn read_mutator(expression_type: &TypeRef, mutator_node: &RuleNode<'_, '_>, vari
 }
 
 fn extract_string(expression_node: &RuleNode<'_, '_>) -> Rc<str> {
-    let slice = expression_node.tokens;
+    let string = expression_node.tokens_as_string();
     // remove quotation marks
-    Rc::from(&slice[1..slice.len() - 1])
+    Rc::from(&string[1..string.len() - 1])
 }
 
 fn read_array_initialisation(

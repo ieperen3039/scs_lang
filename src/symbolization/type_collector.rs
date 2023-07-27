@@ -30,7 +30,7 @@ impl TypeCollector {
 
         let scope_name = node.expect_node("scope_name")?;
 
-        let mut scope = Scope::new(scope_name.tokens, Some(parent_scope));
+        let mut scope = Scope::new(&scope_name.tokens_as_string(), Some(parent_scope));
 
         for node in &node.sub_rules {
             self.read_definitions(node, &mut scope)?;

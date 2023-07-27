@@ -2,7 +2,7 @@ use std::cmp;
 
 use simple_error::SimpleError;
 
-use super::ebnf_ast::{EbnfAst, RegexWrapper, Rule, Term};
+use super::{token::TokenClass, ebnf_ast::{EbnfAst, Rule, Term}};
 
 type EbnfParseResult<'a, T> = Result<OkResult<'a, T>, ErrResult>;
 
@@ -351,12 +351,21 @@ fn process_terminal<'a>(tokens: &str) -> EbnfParseResult<Term> {
     process_first_of(
         tokens,
         &[
-            process_terminal_regex_double_quotes,
-            process_terminal_regex_single_quotes,
+            process_terminal_questionmark,
             process_terminal_single_quote,
             process_terminal_double_quote,
         ][..],
     )
+}
+
+// terminal_double_quote = ('"' , character , { character } , '"')
+fn process_terminal_double_quote(tokens: &str) -> EbnfParseResult<Term> {
+    process_terminal_with(tokens, "\"")
+}
+
+// terminal_quote = ('"' , character , { character } , '"')
+fn process_terminal_single_quote(tokens: &str) -> EbnfParseResult<Term> {
+    process_terminal_with(tokens, "\'")
 }
 
 fn process_terminal_with<'a>(tokens: &'a str, char: &'static str) -> EbnfParseResult<'a, Term> {
@@ -373,40 +382,20 @@ fn process_terminal_with<'a>(tokens: &'a str, char: &'static str) -> EbnfParseRe
     })
 }
 
-fn process_terminal_regex_with<'a>(tokens: &'a str, open : &'static str, close : &'static str) -> EbnfParseResult<'a, Term> {
-    check_starts_with(tokens, open)?;
+// terminal_token = ('?' , character , { character } , '?')
+fn process_terminal_questionmark(tokens: &str) -> EbnfParseResult<Term> {
+    check_starts_with(tokens, "?")?;
 
-    let regex_length = tokens[2..].find(close).ok_or(ErrResult::UnclosedGroup {
+    let string_length = tokens[1..].find("?").ok_or(ErrResult::UnclosedGroup {
         tokens_remaining: tokens.len(),
     })?;
 
-    let regex_end = 2 + regex_length;
-    let final_regex = String::from("^") + &tokens[2..regex_end];
+    let string_end = string_length + 1;
+
     Ok(OkResult {
-        val: Term::Regex(RegexWrapper {
-            regex: regex::Regex::new(&final_regex)
-                .map_err(|err| ErrResult::InvalidRegex(SimpleError::from(err)))?,
-            regex_str : final_regex
-        }),
-        remaining_tokens: skip_ignored(&tokens[(regex_end + 2)..]),
+        val: Term::Token(TokenClass::from_str(&tokens[1..string_end])),
+        remaining_tokens: skip_ignored(&tokens[(string_end + 1)..]),
     })
-}
-
-fn process_terminal_regex_double_quotes(tokens: &str) -> EbnfParseResult<Term> {
-    process_terminal_regex_with(tokens, "\"/", "/\"")
-}
-
-fn process_terminal_regex_single_quotes(tokens: &str) -> EbnfParseResult<Term> {
-    process_terminal_regex_with(tokens, "\'/", "/\'")
-}
-
-// terminal_double_quote = ('"' , character , { character } , '"')
-fn process_terminal_double_quote(tokens: &str) -> EbnfParseResult<Term> {
-    process_terminal_with(tokens, "\"")
-}
-// terminal_quote = ('"' , character , { character } , '"')
-fn process_terminal_single_quote(tokens: &str) -> EbnfParseResult<Term> {
-    process_terminal_with(tokens, "\'")
 }
 
 // identifier = letter , { letter | digit | "_" } ;

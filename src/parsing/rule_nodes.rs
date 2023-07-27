@@ -2,127 +2,122 @@ use std::{hash::Hash, rc::Rc};
 
 use simple_error::SimpleError;
 
+use super::token::Token;
+
 // the entire resulting syntax tree consists of these nodes
 #[derive(Eq, Clone)]
-pub enum RuleNode<'prog, 'bnf> {
-    Node{
-        rule_name: &'bnf str,
-        sub_rules: Vec<RuleNode<'prog, 'bnf>>,
-    },
-    Leaf {
-        rule_name: &'bnf str,
-        tokens: &'prog str,
-    }
+pub struct RuleNode<'prog, 'bnf> {
+    pub rule_name: &'bnf str,
+    pub tokens: &'prog [Token<'prog>],
+    pub sub_rules: Vec<RuleNode<'prog, 'bnf>>,
 }
 
 impl<'prog, 'bnf> Hash for RuleNode<'prog, 'bnf> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        match self {
-            RuleNode::Node { rule_name, sub_rules } => {
-                true.hash(state);
-                rule_name.hash(state);
-                sub_rules.hash(state);
-            },
-            RuleNode::Leaf { rule_name, tokens } => {
-                false.hash(state);
-                rule_name.hash(state);
-                tokens.hash(state);
-            },
+        self.rule_name.hash(state);
+        self.sub_rules.hash(state);
+
+        if self.sub_rules.is_empty() {
+            self.tokens.hash(state);
         }
     }
 }
 
 impl<'prog, 'bnf> PartialEq for RuleNode<'prog, 'bnf> {
     fn eq(&self, other: &Self) -> bool {
-        match self {
-            RuleNode::Node { rule_name, sub_rules } => {
-                match other {
-                    RuleNode::Node { rule_name : other_rule_name, sub_rules : other_sub_rules } => {
-                        return rule_name == other_rule_name && sub_rules == other_sub_rules
-                    }
-                    _ => false
-                }
-            },
-            RuleNode::Leaf { rule_name, tokens } => {
-                match other {
-                    RuleNode::Leaf { rule_name : other_rule_name, tokens : other_tokens } => {
-                        return rule_name == other_rule_name && tokens == other_tokens
-                    }
-                    _ => false
-                }
-            },
+        if self.sub_rules.is_empty() {
+            other.sub_rules.is_empty()
+                && self.rule_name == other.rule_name
+                && self.tokens == other.tokens
+        } else {
+            self.rule_name == other.rule_name && self.sub_rules == other.sub_rules
         }
     }
 }
 
 impl<'prog, 'bnf> std::fmt::Debug for RuleNode<'prog, 'bnf> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            RuleNode::Node { rule_name, sub_rules } => {
-                f.write_fmt(format_args!("{{{}, {:?}}}", rule_name, sub_rules))
-            },
-            RuleNode::Leaf { rule_name, tokens } => {
-                f.write_fmt(format_args!("{{{}, \"{}\"}}", rule_name, tokens))
-            },
+        if self.sub_rules.is_empty() {
+            f.write_fmt(format_args!(
+                "{{{}, \"{:?}\"}}",
+                self.rule_name, self.tokens
+            ))
+        } else {
+            f.write_fmt(format_args!("{{{}, {:?}}}", self.rule_name, self.sub_rules))
         }
     }
 }
 
 impl<'prog, 'bnf> RuleNode<'prog, 'bnf> {
-    pub fn get_rule_name(&self) -> &'bnf str {
-        match self {
-            RuleNode::Node { rule_name, sub_rules } => {
-                rule_name
-            },
-            RuleNode::Leaf { rule_name, tokens } => {
-                rule_name
-            },
-        }
-    }
-
     pub fn as_identifier(&self) -> Rc<str> {
-        match self {
-            RuleNode::Node { rule_name, sub_rules } => {
-                Rc::from(*rule_name)
-            },
-            RuleNode::Leaf { rule_name, tokens } => {
-                Rc::from(*tokens)
-            },
-        }
+        Rc::from(self.tokens_as_string())
     }
 
-    pub fn expect_node<'r>(
-        &'r self,
-        expected: &str,
-    ) -> Result<&'r RuleNode, SimpleError> {
+    pub fn tokens_as_string(&self) -> String {
+        self.tokens
+            .iter()
+            .map(|t| t.slice)
+            .fold(String::new(), |s, t| s + t)
+    }
+
+    // returns true if this rule node is syntactically equivalent.
+    // this check is more expensive than eq
+    pub fn is_similar_to(&self, other: &Self) -> bool {
+        if self.rule_name != other.rule_name {
+            return false;
+        }
+
+        // self.sub_rules ~= other.sub_rules
+        let mut this_sub_rules = self.sub_rules.iter();
+        let mut other_sub_rules = other.sub_rules.iter();
+
+        match (this_sub_rules.next(), other_sub_rules.next()) {
+            (None, None) => {},
+            (Some(this_sub_rule), Some(other_sub_rule)) => {
+                if !this_sub_rule.is_similar_to(other_sub_rule) {
+                    return false
+                }
+            }
+            _ => return false,
+        };
+
+        // if the sub rules are similar, then our tokens are similar as well
+        // this simplifies writing tests
+        if self.sub_rules.is_empty() {
+            // self.tokens ~= other.tokens
+            let mut this_tokens = self.tokens.iter();
+            let mut other_tokens = other.tokens.iter();
+    
+            match (this_tokens.next(), other_tokens.next()) {
+                (None, None) => {},
+                (Some(this_token), Some(other_token)) => {
+                    if !this_token.is_similar_to(other_token) {
+                        return false
+                    }
+                }
+                _ => return false,
+            };
+        }
+
+        true
+    }
+
+    pub fn expect_node<'r>(&'r self, expected: &str) -> Result<&'r RuleNode, SimpleError> {
         self.find_node(expected)
             .ok_or_else(|| SimpleError::new(format!("Expected node {expected}")))
     }
 
     pub fn find_node<'r>(&'r self, expected: &str) -> Option<&'r RuleNode> {
-        match self {
-            RuleNode::Node { rule_name, sub_rules } => {
-                sub_rules
-                .iter()
-                .find(|rule| rule.get_rule_name() == expected)
-            },
-            RuleNode::Leaf { rule_name, tokens } => {
-                None
-            },
-        }
+        self.sub_rules
+            .iter()
+            .find(|rule| rule.rule_name == expected)
     }
 
     pub fn find_nodes<'r>(&'r self, expected: &str) -> Vec<&'r RuleNode> {
-        match self {
-            RuleNode::Node { rule_name, sub_rules } => {
-                sub_rules
-                .iter()
-                .filter(|rule| rule.get_rule_name() == expected)
-                .collect()
-            },
-            RuleNode::Leaf { rule_name, tokens } => {
-                Vec::new()
-            },
-        }
+        self.sub_rules
+            .iter()
+            .filter(|rule| rule.rule_name == expected)
+            .collect()
     }
 }
+

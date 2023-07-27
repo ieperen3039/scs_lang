@@ -4,10 +4,9 @@ use std::{
     io::Write,
 };
 
-use regex::Regex;
 use simple_error::SimpleError;
 
-use super::{ebnf_ast, lexer::{Lexer, Token}, rule_nodes::RuleNode};
+use super::{ebnf_ast, token::{Token, TokenClass}, rule_nodes::RuleNode, lexer::Lexer};
 
 type ParseResult<'prog, 'bnf> = Vec<Result<Interpretation<'prog, 'bnf>, Failure<'bnf>>>;
 
@@ -26,6 +25,10 @@ pub enum Failure<'bnf> {
     // the parser finished before the end of the file
     IncompleteParse {
         char_idx: usize,
+    },
+    // reached end of file while parsing
+    EndOfFile {
+        expected: &'bnf str,
     },
     // a rule in the bnf returned success with 0 tokens consumed
     EmptyEvaluation,
@@ -197,9 +200,10 @@ impl<'bnf> Parser {
                     match tokens.len() - remaining_tokens.len() {
                         0 => any_empty_result = true,
                         num_tokens => {
-                            interpretations.insert(RuleNode::Node {
+                            interpretations.insert(RuleNode {
                                 rule_name: &rule.identifier,
                                 sub_rules: unwrap_to_rulenodes(interpretation.val),
+                                tokens: &tokens[..num_tokens],
                             });
                         }
                     }
@@ -224,15 +228,11 @@ impl<'bnf> Parser {
         let mut results = Vec::new();
 
         for node in interpretations {
-            match node {
-                RuleNode::Node { rule_name, sub_rules } => {
-                    results.push(Ok(Interpretation {
-                        val: ParseNode::Rule(node),
-                        remaining_tokens: sub_rules.last().unwrap().,
-                    }))
-                },
-                RuleNode::Leaf { rule_name, tokens } => todo!(),
-            }
+            let num_tokens = node.tokens.len();
+            results.push(Ok(Interpretation {
+                val: ParseNode::Rule(node),
+                remaining_tokens: &tokens[num_tokens..],
+            }))
         }
 
         if any_empty_result {
@@ -262,9 +262,7 @@ impl<'bnf> Parser {
             ebnf_ast::Term::Alternation(sub_terms) => self.apply_alternation(tokens, sub_terms),
             ebnf_ast::Term::Literal(literal) => vec![self.parse_literal(tokens, literal)],
             ebnf_ast::Term::Identifier(rule_name) => self.parse_rule_identifier(tokens, rule_name),
-            ebnf_ast::Term::Regex(ebnf_ast::RegexWrapper { regex, .. }) => {
-                vec![self.parse_regex(tokens, regex)]
-            }
+            ebnf_ast::Term::Token(token) => vec![self.parse_token(tokens, token)],
         }
     }
 
@@ -425,7 +423,7 @@ impl<'bnf> Parser {
         tokens: &'prog [Token<'prog>],
         literal: &'bnf str,
     ) -> Result<Interpretation<'prog, 'bnf>, Failure<'bnf>> {
-        let first_token = tokens.first().ok_or(Failure::UnexpectedToken { chars_remaining: 0, expected: literal })?;
+        let first_token = tokens.first().ok_or(Failure::EndOfFile { expected: literal })?;
 
         if first_token.slice.starts_with(literal) {
             Ok(Interpretation {
@@ -434,8 +432,28 @@ impl<'bnf> Parser {
             })
         } else {
             Err(Failure::UnexpectedToken {
-                chars_remaining: first_token.char_idx,
+                char_idx: first_token.char_idx,
                 expected: literal,
+            })
+        }
+    }
+    
+    fn parse_token<'prog>(
+        &'bnf self,
+        tokens: &'prog [Token<'prog>],
+        expected: &TokenClass,
+    ) -> Result<Interpretation<'prog, 'bnf>, Failure<'bnf>> {
+        let first_token = tokens.first().ok_or(Failure::EndOfFile { expected: expected.str() })?;
+
+        if first_token.class == *expected {
+            Ok(Interpretation {
+                val: ParseNode::Terminal(first_token),
+                remaining_tokens: &tokens[1..],
+            })
+        } else {
+            Err(Failure::UnexpectedToken {
+                char_idx: first_token.char_idx,
+                expected: expected.str(),
             })
         }
     }
@@ -487,9 +505,10 @@ fn compare_err_result(a: &Failure<'_>, b: &Failure<'_>) -> cmp::Ordering {
 fn get_err_significance(a: &Failure<'_>) -> i32 {
     match a {
         Failure::UnexpectedToken {
-            chars_remaining: tokens_remaining, ..
+            char_idx, ..
         }
-        | Failure::IncompleteParse { chars_remaining: tokens_remaining } => -(*tokens_remaining as i32),
+        | Failure::IncompleteParse { char_idx } => i32::MIN + *char_idx as i32,
+        Failure::EndOfFile { .. } => 0,
         Failure::EmptyEvaluation => 1,
         Failure::LexerError { .. } => 2,
         Failure::Error(_) => 3,
