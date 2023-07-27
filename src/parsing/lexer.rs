@@ -1,9 +1,11 @@
 use regex::Regex;
 use simple_error::SimpleError;
 
+use super::parser::Failure;
+
 const LEXER_ERROR_INDICATOR_OFFSET: usize = 20;
 
-pub struct FauxLexer {}
+pub struct Lexer {}
 
 #[derive(Clone, Debug)]
 pub enum TokenClass {
@@ -26,35 +28,40 @@ enum LexMethod {
     CaptureRegex(Regex),
 }
 
-impl FauxLexer {
-    pub fn read_token<'prog>(&self, string: &str) -> Option<(TokenClass, usize)> {
-        if string.is_empty() {
+impl Lexer {
+    pub fn read_tokens(&self, program: &str) -> Option<(TokenClass, usize)> {
+        if program.is_empty() {
             return None;
         }
 
-        let chars = string.chars();
+        let chars = program.chars();
 
-        let num_chars = FauxLexer::count(chars.clone(), char::is_whitespace);
+        let num_chars = Lexer::count(chars.clone(), char::is_whitespace);
         if num_chars > 0 {
             return Some((TokenClass::WHITESPACE, num_chars));
         }
 
         let first_char = chars.clone().next().unwrap();
         if first_char == '_' || first_char.is_alphabetic() {
-            let num_chars = FauxLexer::count(chars, |c| c == '_' || c.is_alphanumeric());
+            let num_chars = Lexer::count(chars, |c| c == '_' || c.is_alphanumeric());
             return Some((TokenClass::IDENTIFIER, num_chars));
         }
 
         if first_char.is_numeric() {
-            let num_chars = FauxLexer::count(chars, |c| c == '_' || c == '.' || c.is_alphanumeric());
+            let num_chars =
+                Lexer::count(chars, |c| c == '_' || c == '.' || c.is_alphanumeric());
             return Some((TokenClass::IDENTIFIER, num_chars));
         }
 
-        let num_chars = FauxLexer::count(chars, |c| !c.is_ascii_punctuation());
-        return Some((TokenClass::SYMBOL, num_chars));
+        let num_chars = Lexer::count(chars, |c| !c.is_ascii_punctuation());
+        if num_chars == 0 {
+            None
+        } else {
+            Some((TokenClass::SYMBOL, num_chars))
+        }
     }
 
-    fn count(mut chars: std::str::Chars<'_>, predicate: fn(char) -> bool) -> usize {
+    fn count(mut chars: std::str::Chars, predicate: fn(char) -> bool) -> usize {
         let mut num_chars = 0;
         while let Some(c) = chars.next() {
             if !predicate(c) {
@@ -67,12 +74,12 @@ impl FauxLexer {
         return num_chars;
     }
 
-    pub fn read_all<'a>(&self, string: &'a str) -> Result<Vec<Token<'a>>, SimpleError> {
+    pub fn read_all<'prog>(&self, string: &'prog str) -> Result<Vec<Token<'prog>>, usize> {
         let mut cursor = 0;
         let mut tokens = Vec::new();
 
         while cursor < string.len() {
-            match self.read_token(&string[cursor..]) {
+            match self.read_tokens(&string[cursor..]) {
                 Some((class, size)) => {
                     let slice = &string[cursor..(cursor + size)];
                     tokens.push(Token {
@@ -82,7 +89,9 @@ impl FauxLexer {
                     });
                     cursor += size;
                 }
-                None => return Err(SimpleError::new(error_message_parse(string, cursor))),
+                None => {
+                    return Err(cursor)
+                }
             }
         }
 

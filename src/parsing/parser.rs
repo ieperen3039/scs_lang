@@ -7,7 +7,7 @@ use std::{
 use regex::Regex;
 use simple_error::SimpleError;
 
-use super::{ebnf_ast, rule_nodes::RuleNode};
+use super::{ebnf_ast, lexer::Lexer, rule_nodes::RuleNode};
 
 type ParseResult<'prog, 'bnf> = Vec<Result<Interpretation<'prog, 'bnf>, Failure<'bnf>>>;
 
@@ -27,7 +27,12 @@ pub enum Failure<'bnf> {
     IncompleteParse {
         tokens_remaining: usize,
     },
+    // a rule in the bnf returned success with 0 tokens consumed
     EmptyEvaluation,
+    // there was an error reading the characters of the file
+    LexerError {
+        tokens_remaining: usize,
+    },
     // the program or grammar has some unspecified syntax error
     Error(SimpleError),
     // the parser has 'crashed' due to a compiler bug
@@ -40,6 +45,7 @@ impl Failure<'_> {
             Failure::UnexpectedToken {
                 tokens_remaining, ..
             }
+            | Failure::LexerError { tokens_remaining }
             | Failure::IncompleteParse { tokens_remaining } => {
                 let offset = source.len() - tokens_remaining;
                 let line_number = source[..offset].bytes().filter(|c| c == &b'\n').count() + 1;
@@ -110,6 +116,13 @@ impl<'bnf> Parser {
         program: &'prog str,
     ) -> Result<RuleNode<'prog, 'bnf>, Vec<Failure<'bnf>>> {
         let primary_rule = self.grammar.rules.get(0).expect("Grammar must have rules");
+
+        let lexer = Lexer {};
+        let tokens = lexer.read_all(program).map_err(|pos| {
+            vec![Failure::LexerError {
+                tokens_remaining: program.len() - pos,
+            }]
+        })?;
 
         let mut interpretations = self.apply_rule(program, primary_rule);
 
@@ -259,8 +272,8 @@ impl<'bnf> Parser {
         tokens: &'prog str,
         sub_terms: &'bnf [ebnf_ast::Term],
     ) -> ParseResult<'prog, 'bnf> {
-        if sub_terms.len() > 2 && tokens.len() > MAX_NUM_TOKENS_BACKTRACE_ON_SUCCESS { 
-            return self.apply_alternation_with_sortcut(tokens, sub_terms); 
+        if sub_terms.len() > 2 && tokens.len() > MAX_NUM_TOKENS_BACKTRACE_ON_SUCCESS {
+            return self.apply_alternation_with_sortcut(tokens, sub_terms);
         }
 
         let mut combined_results = Vec::new();
@@ -276,7 +289,7 @@ impl<'bnf> Parser {
         sub_terms: &'bnf [ebnf_ast::Term],
     ) -> ParseResult<'prog, 'bnf> {
         let mut combined_results = Vec::new();
-        
+
         for term in sub_terms {
             let mut results = self.apply_term(tokens, term);
 
@@ -498,8 +511,9 @@ fn get_err_significance(a: &Failure<'_>) -> i32 {
         }
         | Failure::IncompleteParse { tokens_remaining } => -(*tokens_remaining as i32),
         Failure::EmptyEvaluation => 1,
-        Failure::Error(_) => 2,
-        Failure::InternalError(_) => 3,
+        Failure::LexerError { .. } => 2,
+        Failure::Error(_) => 3,
+        Failure::InternalError(_) => 4,
     }
 }
 
