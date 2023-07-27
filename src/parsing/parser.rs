@@ -7,7 +7,7 @@ use std::{
 use regex::Regex;
 use simple_error::SimpleError;
 
-use super::{ebnf_ast, lexer::Lexer, rule_nodes::RuleNode};
+use super::{ebnf_ast, lexer::{Lexer, Token}, rule_nodes::RuleNode};
 
 type ParseResult<'prog, 'bnf> = Vec<Result<Interpretation<'prog, 'bnf>, Failure<'bnf>>>;
 
@@ -20,18 +20,18 @@ pub enum Failure<'bnf> {
     // the evaluation of this function could not complete for these tokens
     // this is a normal negative return value
     UnexpectedToken {
-        tokens_remaining: usize,
+        char_idx: usize,
         expected: &'bnf str,
     },
     // the parser finished before the end of the file
     IncompleteParse {
-        tokens_remaining: usize,
+        char_idx: usize,
     },
     // a rule in the bnf returned success with 0 tokens consumed
     EmptyEvaluation,
     // there was an error reading the characters of the file
     LexerError {
-        tokens_remaining: usize,
+        char_idx: usize,
     },
     // the program or grammar has some unspecified syntax error
     Error(SimpleError),
@@ -43,11 +43,11 @@ impl Failure<'_> {
     pub fn error_string(&self, source: &str) -> String {
         match self {
             Failure::UnexpectedToken {
-                tokens_remaining, ..
+                char_idx, ..
             }
-            | Failure::LexerError { tokens_remaining }
-            | Failure::IncompleteParse { tokens_remaining } => {
-                let offset = source.len() - tokens_remaining;
+            | Failure::LexerError { char_idx }
+            | Failure::IncompleteParse { char_idx } => {
+                let offset = *char_idx;
                 let line_number = source[..offset].bytes().filter(|c| c == &b'\n').count() + 1;
                 let lower_newline = source[..offset].rfind("\n").map(|v| v + 1).unwrap_or(0);
                 let upper_newline = source[offset..]
@@ -71,7 +71,7 @@ impl Failure<'_> {
 
 struct Interpretation<'prog, 'bnf> {
     val: ParseNode<'prog, 'bnf>,
-    remaining_tokens: &'prog str,
+    remaining_tokens: &'prog [Token<'prog>],
 }
 
 impl<'prog, 'bnf> std::fmt::Debug for Interpretation<'prog, 'bnf> {
@@ -85,7 +85,7 @@ enum ParseNode<'prog, 'bnf> {
     Rule(RuleNode<'prog, 'bnf>),
     EmptyNode,
     Pair(Box<ParseNode<'prog, 'bnf>>, Box<ParseNode<'prog, 'bnf>>),
-    Terminal(&'prog str),
+    Terminal(&'prog Token<'prog>),
 }
 
 pub struct Parser {
@@ -118,13 +118,11 @@ impl<'bnf> Parser {
         let primary_rule = self.grammar.rules.get(0).expect("Grammar must have rules");
 
         let lexer = Lexer {};
-        let tokens = lexer.read_all(program).map_err(|pos| {
-            vec![Failure::LexerError {
-                tokens_remaining: program.len() - pos,
-            }]
+        let tokens = lexer.read_all(program).map_err(|char_idx| {
+            vec![Failure::LexerError { char_idx, }]
         })?;
 
-        let mut interpretations = self.apply_rule(program, primary_rule);
+        let mut interpretations = self.apply_rule(&tokens, primary_rule);
 
         // rules always sort their results (but lets check this)
         for ele in interpretations.windows(2) {
@@ -146,14 +144,13 @@ impl<'bnf> Parser {
 
         if !result_borrowed.remaining_tokens.is_empty() {
             let mut furthest_failures = vec![Failure::IncompleteParse {
-                tokens_remaining: result_borrowed.remaining_tokens.len(),
+                char_idx : result_borrowed.remaining_tokens.first().map(|t| t.char_idx - 1).unwrap_or(program.len())
             }];
 
             let mut iter = interpretations.into_iter().rev();
 
             while let Some(Err(failure)) = iter.next() {
-                let minimum = get_err_significance(furthest_failures.last().unwrap())
-                    - MAX_NUM_TOKENS_BACKTRACE_ON_ERROR;
+                let minimum = get_err_significance(furthest_failures.last().unwrap()) - MAX_NUM_TOKENS_BACKTRACE_ON_ERROR;
                 if get_err_significance(&failure) > minimum {
                     furthest_failures.push(failure);
                     furthest_failures.sort_by(compare_err_result);
@@ -177,7 +174,7 @@ impl<'bnf> Parser {
     // apply rule on tokens
     fn apply_rule<'prog>(
         &'bnf self,
-        tokens: &'prog str,
+        tokens: &'prog [Token<'prog>],
         rule: &'bnf ebnf_ast::Rule,
     ) -> ParseResult<'prog, 'bnf> {
         let is_transparent = rule.identifier.as_bytes()[0] == b'_';
@@ -196,12 +193,12 @@ impl<'bnf> Parser {
             match result {
                 Ok(interpretation) => {
                     let remaining_tokens = interpretation.remaining_tokens;
+
                     match tokens.len() - remaining_tokens.len() {
                         0 => any_empty_result = true,
                         num_tokens => {
-                            interpretations.insert(RuleNode {
+                            interpretations.insert(RuleNode::Node {
                                 rule_name: &rule.identifier,
-                                tokens: &tokens[..num_tokens],
                                 sub_rules: unwrap_to_rulenodes(interpretation.val),
                             });
                         }
@@ -227,11 +224,15 @@ impl<'bnf> Parser {
         let mut results = Vec::new();
 
         for node in interpretations {
-            let num_tokens = node.tokens.len();
-            results.push(Ok(Interpretation {
-                val: ParseNode::Rule(node),
-                remaining_tokens: &tokens[num_tokens..],
-            }))
+            match node {
+                RuleNode::Node { rule_name, sub_rules } => {
+                    results.push(Ok(Interpretation {
+                        val: ParseNode::Rule(node),
+                        remaining_tokens: sub_rules.last().unwrap().,
+                    }))
+                },
+                RuleNode::Leaf { rule_name, tokens } => todo!(),
+            }
         }
 
         if any_empty_result {
@@ -251,7 +252,7 @@ impl<'bnf> Parser {
 
     fn apply_term<'prog>(
         &'bnf self,
-        tokens: &'prog str,
+        tokens: &'prog [Token<'prog>],
         term: &'bnf ebnf_ast::Term,
     ) -> ParseResult<'prog, 'bnf> {
         match term {
@@ -269,7 +270,7 @@ impl<'bnf> Parser {
 
     fn apply_alternation<'prog>(
         &'bnf self,
-        tokens: &'prog str,
+        tokens: &'prog [Token<'prog>],
         sub_terms: &'bnf [ebnf_ast::Term],
     ) -> ParseResult<'prog, 'bnf> {
         if sub_terms.len() > 2 && tokens.len() > MAX_NUM_TOKENS_BACKTRACE_ON_SUCCESS {
@@ -285,7 +286,7 @@ impl<'bnf> Parser {
 
     fn apply_alternation_with_sortcut<'prog>(
         &'bnf self,
-        tokens: &'prog str,
+        tokens: &'prog [Token<'prog>],
         sub_terms: &'bnf [ebnf_ast::Term],
     ) -> ParseResult<'prog, 'bnf> {
         let mut combined_results = Vec::new();
@@ -311,7 +312,7 @@ impl<'bnf> Parser {
 
     fn apply_concatenation<'prog>(
         &'bnf self,
-        tokens: &'prog str,
+        tokens: &'prog [Token<'prog>],
         sub_terms: &'bnf [ebnf_ast::Term],
     ) -> ParseResult<'prog, 'bnf> {
         let term = sub_terms.first().unwrap();
@@ -353,7 +354,7 @@ impl<'bnf> Parser {
 
     fn apply_repetition<'prog>(
         &'bnf self,
-        tokens: &'prog str,
+        tokens: &'prog [Token<'prog>],
         sub_term: &'bnf ebnf_ast::Term,
     ) -> ParseResult<'prog, 'bnf> {
         // evaluate the term once on `tokens`
@@ -407,7 +408,7 @@ impl<'bnf> Parser {
 
     fn apply_optional<'prog>(
         &'bnf self,
-        tokens: &'prog str,
+        tokens: &'prog [Token<'prog>],
         sub_term: &'bnf ebnf_ast::Term,
     ) -> ParseResult<'prog, 'bnf> {
         // the result is all successful evaluations of the term, and the result of not applying the term.
@@ -419,42 +420,21 @@ impl<'bnf> Parser {
         results
     }
 
-    fn parse_regex<'prog>(
-        &'bnf self,
-        tokens: &'prog str,
-        regex: &'bnf Regex,
-    ) -> Result<Interpretation<'prog, 'bnf>, Failure<'bnf>> {
-        if let Some(found) = regex.find(tokens) {
-            let slice = &tokens[..found.end()];
-            if slice.is_empty() {
-                Err(Failure::EmptyEvaluation)
-            } else {
-                Ok(Interpretation {
-                    val: ParseNode::Terminal(slice),
-                    remaining_tokens: &tokens[found.end()..],
-                })
-            }
-        } else {
-            Err(Failure::UnexpectedToken {
-                tokens_remaining: tokens.len(),
-                expected: regex.as_str(),
-            })
-        }
-    }
-
     fn parse_literal<'prog>(
         &'bnf self,
-        tokens: &'prog str,
+        tokens: &'prog [Token<'prog>],
         literal: &'bnf str,
     ) -> Result<Interpretation<'prog, 'bnf>, Failure<'bnf>> {
-        if tokens.starts_with(literal) {
+        let first_token = tokens.first().ok_or(Failure::UnexpectedToken { chars_remaining: 0, expected: literal })?;
+
+        if first_token.slice.starts_with(literal) {
             Ok(Interpretation {
-                val: ParseNode::Terminal(&tokens[..literal.len()]),
-                remaining_tokens: &tokens[literal.len()..],
+                val: ParseNode::Terminal(first_token),
+                remaining_tokens: &tokens[1..],
             })
         } else {
             Err(Failure::UnexpectedToken {
-                tokens_remaining: tokens.len(),
+                chars_remaining: first_token.char_idx,
                 expected: literal,
             })
         }
@@ -462,7 +442,7 @@ impl<'bnf> Parser {
 
     fn parse_rule_identifier<'prog>(
         &'bnf self,
-        tokens: &'prog str,
+        tokens: &'prog [Token<'prog>],
         rule_name: &'bnf str,
     ) -> ParseResult<'prog, 'bnf> {
         self.grammar
@@ -507,9 +487,9 @@ fn compare_err_result(a: &Failure<'_>, b: &Failure<'_>) -> cmp::Ordering {
 fn get_err_significance(a: &Failure<'_>) -> i32 {
     match a {
         Failure::UnexpectedToken {
-            tokens_remaining, ..
+            chars_remaining: tokens_remaining, ..
         }
-        | Failure::IncompleteParse { tokens_remaining } => -(*tokens_remaining as i32),
+        | Failure::IncompleteParse { chars_remaining: tokens_remaining } => -(*tokens_remaining as i32),
         Failure::EmptyEvaluation => 1,
         Failure::LexerError { .. } => 2,
         Failure::Error(_) => 3,
