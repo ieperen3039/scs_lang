@@ -1,7 +1,5 @@
 use std::rc::Rc;
 
-use simple_error::SimpleError;
-
 use super::ast::*;
 
 pub const TYPE_ID_INT: u32 = 0;

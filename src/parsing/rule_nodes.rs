@@ -62,6 +62,7 @@ impl<'prog, 'bnf> RuleNode<'prog, 'bnf> {
 
     // returns true if this rule node is syntactically equivalent.
     // this check is more expensive than eq
+    #[allow(dead_code)]
     pub fn is_similar_to(&self, other: &Self) -> bool {
         if self.rule_name != other.rule_name {
             return false;
@@ -91,7 +92,7 @@ impl<'prog, 'bnf> RuleNode<'prog, 'bnf> {
             match (this_tokens.next(), other_tokens.next()) {
                 (None, None) => {},
                 (Some(this_token), Some(other_token)) => {
-                    if !this_token.is_similar_to(other_token) {
+                    if this_token.class != other_token.class || this_token.slice != other_token.slice {
                         return false
                     }
                 }

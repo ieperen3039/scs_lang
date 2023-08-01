@@ -1,6 +1,5 @@
-#! /bin/solid_command_sequence
+#! /bin/faux_parser
 // if the first line starts with a shebang, we ignore that line
-// also, 'solid_command_sequence.exe' because we verbose
 
 // definitely start with the language version
 version faux 0.0.0

@@ -6,7 +6,11 @@ use std::{
 
 use simple_error::SimpleError;
 
-use super::{ebnf_ast, token::{Token, TokenClass}, rule_nodes::RuleNode, lexer::Lexer};
+use super::{
+    ebnf_ast,
+    rule_nodes::RuleNode,
+    token::{Token, TokenClass},
+};
 
 type ParseResult<'prog, 'bnf> = Vec<Result<Interpretation<'prog, 'bnf>, Failure<'bnf>>>;
 
@@ -37,24 +41,24 @@ pub enum Failure<'bnf> {
         char_idx: usize,
     },
     // the program or grammar has some unspecified syntax error
+    #[allow(dead_code)]
     Error(SimpleError),
     // the parser has 'crashed' due to a compiler bug
+    #[allow(dead_code)]
     InternalError(SimpleError),
 }
 
 impl Failure<'_> {
     pub fn error_string(&self, source: &str) -> String {
         match self {
-            Failure::UnexpectedToken {
-                char_idx, ..
-            }
+            Failure::UnexpectedToken { char_idx, .. }
             | Failure::LexerError { char_idx }
             | Failure::IncompleteParse { char_idx } => {
                 let offset = *char_idx;
-                let line_number = source[..offset].bytes().filter(|c| c == &b'\n').count() + 1;
-                let lower_newline = source[..offset].rfind("\n").map(|v| v + 1).unwrap_or(0);
+                let line_number = source[..offset].bytes().filter(|&c| c == b'\n').count() + 1;
+                let lower_newline = source[..offset].rfind(|c| c == '\n' || c == '\r').map(|v| v + 1).unwrap_or(0);
                 let upper_newline = source[offset..]
-                    .find("\n")
+                    .find(|c| c == '\n' || c == '\r')
                     .map(|v| v + offset)
                     .unwrap_or(source.len());
                 let lb = cmp::max(offset as i64 - 40, lower_newline as i64) as usize;
@@ -108,7 +112,7 @@ impl<'bnf> Parser {
         }
     }
 
-    fn log(&'bnf self, string: String) {
+    fn log(&'bnf self, string: &str) {
         if let Some(mut file) = self.xml_out.as_ref() {
             let _ = write!(file, "{string}");
         }
@@ -116,14 +120,9 @@ impl<'bnf> Parser {
 
     pub fn parse_program<'prog>(
         &'bnf self,
-        program: &'prog str,
+        tokens: &'prog [Token<'prog>],
     ) -> Result<RuleNode<'prog, 'bnf>, Vec<Failure<'bnf>>> {
         let primary_rule = self.grammar.rules.get(0).expect("Grammar must have rules");
-
-        let lexer = Lexer {};
-        let tokens = lexer.read_all(program).map_err(|char_idx| {
-            vec![Failure::LexerError { char_idx, }]
-        })?;
 
         let mut interpretations = self.apply_rule(&tokens, primary_rule);
 
@@ -147,13 +146,22 @@ impl<'bnf> Parser {
 
         if !result_borrowed.remaining_tokens.is_empty() {
             let mut furthest_failures = vec![Failure::IncompleteParse {
-                char_idx : result_borrowed.remaining_tokens.first().map(|t| t.char_idx - 1).unwrap_or(program.len())
+                char_idx: result_borrowed
+                    .remaining_tokens
+                    .first()
+                    .map(|t| t.char_idx - 1)
+                    .ok_or_else(|| {
+                        vec![Failure::InternalError(SimpleError::new(
+                            "incomplete parse, but no remaining tokens",
+                        ))]
+                    })?,
             }];
 
             let mut iter = interpretations.into_iter().rev();
 
             while let Some(Err(failure)) = iter.next() {
-                let minimum = get_err_significance(furthest_failures.last().unwrap()) - MAX_NUM_TOKENS_BACKTRACE_ON_ERROR;
+                let minimum = get_err_significance(furthest_failures.last().unwrap())
+                    - MAX_NUM_TOKENS_BACKTRACE_ON_ERROR;
                 if get_err_significance(&failure) > minimum {
                     furthest_failures.push(failure);
                     furthest_failures.sort_by(compare_err_result);
@@ -182,6 +190,10 @@ impl<'bnf> Parser {
     ) -> ParseResult<'prog, 'bnf> {
         let is_transparent = rule.identifier.as_bytes()[0] == b'_';
 
+        if !is_transparent {
+            self.log(&rule.identifier);
+        }
+
         let result_of_term = self.apply_term(tokens, &rule.pattern);
 
         if is_transparent {
@@ -202,8 +214,8 @@ impl<'bnf> Parser {
                         num_tokens => {
                             interpretations.insert(RuleNode {
                                 rule_name: &rule.identifier,
-                                sub_rules: unwrap_to_rulenodes(interpretation.val),
                                 tokens: &tokens[..num_tokens],
+                                sub_rules: unwrap_to_rulenodes(interpretation.val),
                             });
                         }
                     }
@@ -423,7 +435,9 @@ impl<'bnf> Parser {
         tokens: &'prog [Token<'prog>],
         literal: &'bnf str,
     ) -> Result<Interpretation<'prog, 'bnf>, Failure<'bnf>> {
-        let first_token = tokens.first().ok_or(Failure::EndOfFile { expected: literal })?;
+        let first_token = tokens
+            .first()
+            .ok_or(Failure::EndOfFile { expected: literal })?;
 
         if first_token.slice.starts_with(literal) {
             Ok(Interpretation {
@@ -437,13 +451,15 @@ impl<'bnf> Parser {
             })
         }
     }
-    
+
     fn parse_token<'prog>(
         &'bnf self,
         tokens: &'prog [Token<'prog>],
         expected: &TokenClass,
     ) -> Result<Interpretation<'prog, 'bnf>, Failure<'bnf>> {
-        let first_token = tokens.first().ok_or(Failure::EndOfFile { expected: expected.str() })?;
+        let first_token = tokens.first().ok_or(Failure::EndOfFile {
+            expected: expected.str(),
+        })?;
 
         if first_token.class == *expected {
             Ok(Interpretation {
@@ -502,17 +518,14 @@ fn compare_err_result(a: &Failure<'_>, b: &Failure<'_>) -> cmp::Ordering {
     get_err_significance(a).cmp(&get_err_significance(b))
 }
 
-fn get_err_significance(a: &Failure<'_>) -> i32 {
-    match a {
-        Failure::UnexpectedToken {
-            char_idx, ..
-        }
-        | Failure::IncompleteParse { char_idx } => i32::MIN + *char_idx as i32,
-        Failure::EndOfFile { .. } => 0,
-        Failure::EmptyEvaluation => 1,
-        Failure::LexerError { .. } => 2,
-        Failure::Error(_) => 3,
-        Failure::InternalError(_) => 4,
+fn get_err_significance(failure: &Failure<'_>) -> i32 {
+    match failure {
+        Failure::UnexpectedToken { char_idx, .. } | Failure::IncompleteParse { char_idx } => *char_idx as i32,
+        Failure::EndOfFile { .. } => i32::MAX - 5,
+        Failure::EmptyEvaluation => i32::MAX - 4,
+        Failure::LexerError { .. } => i32::MAX - 3,
+        Failure::Error(_) => i32::MAX - 2,
+        Failure::InternalError(_) => i32::MAX - 1,
     }
 }
 
@@ -529,6 +542,7 @@ fn unwrap_to_rulenodes<'prog, 'bnf>(node: ParseNode<'prog, 'bnf>) -> Vec<RuleNod
     }
 }
 
+#[allow(dead_code)]
 fn sanitize(original: String) -> String {
     original
         .replace('<', "&lt;")

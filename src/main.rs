@@ -1,8 +1,5 @@
-
-
 use std::path::PathBuf;
 
-#[allow(dead_code)]
 use crate::compiler::FauxCompiler;
 
 pub mod compiler;

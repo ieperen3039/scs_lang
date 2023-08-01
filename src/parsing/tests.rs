@@ -1,10 +1,15 @@
+use simple_error::SimpleError;
+
 use crate::parsing::{
     ebnf_parser,
-    parser, rule_nodes::RuleNode, token::{Token, TokenClass},
+    lexer::Lexer,
+    parser,
+    rule_nodes::RuleNode,
+    token::{Token, TokenClass},
 };
 
 #[test]
-fn simple_parser() {
+fn simple_lexer_and_parser() {
     let definition = r#"
         addition = number, "+", number;
         number = "0" | "1" | "2";
@@ -13,32 +18,60 @@ fn simple_parser() {
 
     let grammar = ebnf_parser::parse_ebnf(definition)
         .map_err(|err| {
-            println!("{}", ebnf_parser::error_string(&err, definition));
+            SimpleError::new(ebnf_parser::error_string(&err, definition));
             err
         })
         .unwrap();
 
-    let parser = parser::Parser::new(grammar, None).unwrap();
-    let program_ast = parser.parse_program(formula).unwrap();
+    let tokens = Lexer {}
+        .read_all(&formula)
+        .map_err(|err| {
+            SimpleError::new(parser::Failure::LexerError { char_idx: err }.error_string(definition))
+        })
+        .unwrap();
 
-    assert!(
-        program_ast.is_similar_to(
-        &RuleNode {
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                class: TokenClass::NUMBER,
+                slice: "1",
+                char_idx: 0
+            },
+            Token {
+                class: TokenClass::SYMBOL,
+                slice: "+",
+                char_idx: 1
+            },
+            Token {
+                class: TokenClass::NUMBER,
+                slice: "2",
+                char_idx: 2
+            }
+        ]
+    );
+
+    let parser = parser::Parser::new(grammar, None).unwrap();
+    let program_ast = parser.parse_program(&tokens).unwrap();
+
+    assert_eq!(
+        program_ast,
+        RuleNode {
             rule_name: "addition",
-            tokens: &[],
+            tokens: &tokens[..],
             sub_rules: vec![
                 RuleNode {
                     rule_name: "number",
-                    tokens: &[Token { class: TokenClass::NUMERIC, slice: "1", char_idx: 0 }],
+                    tokens: &tokens[0..=0],
                     sub_rules: Vec::new()
                 },
                 RuleNode {
                     rule_name: "number",
-                    tokens: &[Token { class: TokenClass::NUMERIC, slice: "2", char_idx: 2 }],
+                    tokens: &tokens[2..=2],
                     sub_rules: Vec::new()
                 },
             ]
-        })
+        }
     )
 }
 
@@ -58,27 +91,65 @@ fn simple_parser_with_simple_ignore() {
         })
         .unwrap();
 
-    let parser = parser::Parser::new(grammar, None).unwrap();
-    let program_ast = parser.parse_program(formula).unwrap();
+    let tokens = Lexer {}
+        .read_all(&formula)
+        .map_err(|err| {
+            SimpleError::new(parser::Failure::LexerError { char_idx: err }.error_string(definition))
+        })
+        .unwrap();
 
-    assert!(
-        program_ast.is_similar_to(
-        &RuleNode {
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                class: TokenClass::NUMBER,
+                slice: "1",
+                char_idx: 0
+            },
+            Token {
+                class: TokenClass::WHITESPACE,
+                slice: " ",
+                char_idx: 1
+            },
+            Token {
+                class: TokenClass::SYMBOL,
+                slice: "+",
+                char_idx: 2
+            },
+            Token {
+                class: TokenClass::WHITESPACE,
+                slice: " ",
+                char_idx: 3
+            },
+            Token {
+                class: TokenClass::NUMBER,
+                slice: "2",
+                char_idx: 4
+            }
+        ]
+    );
+
+    let parser = parser::Parser::new(grammar, None).unwrap();
+    let program_ast = parser.parse_program(&tokens).unwrap();
+
+    assert_eq!(
+        program_ast,
+        RuleNode {
             rule_name: "addition",
-            tokens: &[],
+            tokens: &tokens[..],
             sub_rules: vec![
                 RuleNode {
                     rule_name: "number",
-                    tokens: &[Token { class: TokenClass::NUMERIC, slice: "1", char_idx: 0 }],
+                    tokens: &tokens[0..=0],
                     sub_rules: Vec::new()
                 },
                 RuleNode {
                     rule_name: "number",
-                    tokens: &[Token { class: TokenClass::NUMERIC, slice: "2", char_idx: 2 }],
+                    tokens: &tokens[4..=4],
                     sub_rules: Vec::new()
                 },
             ]
-        })
+        }
     )
 }
 
@@ -98,27 +169,65 @@ fn simple_parser_with_token_usage() {
         })
         .unwrap();
 
-    let parser = parser::Parser::new(grammar, None).unwrap();
-    let program_ast = parser.parse_program(formula).unwrap();
+    let tokens = Lexer {}
+        .read_all(&formula)
+        .map_err(|err| {
+            SimpleError::new(parser::Failure::LexerError { char_idx: err }.error_string(definition))
+        })
+        .unwrap();
 
-    assert!(
-        program_ast.is_similar_to(
-        &RuleNode {
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                class: TokenClass::NUMBER,
+                slice: "1",
+                char_idx: 0
+            },
+            Token {
+                class: TokenClass::WHITESPACE,
+                slice: " ",
+                char_idx: 1
+            },
+            Token {
+                class: TokenClass::SYMBOL,
+                slice: "+",
+                char_idx: 2
+            },
+            Token {
+                class: TokenClass::WHITESPACE,
+                slice: " ",
+                char_idx: 3
+            },
+            Token {
+                class: TokenClass::NUMBER,
+                slice: "2",
+                char_idx: 4
+            }
+        ]
+    );
+
+    let parser = parser::Parser::new(grammar, None).unwrap();
+    let program_ast = parser.parse_program(&tokens).unwrap();
+
+    assert_eq!(
+        program_ast,
+        RuleNode {
             rule_name: "addition",
-            tokens: &[],
+            tokens: &tokens[..],
             sub_rules: vec![
                 RuleNode {
                     rule_name: "number",
-                    tokens: &[Token { class: TokenClass::NUMERIC, slice: "1", char_idx: 0 }],
+                    tokens: &tokens[0..=0],
                     sub_rules: Vec::new()
                 },
                 RuleNode {
                     rule_name: "number",
-                    tokens: &[Token { class: TokenClass::NUMERIC, slice: "2", char_idx: 2 }],
+                    tokens: &tokens[4..=4],
                     sub_rules: Vec::new()
                 },
             ]
-        })
+        }
     )
 }
 
@@ -144,150 +253,202 @@ fn complex_parser_with_complex_ignore() {
         })
         .unwrap();
 
-    let parser = parser::Parser::new(grammar, None).unwrap();
-    let program_ast = parser.parse_program(formula).unwrap();
-
-    assert_eq!(
-        program_ast,
-        RuleNode {
-            rule_name: "sentence",
-            tokens: " you must go there, and I come with you! ",
-            sub_rules: vec![
-                RuleNode {
-                    rule_name: "demand",
-                    tokens: "you must go there",
-                    sub_rules: vec![
-                        RuleNode {
-                            rule_name: "person",
-                            tokens: "you",
-                            sub_rules: Vec::new()
-                        },
-                        RuleNode {
-                            rule_name: "action",
-                            tokens: "go",
-                            sub_rules: Vec::new()
-                        },
-                        RuleNode {
-                            rule_name: "how",
-                            tokens: "there",
-                            sub_rules: Vec::new()
-                        }
-                    ]
-                },
-                RuleNode {
-                    rule_name: "demand",
-                    tokens: "I come with you",
-                    sub_rules: vec![
-                        RuleNode {
-                            rule_name: "person",
-                            tokens: "I",
-                            sub_rules: Vec::new()
-                        },
-                        RuleNode {
-                            rule_name: "action",
-                            tokens: "come",
-                            sub_rules: Vec::new()
-                        },
-                        RuleNode {
-                            rule_name: "how",
-                            tokens: "with you",
-                            sub_rules: vec![RuleNode {
-                                rule_name: "person",
-                                tokens: "you",
-                                sub_rules: Vec::new()
-                            },]
-                        }
-                    ]
-                },
-            ]
-        }
-    )
-}
-
-#[test]
-fn test_implicit_operator()
-{
-    // based on the observation that an implicit operator in the example could not be parsed
-    let definition = r#"
-        formula = number, { _space, _chain }, _space, ";";
-        _chain = chain_plus | chain_minus | chain_multiply;
-        chain_plus = "+", _space, number;
-        chain_minus = "-", _space, number;
-        chain_multiply = [ "*" ], number;
-        _space = ? WHITESPACE ?;
-        number = ? NUMERIC ?;
-    "#;
-    let formula = "1 + 2 - 3 4 + 5;";
-
-    let grammar = ebnf_parser::parse_ebnf(definition)
+    let tokens = Lexer {}
+        .read_all(&formula)
         .map_err(|err| {
-            println!("{}", ebnf_parser::error_string(&err, definition));
-            err
+            SimpleError::new(parser::Failure::LexerError { char_idx: err }.error_string(definition))
         })
         .unwrap();
 
-    let parser = parser::Parser::new(grammar, None).unwrap();
-    let program_ast = parser.parse_program(formula).unwrap();
-
-    
     assert_eq!(
-        program_ast,
-        RuleNode {
-            rule_name: "formula",
-            tokens: "1 + 2 - 3 4 + 5;",
-            sub_rules: vec![
-                RuleNode {
-                    rule_name: "number",
-                    tokens: "1",
-                    sub_rules: Vec::new()
-                },
-                RuleNode {
-                    rule_name: "chain_plus",
-                    tokens: "+ 2",
-                    sub_rules: vec![
-                        RuleNode {
-                            rule_name: "number",
-                            tokens: "2",
-                            sub_rules: Vec::new()
-                        },
-                    ]
-                },
-                RuleNode {
-                    rule_name: "chain_minus",
-                    tokens: "- 3",
-                    sub_rules: vec![
-                        RuleNode {
-                            rule_name: "number",
-                            tokens: "3",
-                            sub_rules: Vec::new()
-                        },
-                    ]
-                },
-                RuleNode {
-                    rule_name: "chain_multiply",
-                    tokens: "4",
-                    sub_rules: vec![
-                        RuleNode {
-                            rule_name: "number",
-                            tokens: "4",
-                            sub_rules: Vec::new()
-                        },
-                    ]
-                },
-                RuleNode {
-                    rule_name: "chain_plus",
-                    tokens: "+ 5",
-                    sub_rules: vec![
-                        RuleNode {
-                            rule_name: "number",
-                            tokens: "5",
-                            sub_rules: Vec::new()
-                        },
-                    ]
-                },
-            ]
-        }
-    )
+        tokens,
+        vec![
+            Token {
+                // 0
+                class: TokenClass::WHITESPACE,
+                slice: " ",
+                char_idx: 0
+            },
+            Token {
+                class: TokenClass::IDENTIFIER,
+                slice: "you",
+                char_idx: 1
+            },
+            Token {
+                // 2
+                class: TokenClass::WHITESPACE,
+                slice: " ",
+                char_idx: 4
+            },
+            Token {
+                class: TokenClass::IDENTIFIER,
+                slice: "must",
+                char_idx: 5
+            },
+            Token {
+                // 4
+                class: TokenClass::WHITESPACE,
+                slice: " ",
+                char_idx: 9
+            },
+            Token {
+                // 5
+                class: TokenClass::IDENTIFIER,
+                slice: "go",
+                char_idx: 10
+            },
+            Token {
+                // 6
+                class: TokenClass::WHITESPACE,
+                slice: " ",
+                char_idx: 12
+            },
+            Token {
+                class: TokenClass::IDENTIFIER,
+                slice: "there",
+                char_idx: 13
+            },
+            Token {
+                // 8
+                class: TokenClass::SYMBOL,
+                slice: ",",
+                char_idx: 18
+            },
+            Token {
+                class: TokenClass::WHITESPACE,
+                slice: " ",
+                char_idx: 19
+            },
+            Token {
+                // 10
+                class: TokenClass::IDENTIFIER,
+                slice: "and",
+                char_idx: 20
+            },
+            Token {
+                class: TokenClass::WHITESPACE,
+                slice: " ",
+                char_idx: 23
+            },
+            Token {
+                // 12
+                class: TokenClass::IDENTIFIER,
+                slice: "I",
+                char_idx: 24
+            },
+            Token {
+                class: TokenClass::WHITESPACE,
+                slice: " ",
+                char_idx: 25
+            },
+            Token {
+                // 14
+                class: TokenClass::IDENTIFIER,
+                slice: "come",
+                char_idx: 26
+            },
+            Token {
+                //15
+                class: TokenClass::WHITESPACE,
+                slice: " ",
+                char_idx: 30
+            },
+            Token {
+                // 16
+                class: TokenClass::IDENTIFIER,
+                slice: "with",
+                char_idx: 31
+            },
+            Token {
+                class: TokenClass::WHITESPACE,
+                slice: " ",
+                char_idx: 35
+            },
+            Token {
+                // 18
+                class: TokenClass::IDENTIFIER,
+                slice: "you",
+                char_idx: 36
+            },
+            Token {
+                class: TokenClass::SYMBOL,
+                slice: "!",
+                char_idx: 39
+            },
+            Token {
+                // 20
+                class: TokenClass::WHITESPACE,
+                slice: " ",
+                char_idx: 40
+            },
+        ]
+    );
+
+    let parser = parser::Parser::new(grammar, None).unwrap();
+    let program_ast = parser
+        .parse_program(&tokens)
+        .map_err(|v| {
+            v.iter()
+                .map(|e| e.error_string(formula))
+                .fold(String::new(), |a, s| a + &s)
+        })
+        .unwrap();
+
+    let expected = RuleNode {
+        rule_name: "sentence",
+        tokens: &tokens[..],
+        sub_rules: vec![
+            RuleNode {
+                rule_name: "demand",
+                tokens: &tokens[1..=7],
+                sub_rules: vec![
+                    RuleNode {
+                        rule_name: "person",
+                        tokens: &tokens[1..=1],
+                        sub_rules: Vec::new(),
+                    },
+                    RuleNode {
+                        rule_name: "action",
+                        tokens: &tokens[5..=5],
+                        sub_rules: Vec::new(),
+                    },
+                    RuleNode {
+                        rule_name: "how",
+                        tokens: &tokens[7..=7],
+                        sub_rules: Vec::new(),
+                    },
+                ],
+            },
+            RuleNode {
+                rule_name: "demand",
+                tokens: &tokens[12..=18],
+                sub_rules: vec![
+                    RuleNode {
+                        rule_name: "person",
+                        tokens: &tokens[12..=12],
+                        sub_rules: Vec::new(),
+                    },
+                    RuleNode {
+                        rule_name: "action",
+                        tokens: &tokens[14..=14],
+                        sub_rules: Vec::new(),
+                    },
+                    RuleNode {
+                        rule_name: "how",
+                        tokens: &tokens[16..=18],
+                        sub_rules: vec![RuleNode {
+                            rule_name: "person",
+                            tokens: &tokens[18..=18],
+                            sub_rules: Vec::new(),
+                        }],
+                    },
+                ],
+            },
+        ],
+    };
+
+    assert!(program_ast.is_similar_to(&expected));
+    assert_eq!(program_ast, expected);
 }
 
 #[test]
@@ -307,8 +468,11 @@ fn try_parse_example_faux() {
 
     let xml_out = std::fs::File::create("test_try_parse_example_faux_output.xml").unwrap();
 
+    let tokens = Lexer {}.read_all(&program).map_err(|err| {
+        SimpleError::new(parser::Failure::LexerError{char_idx : err}.error_string(definition))
+    }).unwrap();
     let parser = parser::Parser::new(grammar, Some(xml_out)).unwrap();
-    let parse_result = parser.parse_program(program);
+    let parse_result = parser.parse_program(&tokens);
 
     if parse_result.is_err() {
         print!(
@@ -321,9 +485,8 @@ fn try_parse_example_faux() {
                 .collect::<String>()
         );
         assert!(parse_result.is_ok());
-
     }
-    
+
     let program_ast = parse_result.unwrap();
 
     assert!(program_ast.rule_name == "faux_program")

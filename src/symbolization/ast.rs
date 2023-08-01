@@ -1,23 +1,31 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, rc::Rc, hash::Hash};
 
 pub type Identifier = Rc<str>;
 pub type NumericIdentifier = u32;
 
 pub struct Program {
     pub name: String,
-    pub definitions: Scope,
+    pub namespaces: Scope,
+    pub type_definitions: Vec<TypeDefinition>,
+    pub function_definitions: HashMap<ImplType, FunctionDefinition>,
     pub main: Option<Rc<FunctionDefinition>>,
+}
+
+pub struct ImplType {
+    pub id: NumericIdentifier,
+    pub array_depth: u8,
 }
 
 #[derive(Clone)]
 pub struct Scope {
-    pub full_name : Vec<Identifier>,
+    pub full_name: Vec<Identifier>,
     pub scopes: HashMap<Identifier, Scope>,
-    pub types: HashMap<Identifier, TypeDefinition>,
+    pub types: HashMap<Identifier, NumericIdentifier>,
+    // only static, type-less functions are defined here
     pub functions: HashMap<Identifier, FunctionDefinition>,
 }
 
-// -- references to types -- 
+// -- references to types --
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub enum TypeRef {
@@ -27,7 +35,7 @@ pub enum TypeRef {
     Array(Box<TypeRef>),
     Function(FunctionType),
     Generic(Rc<GenericParameter>),
-    Void
+    Void,
 }
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
@@ -35,15 +43,15 @@ pub enum TypeRef {
 pub struct DefinedRef {
     pub id: NumericIdentifier,
     // implementation / our selection of types to use as generic parameters
-    pub generic_parameters : Vec<TypeRef>,
+    pub generic_parameters: Vec<TypeRef>,
 }
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct UnresolvedName {
     pub name: Identifier,
-    pub scope : Vec<Identifier>,
+    pub scope: Vec<Identifier>,
     // implementation / our selection of types to use as generic parameters
-    pub generic_parameters : Vec<TypeRef>,
+    pub generic_parameters: Vec<TypeRef>,
 }
 
 // an unspecific `fn<>` declaration
@@ -55,32 +63,33 @@ pub struct FunctionType {
 
 // -- defined types --
 
-#[derive(Debug, Hash, Eq, PartialEq, Clone)]
+#[derive(Clone)]
 pub struct TypeDefinition {
     pub name: Identifier,
     pub id: NumericIdentifier,
     // there are generic declarations; brand new identifiers
-    pub generic_parameters : Vec<Rc<GenericParameter>>,
-    pub sub_type : TypeSubType,
+    pub generic_parameters: Vec<Rc<GenericParameter>>,
+    pub sub_type: TypeSubType,
+    pub member_functions: Vec<FunctionDefinition>,
 }
 
 #[derive(Debug, Hash, Eq, PartialEq)]
 pub struct GenericParameter {
-    pub name : Identifier
+    pub name: Identifier,
 }
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub enum TypeSubType {
-    Base { derived : Option<Box<TypeRef>> },
-    Enum { values : Vec<Identifier> },
-    Variant { variants : Vec<VariantValue> },
-    Tuple { elements : Vec<TypeRef> },
+    Base { derived: Option<Box<TypeRef>> },
+    Enum { values: Vec<Identifier> },
+    Variant { variants: Vec<VariantValue> },
+    Tuple { elements: Vec<TypeRef> },
 }
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct VariantValue {
-    pub name : Identifier,
-    pub value_type : TypeRef,
+    pub name: Identifier,
+    pub value_type: TypeRef,
 }
 
 // -- implementations --
@@ -89,7 +98,7 @@ pub struct VariantValue {
 pub struct FunctionDefinition {
     pub name: Identifier,
     // there are generic declarations; brand new identifiers
-    pub generic_parameters : Vec<Rc<GenericParameter>>,
+    pub generic_parameters: Vec<Rc<GenericParameter>>,
     // parameter expansion must be resolved before the ast is constructed
     pub parameters: HashMap<Identifier, TypeRef>,
     pub body: FunctionBlock,
@@ -149,11 +158,37 @@ pub struct FunctionCall {
 #[derive(Clone)]
 pub struct Argument {
     pub parameter_name: Identifier,
-    pub value : Expression,
+    pub value: Expression,
 }
 
 #[derive(Clone)]
 pub struct ArrayInitialisation {
-    pub element_type : TypeRef,
-    pub elements : Vec<Expression>,
+    pub element_type: TypeRef,
+    pub elements: Vec<Expression>,
+}
+
+impl std::fmt::Debug for TypeDefinition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TypeDefinition")
+            .field("name", &self.name)
+            .field("id", &self.id)
+            .field("generic_parameters", &self.generic_parameters)
+            .field("sub_type", &self.sub_type)
+            .field("num_member_functions", &self.member_functions.len())
+            .finish()
+    }
+}
+
+impl PartialEq for TypeDefinition {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id && self.sub_type == other.sub_type
+    }
+}
+
+impl Eq for TypeDefinition {}
+
+impl Hash for TypeDefinition {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
 }

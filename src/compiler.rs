@@ -4,13 +4,15 @@ use std::rc::Rc;
 
 use simple_error::SimpleError;
 
-use crate::parsing::{ebnf_parser, parser};
+use crate::parsing::lexer::Lexer;
+use crate::parsing::{ebnf_parser, parser, lexer};
 use crate::symbolization::ast::{self, Program};
 use crate::symbolization::type_collector::TypeCollector;
 use crate::symbolization::{meta_program, symbolizer, built_in_types};
 
 pub struct FauxCompiler {
     parser: Rc<parser::Parser>,
+    lexer: lexer::Lexer,
     parse_stack: Vec<PathBuf>,
     file_cache: HashMap<PathBuf, Rc<ast::Program>>,
     type_collector: TypeCollector
@@ -37,7 +39,8 @@ impl FauxCompiler {
             parser: Rc::from(parser.unwrap()),
             file_cache: HashMap::new(),
             parse_stack: Vec::new(),
-            type_collector: TypeCollector::new()
+            type_collector: TypeCollector::new(),
+            lexer: Lexer {},
         })
     }
 
@@ -50,10 +53,14 @@ impl FauxCompiler {
             .map_err(SimpleError::from)?;
         let program_string = file_contents.replace("\r\n", "\n");
 
+        let tokens = self.lexer.read_all(&program_string).map_err(|char_idx| {
+            SimpleError::new(parser::Failure::LexerError { char_idx, }.error_string(&program_string))
+        })?;
+
         // we clone the parser rc, because parse_program returns a result that borrows from this parser.
         // if we don't clone, the borrow prevents us from recursively parse includes before using the parse_result
         let parser = &self.parser.clone();
-        let parse_result = parser.parse_program(&program_string);
+        let parse_result = parser.parse_program(&tokens);
 
         let syntax_tree = match parse_result {
             Ok(node) => node,
@@ -81,7 +88,7 @@ impl FauxCompiler {
             };
 
             let include_program = self.file_cache.get(&include_file).expect("if-statement above should compile on-demand");
-            included_scope.extend(include_program.definitions.clone());
+            included_scope.extend(include_program.namespaces.clone());
         }
 
         // start parsing the definitions?
@@ -90,7 +97,7 @@ impl FauxCompiler {
         Ok(Program {
             name: source_file.to_string_lossy().to_string(),
             main: None,
-            definitions: root_scope,
+            namespaces: root_scope,
         })
     }
 }

@@ -1,48 +1,38 @@
-use std::{borrow::BorrowMut, collections::HashMap, rc::Rc};
+use std::{borrow::BorrowMut, rc::Rc};
 
 use simple_error::SimpleError;
 
 use super::ast::*;
 
-pub struct TypeResolver<'inc> {
-    pub external_scope: &'inc Scope,
-    pub root_scope: Scope,
+pub struct TypeResolver<'ext, 'int> {
+    pub external_scope: &'ext Scope,
+    pub root_scope: &'int Scope,
 }
 
-pub fn resolve_scope(
+pub fn resolve_types(
+    types_to_resolve: Vec<TypeDefinition>,
     external_scope: &Scope,
-    scope_to_resolve: Scope,
-) -> Result<Scope, SimpleError> {
+    internal_scope: &Scope,
+) -> Result<Vec<TypeDefinition>, SimpleError> {
     let resolver = TypeResolver {
         external_scope,
-        root_scope: scope_to_resolve,
+        root_scope: internal_scope,
     };
 
-    resolver.resolve_scope(&resolver.root_scope)
+    resolver.resolve_types(types_to_resolve)
 }
 
-impl<'inc> TypeResolver<'inc> {
-    fn resolve_scope(&self, scope: &Scope) -> Result<Scope, SimpleError> {
-        let mut new_scope = Scope {
-            full_name: scope.full_name.clone(),
-            scopes: HashMap::new(),
-            types: HashMap::new(),
-            functions: scope.functions.clone(),
-        };
+impl<'ext, 'int> TypeResolver<'ext, 'int> {
+    fn resolve_types(&self, types_to_resolve: Vec<TypeDefinition>) -> Result<Vec<TypeDefinition>, SimpleError> {
+        let mut new_types = Vec::new();
 
-        for (_type_name, type_def) in &scope.types {
-            let mut new_type_def: TypeDefinition = type_def.clone();
+        for mut type_def in types_to_resolve {
             // we remove this type from the scope, in order to allow passing the scope to resolve_type
-            self.resolve_type(&mut new_type_def, &scope)?;
-            new_scope.add_type(new_type_def);
+            self.resolve_type(&mut type_def, self.root_scope)?;
+            new_types.push(type_def);
         }
 
-        for (_subscope_name, subscope) in &scope.scopes {
-            let new_sub_scope = self.resolve_scope(subscope)?;
-            new_scope.add_sub_scope(new_sub_scope);
-        }
-
-        Ok(new_scope)
+        Ok(new_types)
     }
 
     fn resolve_scope_reference<'a>(
@@ -173,7 +163,7 @@ impl<'inc> TypeResolver<'inc> {
         }
 
         let resolved_scope = self.resolve_scope_reference(&type_to_resolve.scope, local_scope)?;
-        let resolved_type = resolved_scope
+        let &resolved_type = resolved_scope
             .types
             .get(&type_to_resolve.name)
             .ok_or_else(|| {
@@ -184,7 +174,7 @@ impl<'inc> TypeResolver<'inc> {
             })?;
 
         Ok(DefinedRef {
-            id: resolved_type.id,
+            id: resolved_type,
             generic_parameters,
         })
     }

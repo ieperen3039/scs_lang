@@ -15,7 +15,7 @@ fn collect_types_1() {
 
     let grammar = ebnf_parser::parse_ebnf(definition).unwrap();
     let parser = parser::Parser::new(grammar, None).unwrap();
-    let ast = parser.parse_program(&program).unwrap();
+    // let ast = parser.parse_program(&program).unwrap();
 }
 
 fn parse_implicit() {

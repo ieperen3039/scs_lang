@@ -30,6 +30,15 @@ impl Expression {
     }
 }
 
+impl Mutator {
+    pub fn get_type(&self) -> TypeRef {
+        match &self {
+            Mutator::FunctionCall(fun) => fun.function.body.return_var.var_type.clone(),
+            Mutator::Assignment(_) => todo!(),
+        }
+    }
+}
+
 impl Scope {
     pub fn new(name: &str, parent: Option<&Scope>) -> Scope {
         let mut full_name = parent.map(|sc| sc.full_name.clone()).unwrap_or(Vec::new());
@@ -47,12 +56,12 @@ impl Scope {
         self.scopes.insert(scope_to_add.get_name(), scope_to_add);
     }
 
-    pub fn add_type(&mut self, type_to_add : TypeDefinition) {
-        self.types.insert(type_to_add.name.clone(), type_to_add);
-    }
-
     pub fn add_function(&mut self, fn_to_add : FunctionDefinition) {
         self.functions.insert(fn_to_add.name.clone(), fn_to_add);
+    }
+
+    pub fn add_type(&mut self, type_to_add : &TypeDefinition) {
+        self.types.insert(type_to_add.name.clone(), type_to_add.id);
     }
 
     pub fn get_name(&self) -> Identifier {
@@ -69,7 +78,7 @@ impl Scope {
         self
     }
 
-    pub fn get(&self, name: &str) -> Option<&TypeDefinition> {
+    pub fn get(&self, name: &str) -> Option<&NumericIdentifier> {
         self.types.get(name)
     }
 }

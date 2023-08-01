@@ -14,21 +14,25 @@ pub fn parse_symbols(tree: RuleNode, external_scope: &Scope, type_collector: &mu
 
     // first collect definitions
     let mut proto_scope = Scope::new("", None);
+    let mut types = Vec::new();
 
     for node in &tree.sub_rules {
         match node.rule_name {
             "version_declaration" | "include_declaration" => {}
             "function_interface" | "function_block" => {}
             "scope" => {
-                let new_scope = type_collector.read_scope_definitions(&node, &proto_scope)?;
+                let (new_scope, new_types) = type_collector.read_scope_definitions(&node, &proto_scope)?;
                 proto_scope.add_sub_scope(new_scope);
+                types.extend(new_types);
             }
             _ => {}
         }
     }
 
+    types.sort_unstable_by_key(|t| t.id);
+
     // then resolve type cross-references
-    let mut root_scope = type_resolver::resolve_scope(external_scope, proto_scope)?;
+    let mut root_scope = type_resolver::resolve_types(external_scope, proto_scope)?;
 
     let symbolizer = Symbolizer { type_collector };
 
@@ -38,7 +42,7 @@ pub fn parse_symbols(tree: RuleNode, external_scope: &Scope, type_collector: &mu
             "version_declaration" | "include_declaration" => {}
             "function_interface" | "function_block" => {}
             _ => {
-                symbolizer.read_implementations(&node, &mut root_scope)?;
+                symbolizer.read_functions(&node, &mut root_scope)?;
             }
         }
     }
@@ -51,18 +55,18 @@ pub struct Symbolizer<'a> {
 }
 
 impl<'a> Symbolizer<'a> {
-    fn read_implementations(
+    fn read_functions(
         &self,
         node: &RuleNode<'_, '_>,
         this_scope: &mut Scope,
     ) -> Result<(), SimpleError> {
         match node.rule_name {
             "scope" => {
-                let sub_scope = self.read_scope_functions(node, this_scope)?;
+                self.read_scope_functions(node, this_scope)?;
             }
             "implementation" => {
-                let fn_def = self.read_function(node)?;
-                this_scope.add_function(fn_def);
+                let fn_def = self.read_implementation(node)?;
+                
             }
             "function_definition" => {
                 let fn_def = self.read_function(node)?;
@@ -175,9 +179,14 @@ impl<'a> Symbolizer<'a> {
             .ok_or_else(|| SimpleError::new(format!("Could not find scope {this_scope_name}")))?;
 
         for node in &node.sub_rules {
-            self.read_implementations(node, this_scope)?;
+            self.read_functions(node, this_scope)?;
         }
 
         Ok(())
+    }
+
+    // implementation = base_type_decl, { array_symbol }, { function_definition };
+    fn read_implementation(&self, node: &RuleNode<'_, '_>) -> _ {
+        todo!()
     }
 }

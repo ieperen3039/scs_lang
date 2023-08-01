@@ -7,6 +7,6 @@ pub fn extract_includes(tree: &RuleNode<'_, '_>, file_path : &std::path::Path) -
         .filter(|r| r.rule_name == "include_declaration")
         .flat_map(|r| &r.sub_rules)
         .filter(|r| r.rule_name == "include_file")
-        .map(|r| std::path::PathBuf::from(r.tokens_as_string()))
+        .map(|r| file_path.join(r.tokens_as_string()))
         .collect()
 }

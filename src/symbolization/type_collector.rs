@@ -10,6 +10,12 @@ pub struct TypeCollector {
     next_id: u32,
 }
 
+enum Definition {
+    Type(TypeDefinition),
+    Scope(Scope, Vec<TypeDefinition>),
+    Other
+}
+
 impl TypeCollector {
     pub fn new() -> Self {
         TypeCollector { next_id: FIRST_CUSTOM_TYPE_ID }
@@ -25,43 +31,53 @@ impl TypeCollector {
         &mut self,
         node: &RuleNode,
         parent_scope: &Scope,
-    ) -> Result<Scope, SimpleError> {
+    ) -> Result<(Scope, Vec<TypeDefinition>), SimpleError> {
         debug_assert_eq!(node.rule_name, "scope");
 
         let scope_name = node.expect_node("scope_name")?;
 
         let mut scope = Scope::new(&scope_name.tokens_as_string(), Some(parent_scope));
+        let mut types = Vec::new();
 
         for node in &node.sub_rules {
-            self.read_definitions(node, &mut scope)?;
+            let found = self.read_definitions(node, &scope)?;
+            match found {
+                Definition::Type(type_def) => {
+                    scope.add_type(&type_def);
+                    types.push(type_def);
+                }
+                Definition::Scope(sub_scope, new_types) => {
+                    scope.add_sub_scope(sub_scope);
+                    types.extend(new_types);
+                }
+                _ => {},
+            }
         }
 
-        Ok(scope)
+        Ok((scope, types))
     }
 
     // scope | type_definition | enum_definition | variant_definition | implementation | function_definition
-    fn read_definitions(&mut self, node: &RuleNode, scope: &mut Scope) -> Result<(), SimpleError> {
+    fn read_definitions(&mut self, node: &RuleNode, scope: &Scope) -> Result<Definition, SimpleError> {
         match node.rule_name {
             "scope" => {
-                let sub_scope = self.read_scope_definitions(node, scope)?;
-                scope.scopes.insert(node.as_identifier(), sub_scope);
+                let (sub_scope, types) = self.read_scope_definitions(node, scope)?;
+                Ok(Definition::Scope(sub_scope, types))
             }
             "type_definition" => {
                 let type_def = self.read_type_definition(node)?;
-                scope.types.insert(type_def.name.clone(), type_def);
+                Ok(Definition::Type(type_def))
             }
             "enum_definition" => {
                 let enum_def = self.read_enum(node)?;
-                scope.types.insert(enum_def.name.clone(), enum_def);
+                Ok(Definition::Type(enum_def))
             }
             "variant_definition" => {
                 let variant_def = self.read_variant(node)?;
-                scope.types.insert(variant_def.name.clone(), variant_def);
+                Ok(Definition::Type(variant_def))
             }
-            _ => {}
+            _ => Ok(Definition::Other)
         }
-
-        Ok(())
     }
 
     // base_type, [ derived_type | native_decl ], { field_declaration };
@@ -101,6 +117,7 @@ impl TypeCollector {
             sub_type: TypeSubType::Base {
                 derived: derived_from,
             },
+            member_functions: Vec::new()
         })
     }
 
@@ -177,6 +194,7 @@ impl TypeCollector {
             sub_type: TypeSubType::Enum {
                 values: value_names,
             },
+            member_functions: Vec::new()
         })
     }
 
@@ -208,6 +226,7 @@ impl TypeCollector {
             sub_type: TypeSubType::Variant {
                 variants: variant_values,
             },
+            member_functions: Vec::new()
         })
     }
 

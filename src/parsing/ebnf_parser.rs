@@ -32,11 +32,10 @@ pub enum ErrResult {
     UnclosedGroup {
         tokens_remaining: usize,
     },
-    // some regex expression was invalid
-    InvalidRegex(SimpleError),
     // the program or grammar has some unspecified syntax error
     Error(SimpleError),
     // the parser has a bug
+    #[allow(dead_code)]
     InternalError(SimpleError),
 }
 
@@ -52,7 +51,7 @@ pub fn error_string(error: &ErrResult, source: &str) -> String {
             let lower_newline = source[..=offset].rfind("\n").map(|v| v + 1).unwrap_or(0);
             let upper_newline = source[offset..]
                 .find("\n")
-                .map(|v| v - offset)
+                .map(|v| v + offset)
                 .unwrap_or(source.len());
             let lb = cmp::max(offset as i64 - 40, lower_newline as i64) as usize;
             let ub = cmp::min(offset as i64 + 40, upper_newline as i64) as usize;
@@ -384,17 +383,24 @@ fn process_terminal_with<'a>(tokens: &'a str, char: &'static str) -> EbnfParseRe
 
 // terminal_token = ('?' , character , { character } , '?')
 fn process_terminal_questionmark(tokens: &str) -> EbnfParseResult<Term> {
-    check_starts_with(tokens, "?")?;
+    check_starts_with(tokens, "? ")?;
 
-    let string_length = tokens[1..].find("?").ok_or(ErrResult::UnclosedGroup {
+    let string_length = tokens[2..].find(" ?").ok_or(ErrResult::UnclosedGroup {
         tokens_remaining: tokens.len(),
     })?;
 
-    let string_end = string_length + 1;
+    let string_end = string_length + 2;
+    let token_class = TokenClass::from_str(&tokens[2..string_end]);
+
+    if token_class == TokenClass::INVALID {
+        return Err(
+            ErrResult::UnexpectedToken { tokens_remaining: tokens.len() - 2, expected: "some TokenClass" }
+        )
+    }
 
     Ok(OkResult {
-        val: Term::Token(TokenClass::from_str(&tokens[1..string_end])),
-        remaining_tokens: skip_ignored(&tokens[(string_end + 1)..]),
+        val: Term::Token(token_class),
+        remaining_tokens: skip_ignored(&tokens[(string_end + 2)..]),
     })
 }
 
