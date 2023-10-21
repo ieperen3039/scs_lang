@@ -20,21 +20,12 @@ impl TypeRef {
 impl Expression {
     pub fn get_type(&self) -> TypeRef {
         match &self {
-            Expression::StaticFunctionCall(fun) => fun.function.body.return_var.var_type.clone(),
-            Expression::FunctionBlock(block) => block.return_var.var_type.clone(),
+            Expression::StaticFunctionCall(fun) => fun.,
+            Expression::FunctionBody(block) => block.return_var.var_type.clone(),
             Expression::Array(array) => array.element_type.clone(),
             Expression::Literal(Literal::String(_)) => TypeRef::STRING.clone(),
             Expression::Literal(Literal::Number(_)) => TypeRef::NUMBER.clone(),
             Expression::Variable(var) => var.var_type.clone(),
-        }
-    }
-}
-
-impl Mutator {
-    pub fn get_type(&self) -> TypeRef {
-        match &self {
-            Mutator::FunctionCall(fun) => fun.function.body.return_var.var_type.clone(),
-            Mutator::Assignment(_) => todo!(),
         }
     }
 }
@@ -56,7 +47,7 @@ impl Scope {
         self.scopes.insert(scope_to_add.get_name(), scope_to_add);
     }
 
-    pub fn add_function(&mut self, fn_to_add : FunctionDefinition) {
+    pub fn add_function(&mut self, fn_to_add : FunctionDeclaration) {
         self.functions.insert(fn_to_add.name.clone(), fn_to_add);
     }
 
@@ -78,7 +69,7 @@ impl Scope {
         self
     }
 
-    pub fn get(&self, name: &str) -> Option<&NumericIdentifier> {
+    pub fn get(&self, name: &str) -> Option<&NumericTypeIdentifier> {
         self.types.get(name)
     }
 }

@@ -1,28 +1,32 @@
 use std::{collections::HashMap, rc::Rc, hash::Hash};
 
 pub type Identifier = Rc<str>;
-pub type NumericIdentifier = u32;
+pub type NumericTypeIdentifier = u32;
+pub type NumericFunctionIdentifier = u32;
 
 pub struct Program {
     pub name: String,
     pub namespaces: Scope,
-    pub type_definitions: Vec<TypeDefinition>,
-    pub function_definitions: HashMap<ImplType, FunctionDefinition>,
-    pub main: Option<Rc<FunctionDefinition>>,
+    pub type_definitions: HashMap<NumericTypeIdentifier, TypeDefinition>,
+    pub function_definitions: HashMap<NumericFunctionIdentifier, FunctionBody>,
+    pub member_function_definitions: HashMap<ImplType, FunctionDeclaration>,
+    pub main: Option<Rc<FunctionBody>>,
 }
 
 pub struct ImplType {
-    pub id: NumericIdentifier,
+    pub id: NumericTypeIdentifier,
     pub array_depth: u8,
+    // implementation / our selection of types to use as generic parameters
+    pub generic_parameters: Vec<TypeRef>,
 }
 
 #[derive(Clone)]
 pub struct Scope {
     pub full_name: Vec<Identifier>,
     pub scopes: HashMap<Identifier, Scope>,
-    pub types: HashMap<Identifier, NumericIdentifier>,
-    // only static, type-less functions are defined here
-    pub functions: HashMap<Identifier, FunctionDefinition>,
+    pub types: HashMap<Identifier, NumericTypeIdentifier>,
+    // only static functions are defined here
+    pub functions: HashMap<Identifier, NumericFunctionIdentifier>,
 }
 
 // -- references to types --
@@ -41,7 +45,7 @@ pub enum TypeRef {
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 // could be a base type, but also an enum variant or a named tuple
 pub struct DefinedRef {
-    pub id: NumericIdentifier,
+    pub id: NumericTypeIdentifier,
     // implementation / our selection of types to use as generic parameters
     pub generic_parameters: Vec<TypeRef>,
 }
@@ -66,11 +70,12 @@ pub struct FunctionType {
 #[derive(Clone)]
 pub struct TypeDefinition {
     pub name: Identifier,
-    pub id: NumericIdentifier,
+    pub id: NumericTypeIdentifier,
     // there are generic declarations; brand new identifiers
     pub generic_parameters: Vec<Rc<GenericParameter>>,
     pub sub_type: TypeSubType,
-    pub member_functions: Vec<FunctionDefinition>,
+    // may be unnecessary (already in Program::function_definitions)
+    pub member_functions: Vec<FunctionDeclaration>,
 }
 
 #[derive(Debug, Hash, Eq, PartialEq)]
@@ -95,13 +100,13 @@ pub struct VariantValue {
 // -- implementations --
 
 #[derive(Clone)]
-pub struct FunctionDefinition {
+pub struct FunctionDeclaration {
     pub name: Identifier,
     // there are generic declarations; brand new identifiers
     pub generic_parameters: Vec<Rc<GenericParameter>>,
     // parameter expansion must be resolved before the ast is constructed
     pub parameters: HashMap<Identifier, TypeRef>,
-    pub body: FunctionBlock,
+    pub return_type: TypeRef,
     pub is_static: bool,
     pub is_external: bool,
 }
@@ -112,7 +117,7 @@ pub struct VariableDeclaration {
 }
 
 #[derive(Clone)]
-pub struct FunctionBlock {
+pub struct FunctionBody {
     pub statements: Vec<Statement>,
     pub return_var: Rc<VariableDeclaration>,
 }
@@ -129,7 +134,7 @@ pub struct Statement {
 #[derive(Clone)]
 pub enum Expression {
     StaticFunctionCall(FunctionCall),
-    FunctionBlock(FunctionBlock),
+    FunctionBody(FunctionBody),
     Array(ArrayInitialisation),
     Literal(Literal),
     // a _reference_ to a variable is an expression, not a declaration.
@@ -151,14 +156,11 @@ pub enum Mutator {
 
 #[derive(Clone)]
 pub struct FunctionCall {
-    pub function: Rc<FunctionDefinition>,
-    pub arguments: Vec<Argument>,
-}
-
-#[derive(Clone)]
-pub struct Argument {
-    pub parameter_name: Identifier,
-    pub value: Expression,
+    pub id: NumericFunctionIdentifier,
+    // implementation / our selection of types to use as generic parameters
+    pub generic_arguments: HashMap<Identifier, TypeRef>,
+    // map of parameter names to expressions. Missing variables indicate that this 'function call' constructs a closure
+    pub arguments: HashMap<Identifier, Expression>,
 }
 
 #[derive(Clone)]

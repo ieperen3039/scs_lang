@@ -98,6 +98,9 @@ impl FauxCompiler {
             name: source_file.to_string_lossy().to_string(),
             main: None,
             namespaces: root_scope,
+            type_definitions: todo!(),
+            member_function_definitions: todo!(),
+            function_definitions: todo!(),
         })
     }
 }

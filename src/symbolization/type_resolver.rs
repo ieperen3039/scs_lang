@@ -9,7 +9,7 @@ pub struct TypeResolver<'ext, 'int> {
     pub root_scope: &'int Scope,
 }
 
-pub fn resolve_types(
+pub fn resolve_type_definitions(
     types_to_resolve: Vec<TypeDefinition>,
     external_scope: &Scope,
     internal_scope: &Scope,
@@ -20,6 +20,55 @@ pub fn resolve_types(
     };
 
     resolver.resolve_types(types_to_resolve)
+}
+
+pub fn resolve_type_name(
+    type_to_resolve: &UnresolvedName,
+    root_scope: &Scope,
+    local_scope: &Scope,
+) -> Result<NumericTypeIdentifier, SimpleError> {
+    let resolver = TypeResolver {
+        external_scope : root_scope,
+        root_scope,
+    };
+
+    let resolved_scope = resolver.resolve_scope_reference(&type_to_resolve.scope, local_scope)?;
+    
+    resolved_scope
+        .types
+        .get(&type_to_resolve.name)
+        .map(u32::clone)
+        .ok_or_else(|| {
+            SimpleError::new(format!(
+                "Could not find '{}' in scope '{:?}'",
+                type_to_resolve.name, resolved_scope.full_name
+            ))
+        })
+}
+
+pub fn resolve_function_name<'s>(
+    name: Identifier,
+    scope: &[Identifier],
+    root_scope: &Scope,
+    local_scope: &'s Scope,
+) -> Result<NumericFunctionIdentifier, SimpleError> {
+    let resolver = TypeResolver {
+        external_scope : root_scope,
+        root_scope,
+    };
+    
+    let resolved_scope = resolver.resolve_scope_reference(scope, local_scope)?;
+    
+    resolved_scope
+        .functions
+        .get(&name)
+        .map(u32::clone)
+        .ok_or_else(|| {
+            SimpleError::new(format!(
+                "Could not find '{}' in scope '{:?}'",
+                name, resolved_scope.full_name
+            ))
+        })
 }
 
 impl<'ext, 'int> TypeResolver<'ext, 'int> {
@@ -184,7 +233,7 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
         name: FunctionCall,
         generics: &[Rc<GenericParameter>],
         local_scope: &Scope,
-    ) -> Result<Rc<FunctionDefinition>, SimpleError> {
+    ) -> Result<Rc<FunctionDeclaration>, SimpleError> {
         todo!()
     }
 }

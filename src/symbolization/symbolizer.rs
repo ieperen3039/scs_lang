@@ -1,15 +1,29 @@
-use std::{collections::HashMap, rc::Rc};
+use std::collections::HashMap;
 
 use simple_error::SimpleError;
 
 use crate::{
     parsing::rule_nodes::RuleNode,
-    symbolization::{ast::Scope, function_parser, type_collector::TypeCollector, type_resolver::{self}},
+    symbolization::{
+        ast::Scope,
+        type_collector::TypeCollector,
+        type_resolver::{self}, function_parser::FunctionParser,
+    },
 };
 
 use super::ast::*;
 
-pub fn parse_symbols(tree: RuleNode, external_scope: &Scope, type_collector: &mut TypeCollector) -> Result<Scope, SimpleError> {
+pub struct Symbolizer<'tc> {
+    pub type_collector: &'tc TypeCollector,
+    pub type_definitions: HashMap<NumericTypeIdentifier, TypeDefinition>,
+    pub root_scope: Scope,
+}
+
+pub fn parse_symbols(
+    tree: RuleNode,
+    external_scope: &Scope,
+    type_collector: &mut TypeCollector,
+) -> Result<Scope, SimpleError> {
     debug_assert_eq!(tree.rule_name, "faux_program");
 
     // first collect definitions
@@ -21,7 +35,8 @@ pub fn parse_symbols(tree: RuleNode, external_scope: &Scope, type_collector: &mu
             "version_declaration" | "include_declaration" => {}
             "function_interface" | "function_block" => {}
             "scope" => {
-                let (new_scope, new_types) = type_collector.read_scope_definitions(&node, &proto_scope)?;
+                let (new_scope, new_types) =
+                    type_collector.read_scope_definitions(&node, &proto_scope)?;
                 proto_scope.add_sub_scope(new_scope);
                 types.extend(new_types);
             }
@@ -32,30 +47,48 @@ pub fn parse_symbols(tree: RuleNode, external_scope: &Scope, type_collector: &mu
     types.sort_unstable_by_key(|t| t.id);
 
     // then resolve type cross-references
-    let mut root_scope = type_resolver::resolve_types(external_scope, proto_scope)?;
+    let types = type_resolver::resolve_type_definitions(types, external_scope, &proto_scope)?;
 
-    let symbolizer = Symbolizer { type_collector };
+    let mut type_definitions = HashMap::new();
+    for t in types {
+        type_definitions.insert(t.id, t);
+    }
 
-    // parse functions
+    let symbolizer = Symbolizer {
+        type_collector,
+        type_definitions,
+        root_scope : proto_scope.combined_with(external_scope.clone())
+    };
+
+    // read function declarations
     for node in tree.sub_rules {
         match node.rule_name {
             "version_declaration" | "include_declaration" => {}
-            "function_interface" | "function_block" => {}
-            _ => {
-                symbolizer.read_functions(&node, &mut root_scope)?;
+            "function_interface" | "function_block" => {
+                symbolizer.read_function_declarations(&node, &mut proto_scope)?;
             }
+            _ => {}
         }
     }
 
-    Ok(root_scope)
-}
+    let function_parser = FunctionParser{ root_scope: &symbolizer.root_scope };
+    
+    // parse functions bodies
+    for node in tree.sub_rules {
+        match node.rule_name {
+            "function_interface" | "function_block" => {
+                function_parser.read_function_body(&node, function_parser.root_scope, parameters, return_var)?;
+            }
+            _ => {}
+        }
+    }
+    
 
-pub struct Symbolizer<'a> {
-    type_collector : &'a TypeCollector
+    Ok(proto_scope)
 }
 
 impl<'a> Symbolizer<'a> {
-    fn read_functions(
+    fn read_function_declarations(
         &self,
         node: &RuleNode<'_, '_>,
         this_scope: &mut Scope,
@@ -65,11 +98,10 @@ impl<'a> Symbolizer<'a> {
                 self.read_scope_functions(node, this_scope)?;
             }
             "implementation" => {
-                let fn_def = self.read_implementation(node)?;
-                
+                let fn_def = self.read_implementation(node, this_scope)?;
             }
             "function_definition" => {
-                let fn_def = self.read_function(node)?;
+                let fn_def = self.read_function_declaration(node)?;
                 this_scope.add_function(fn_def);
             }
             _ => {}
@@ -78,9 +110,10 @@ impl<'a> Symbolizer<'a> {
         Ok(())
     }
 
+    // we only read the declaration part of the definition
     // function_definition     = function_signature, ( function_block | native_decl );
     // function_signature      = function_name, [ generic_types_decl ], [ parameter_list ], return_type;
-    fn read_function(&self, node: &RuleNode<'_, '_>) -> Result<FunctionDefinition, SimpleError> {
+    fn read_function_declaration(&self, node: &RuleNode<'_, '_>) -> Result<FunctionDeclaration, SimpleError> {
         debug_assert_eq!(node.rule_name, "function_definition");
         let signature_node = node.expect_node("function_signature")?;
 
@@ -89,7 +122,8 @@ impl<'a> Symbolizer<'a> {
         let generic_parameters = {
             let generic_types_node = signature_node.find_node("generic_types_decl");
             if let Some(generic_types_node) = generic_types_node {
-                self.type_collector.read_generic_types_decl(generic_types_node)?
+                self.type_collector
+                    .read_generic_types_decl(generic_types_node)?
             } else {
                 Vec::new()
             }
@@ -104,40 +138,25 @@ impl<'a> Symbolizer<'a> {
             }
         };
 
-        let return_var = {
+        let return_type = {
             let return_type_node = signature_node.expect_node("return_type")?;
-
             debug_assert_eq!(return_type_node.sub_rules.len(), 1);
-            let return_type =
-                self.type_collector.read_type_ref(return_type_node.sub_rules.first().unwrap())?;
 
-            Rc::from(VariableDeclaration {
-                name: Rc::from("return"),
-                var_type: return_type,
-            })
+            self.type_collector
+                .read_type_ref(return_type_node.sub_rules.first().unwrap())?
         };
 
+        // we only check whether it exists. We can't parse it before we have collected all function declarations
         let function_block_node = node.find_node("function_block");
-        let function_body = {
-            if let Some(function_block_node) = function_block_node {
-                function_parser::read_function_body(function_block_node, &parameters, return_var)?
-            } else {
-                signature_node.expect_node("native_decl")?;
-                FunctionBlock {
-                    statements: Vec::new(),
-                    return_var,
-                }
-            }
-        };
 
-        Ok(FunctionDefinition {
+        Ok(FunctionDeclaration {
             name: name_node.as_identifier(),
             generic_parameters,
             parameters,
-            body: function_body,
             is_static: true,
             // technically, only when the "native_decl" node is found
             is_external: function_block_node.is_none(),
+            return_type,
         })
     }
 
@@ -179,14 +198,60 @@ impl<'a> Symbolizer<'a> {
             .ok_or_else(|| SimpleError::new(format!("Could not find scope {this_scope_name}")))?;
 
         for node in &node.sub_rules {
-            self.read_functions(node, this_scope)?;
+            self.read_function_declarations(node, this_scope)?;
         }
 
         Ok(())
     }
 
     // implementation = base_type_decl, { array_symbol }, { function_definition };
-    fn read_implementation(&self, node: &RuleNode<'_, '_>) -> _ {
-        todo!()
+    fn read_implementation(
+        &self,
+        node: &RuleNode<'_, '_>,
+        scope: &Scope,
+    ) -> Result<(ImplType, Vec<FunctionDeclaration>), SimpleError> {
+        debug_assert_eq!(node.rule_name, "implementation");
+        let base_type = node.expect_node("base_type_decl")?;
+        let impl_type = self.read_impl_type_decl(node, scope)?;
+
+        let mut function_definitions = Vec::new();
+        for func_node in node.find_nodes("function_definition") {
+            function_definitions.push(self.read_function_declaration(func_node)?);
+        }
+
+        Ok((impl_type, function_definitions))
+    }
+
+    // base_type_decl          = identifier, [ generic_types_decl ];
+    // generic_types_decl      = identifier, { identifier };
+    fn read_impl_type_decl(
+        &self,
+        node: &RuleNode<'_, '_>,
+        scope: &Scope,
+    ) -> Result<ImplType, SimpleError> {
+        debug_assert_eq!(node.rule_name, "base_type_decl");
+
+        let base_type_name = node
+            .expect_node("identifier")
+            .map(RuleNode::as_identifier)?;
+
+        let type_id = scope.types.get(&base_type_name).ok_or_else(|| {
+            SimpleError::new(format!(
+                "Could not find '{}' in scope '{:?}'",
+                base_type_name, scope.full_name
+            ))
+        })?;
+
+        let generic_types = {
+            let generic_types_node = node.find_node("generic_types_inst");
+            if let Some(generic_types_node) = generic_types_node {
+                self.type_collector
+                    .read_generic_types_inst(generic_types_node)?
+            } else {
+                Vec::new()
+            }
+        };
+
+        Ok(ImplType { id: type_id.clone(), array_depth: 0, generic_parameters: generic_types })
     }
 }
