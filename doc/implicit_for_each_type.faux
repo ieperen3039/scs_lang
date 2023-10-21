@@ -1,7 +1,15 @@
 impl T {
+    // op "=" : assign_to_variable
+    // op ":" : replace_with
+
     fn identity : T { this }
     fn equalTo<T>(T other) : boolean extern
-    fn not(fn<(T)boolean> expression) : boolean { expression invert }
+    fn not(fn<(T)boolean> predicate) : boolean { this predicate invert }
+
+    fn is(fn<(T)boolean> predicate) : Result<T, T> {
+        // inverse of Result.collapse
+        this predicate ?: this !: this
+    }
 }
 
 // we call this a "buffer" (because it is not implemented as a true array)
@@ -26,9 +34,7 @@ impl T[] {
 
     // partition does not change the number of elements in the buffer.
     fn partition(fn<(T)boolean> predicate) : Result<T, T>[] {
-        this > (elt) { 
-            predicate(elt) !: elt ?: elt 
-        }
+        this > is(predicate)
     }
 
     fn filter(fn<(T)boolean> predicate) : T[] { 
