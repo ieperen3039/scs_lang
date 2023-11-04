@@ -9,6 +9,7 @@ mod symbolization;
 
 #[cfg(test)]
 mod tests;
+pub mod transpilation;
 
 use clap::Parser;
 

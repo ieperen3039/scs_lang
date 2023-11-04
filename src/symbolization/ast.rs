@@ -36,7 +36,7 @@ pub enum TypeRef {
     UnresolvedName(UnresolvedName),
     Defined(DefinedRef),
     UnamedTuple(Vec<TypeRef>),
-    Array(Box<TypeRef>),
+    Buffer(Box<TypeRef>),
     Function(FunctionType),
     Generic(Rc<GenericParameter>),
     Void,
@@ -69,8 +69,9 @@ pub struct FunctionType {
 
 #[derive(Clone)]
 pub struct TypeDefinition {
-    pub name: Identifier,
     pub id: NumericTypeIdentifier,
+    pub name: Identifier,
+    pub full_scope: Vec<Identifier>,
     // there are generic declarations; brand new identifiers
     pub generic_parameters: Vec<Rc<GenericParameter>>,
     pub sub_type: TypeSubType,
@@ -135,7 +136,7 @@ pub struct Statement {
 pub enum Expression {
     StaticFunctionCall(FunctionCall),
     FunctionBody(FunctionBody),
-    Array(ArrayInitialisation),
+    Buffer(ArrayInitialisation),
     Literal(Literal),
     // a _reference_ to a variable is an expression, not a declaration.
     Variable(Rc<VariableDeclaration>),

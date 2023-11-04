@@ -20,9 +20,9 @@ impl TypeRef {
 impl Expression {
     pub fn get_type(&self) -> TypeRef {
         match &self {
-            Expression::StaticFunctionCall(fun) => fun.,
+            Expression::StaticFunctionCall(fun) => fun.id,
             Expression::FunctionBody(block) => block.return_var.var_type.clone(),
-            Expression::Array(array) => array.element_type.clone(),
+            Expression::Buffer(buffer_init) => buffer_init.element_type.clone(),
             Expression::Literal(Literal::String(_)) => TypeRef::STRING.clone(),
             Expression::Literal(Literal::Number(_)) => TypeRef::NUMBER.clone(),
             Expression::Variable(var) => var.var_type.clone(),

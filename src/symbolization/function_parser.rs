@@ -139,7 +139,7 @@ impl FunctionParser<'_> {
             }
             "array_initialisation" => {
                 let array = self.read_array_initialisation(expression_node, variables)?;
-                Ok(Expression::Array(array))
+                Ok(Expression::Buffer(array))
             }
             "string_literal" => {
                 let string_value = extract_string(expression_node);
