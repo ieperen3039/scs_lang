@@ -9,7 +9,8 @@ use super::{ast::*, type_resolver};
 type VarStorage = HashMap<Identifier, Rc<VariableDeclaration>>;
 
 pub struct FunctionParser<'s> {
-    pub root_scope: &'s Scope
+    pub root_scope: &'s Scope,
+    pub functions: HashMap<NumericFunctionIdentifier, FunctionDeclaration>,
 }
 
 impl FunctionParser<'_> {
@@ -40,7 +41,7 @@ impl FunctionParser<'_> {
                     Some(var) => var.to_owned(),
                     None => {
                         let return_var = Rc::from(VariableDeclaration {
-                            var_type: last_mutation.get_type(),
+                            var_type: last_mutation.get_type(&self.functions),
                             name: Identifier::from("return"),
                         });
                         variables.insert(return_var.name.clone(), return_var.clone());
@@ -103,14 +104,20 @@ impl FunctionParser<'_> {
 
         let expression = self.read_expression(expression_node, this_scope, variables)?;
 
-        let mut expression_type = expression.get_type();
+        let mut expression_type = expression.get_type(&self.functions);
+
+        let mut mutations = Vec::new();
         for mutator_node in &node.sub_rules[1..] {
             let mutator =
                 self.read_mutator(mutator_node, &expression_type, this_scope, variables)?;
-            expression_type = mutator.get_type();
+            expression_type = mutator.get_type(&self.functions);
+            mutations.push(mutator);
         }
 
-        todo!()
+        Ok(Statement {
+            base_element: expression,
+            mutations,
+        })
     }
 
     // _expression             = identifier | static_function_call | lambda | array_initialisation | string_literal | integer_literal;

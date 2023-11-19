@@ -47,8 +47,12 @@ fn main() {
 
     let mut compiler = FauxCompiler::build(&definition, xml_output_file).unwrap();
     let compile_result = compiler.compile(&program_file);
+
     match compile_result {
-        Ok(program) => print!("{}", program.name),
+        Ok(program) => {
+            print!("{}", program.name);
+            transpilation::generator::GeneratorC::write(program);
+        },
         Err(simple_error) => print!("{}", simple_error),
     }
 

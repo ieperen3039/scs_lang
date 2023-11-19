@@ -44,7 +44,7 @@ impl FauxCompiler {
         })
     }
 
-    pub fn compile(&mut self, source_file: &Path, ) -> Result<ast::Program, SimpleError> {
+    pub fn compile(&mut self, source_file: &Path) -> Result<ast::Program, SimpleError> {
         if self.parse_stack.iter().any(|file| file == source_file) {
             return Err(SimpleError::new(format!("Recursive include : {:?}", self.parse_stack)));
         }

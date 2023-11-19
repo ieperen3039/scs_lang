@@ -102,6 +102,7 @@ pub struct VariantValue {
 
 #[derive(Clone)]
 pub struct FunctionDeclaration {
+    pub id: NumericFunctionIdentifier,
     pub name: Identifier,
     // there are generic declarations; brand new identifiers
     pub generic_parameters: Vec<Rc<GenericParameter>>,

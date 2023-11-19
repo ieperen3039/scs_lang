@@ -1,9 +1,11 @@
 use std::{collections::HashMap, rc::Rc};
 
-use super::{ast::*, built_in_types::{TYPE_ID_STRING, TYPE_ID_INT}};
+use super::{
+    ast::*,
+    built_in_types::{TYPE_ID_INT, TYPE_ID_STRING},
+};
 
-impl TypeDefinition {
-}
+impl TypeDefinition {}
 
 impl TypeRef {
     pub const STRING: TypeRef = TypeRef::Defined(DefinedRef {
@@ -17,10 +19,25 @@ impl TypeRef {
     });
 }
 
-impl Expression {
-    pub fn get_type(&self) -> TypeRef {
+impl Mutator {
+    pub fn get_type(&self, functions: &HashMap<NumericFunctionIdentifier, FunctionDeclaration>) -> TypeRef {
         match &self {
-            Expression::StaticFunctionCall(fun) => fun.id,
+            Mutator::FunctionCall(fc) => functions
+                .get(&fc.id)
+                .map(|f| f.return_type.clone())
+                .unwrap_or(TypeRef::Void), // TODO: unknown function: is this an error?
+            Mutator::Assignment(_) => TypeRef::Void,
+        }
+    }
+}
+
+impl Expression {
+    pub fn get_type(&self, functions: &HashMap<NumericFunctionIdentifier, FunctionDeclaration>) -> TypeRef {
+        match &self {
+            Expression::StaticFunctionCall(fun) => functions
+                .get(&fun.id)
+                .map(|f| f.return_type.clone())
+                .unwrap_or(TypeRef::Void), // TODO: unknown function: is this an error?
             Expression::FunctionBody(block) => block.return_var.var_type.clone(),
             Expression::Buffer(buffer_init) => buffer_init.element_type.clone(),
             Expression::Literal(Literal::String(_)) => TypeRef::STRING.clone(),
@@ -43,15 +60,15 @@ impl Scope {
         }
     }
 
-    pub fn add_sub_scope(&mut self, scope_to_add : Scope) {
+    pub fn add_sub_scope(&mut self, scope_to_add: Scope) {
         self.scopes.insert(scope_to_add.get_name(), scope_to_add);
     }
 
-    pub fn add_function(&mut self, fn_to_add : FunctionDeclaration) {
-        self.functions.insert(fn_to_add.name.clone(), fn_to_add);
+    pub fn add_function(&mut self, fn_to_add: &FunctionDeclaration) {
+        self.functions.insert(fn_to_add.name.clone(), fn_to_add.id);
     }
 
-    pub fn add_type(&mut self, type_to_add : &TypeDefinition) {
+    pub fn add_type(&mut self, type_to_add: &TypeDefinition) {
         self.types.insert(type_to_add.name.clone(), type_to_add.id);
     }
 
@@ -64,9 +81,10 @@ impl Scope {
         self.types.extend(other.types);
     }
 
-    pub fn combined_with(mut self, other: Scope) -> Scope {
-        self.extend(other);
-        self
+    pub fn combined_with(&self, other: Scope) -> Scope {
+        let mut new_self = self.clone();
+        new_self.extend(other);
+        new_self
     }
 
     pub fn get(&self, name: &str) -> Option<&NumericTypeIdentifier> {

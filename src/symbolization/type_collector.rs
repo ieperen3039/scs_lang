@@ -65,15 +65,15 @@ impl TypeCollector {
                 Ok(Definition::Scope(sub_scope, types))
             }
             "type_definition" => {
-                let type_def = self.read_type_definition(node)?;
+                let type_def = self.read_type_definition(node, scope)?;
                 Ok(Definition::Type(type_def))
             }
             "enum_definition" => {
-                let enum_def = self.read_enum(node)?;
+                let enum_def = self.read_enum(node, scope)?;
                 Ok(Definition::Type(enum_def))
             }
             "variant_definition" => {
-                let variant_def = self.read_variant(node)?;
+                let variant_def = self.read_variant(node, scope)?;
                 Ok(Definition::Type(variant_def))
             }
             _ => Ok(Definition::Other)
@@ -81,7 +81,7 @@ impl TypeCollector {
     }
 
     // base_type, [ derived_type | native_decl ], { field_declaration };
-    pub fn read_type_definition(&mut self, node: &RuleNode) -> Result<TypeDefinition, SimpleError> {
+    pub fn read_type_definition(&mut self, node: &RuleNode, scope: &Scope) -> Result<TypeDefinition, SimpleError> {
         debug_assert_eq!(node.rule_name, "type_definition");
 
         // base_type = identifier, [ generic_types_decl ];
@@ -117,7 +117,8 @@ impl TypeCollector {
             sub_type: TypeSubType::Base {
                 derived: derived_from,
             },
-            member_functions: Vec::new()
+            member_functions: Vec::new(),
+            full_scope: scope.full_name.clone(),
         })
     }
 
@@ -176,7 +177,7 @@ impl TypeCollector {
     }
 
     // enum_definition = identifier, { identifier };
-    pub fn read_enum(&mut self, node: &RuleNode) -> Result<TypeDefinition, SimpleError> {
+    pub fn read_enum(&mut self, node: &RuleNode, scope: &Scope) -> Result<TypeDefinition, SimpleError> {
         debug_assert_eq!(node.rule_name, "enum_definition");
 
         let name_node = node.expect_node("identifier")?;
@@ -194,12 +195,13 @@ impl TypeCollector {
             sub_type: TypeSubType::Enum {
                 values: value_names,
             },
-            member_functions: Vec::new()
+            member_functions: Vec::new(),
+            full_scope: scope.full_name.clone(),
         })
     }
 
     // variant_definition = identifier, [ generic_types_decl ], variant_value_decl, { variant_value_decl };
-    pub fn read_variant(&mut self, node: &RuleNode) -> Result<TypeDefinition, SimpleError> {
+    pub fn read_variant(&mut self, node: &RuleNode, scope: &Scope) -> Result<TypeDefinition, SimpleError> {
         debug_assert_eq!(node.rule_name, "variant_definition");
 
         let name_node = node.expect_node("identifier")?;
@@ -226,7 +228,8 @@ impl TypeCollector {
             sub_type: TypeSubType::Variant {
                 variants: variant_values,
             },
-            member_functions: Vec::new()
+            member_functions: Vec::new(),
+            full_scope: scope.full_name.clone(),
         })
     }
 

@@ -2,6 +2,8 @@ use std::{hash::Hash, rc::Rc};
 
 use simple_error::SimpleError;
 
+use crate::symbolization::ast::Identifier;
+
 use super::token::Token;
 
 // the entire resulting syntax tree consists of these nodes
@@ -49,8 +51,8 @@ impl<'prog, 'bnf> std::fmt::Debug for RuleNode<'prog, 'bnf> {
 }
 
 impl<'prog, 'bnf> RuleNode<'prog, 'bnf> {
-    pub fn as_identifier(&self) -> Rc<str> {
-        Rc::from(self.tokens_as_string())
+    pub fn as_identifier(&self) -> Identifier {
+        Identifier::from(self.tokens_as_string())
     }
 
     pub fn tokens_as_string(&self) -> String {

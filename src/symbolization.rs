@@ -9,3 +9,4 @@ pub mod built_in_types;
 
 #[cfg(test)]
 mod tests;
+pub mod function_collector;

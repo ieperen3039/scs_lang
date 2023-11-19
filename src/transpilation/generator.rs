@@ -1,19 +1,23 @@
 use simple_error::SimpleError;
 use std::collections::HashMap;
 
-use crate::symbolization::ast;
+use crate::symbolization::ast::{self, Program};
 
-struct Generator {
+pub struct GeneratorC {
     pub type_definitions: HashMap<ast::NumericTypeIdentifier, ast::TypeDefinition>,
     pub function_definitions: HashMap<ast::NumericFunctionIdentifier, ast::FunctionBody>,
     pub member_function_definitions: HashMap<ast::ImplType, ast::FunctionDeclaration>,
 }
 
-impl Generator {
-    pub fn generate_type(&self, definition: &ast::TypeDefinition) -> Result<String, SimpleError> {
+impl GeneratorC {
+    pub fn write(program : Program) -> Result<String, SimpleError> {
+        todo!()
+    }
+
+    fn generate_type(&self, definition: &ast::TypeDefinition) -> Result<String, SimpleError> {
         let this_name = self.get_full_name(&definition)?;
 
-        match definition.sub_type {
+        match &definition.sub_type {
             ast::TypeSubType::Base { derived : None } => {
                 Ok(format!("struct {this_name} {{\n\tvoid* mPtr;\n}}"))
             },
@@ -33,7 +37,7 @@ impl Generator {
                 let mut union_str = String::from("\tunion {{\n");
 
                 for variant in variants {
-                    let enum_val = variant.name;
+                    let enum_val = variant.name.clone();
                     variant_str += &format!("\t{this_name}${enum_val};\n");
                     union_str += &format!("\t\t{} {};\n", self.generate_type_ref(&variant.value_type)?, enum_val);
                 }
@@ -56,19 +60,19 @@ impl Generator {
     
     fn get_full_name(&self, real_type: &ast::TypeDefinition) -> Result<String, SimpleError> {
         let mut full_name = String::from("struct ");
-        for ele in real_type.full_scope {
-            full_name += &ele;
+        for ele in &real_type.full_scope {
+            full_name += ele;
             full_name += ".";
         }
         full_name += &real_type.name;
         Ok(full_name)
     }
 
-    pub fn generate_type_ref(&self, definition: &ast::TypeRef) -> Result<String, SimpleError> {
+    fn generate_type_ref(&self, definition: &ast::TypeRef) -> Result<String, SimpleError> {
         match definition {
             ast::TypeRef::Defined(defined_ref) => {
-                let real_type = self.type_definitions[&defined_ref.id];
-                self.get_full_name(&real_type)
+                let real_type = &self.type_definitions[&defined_ref.id];
+                self.get_full_name(real_type)
             },
             ast::TypeRef::UnamedTuple(tuple_types) => {
                 let mut tuple_name = String::from("tuple$");
@@ -81,8 +85,8 @@ impl Generator {
             ast::TypeRef::Buffer(array_type) => Ok(self.generate_type_ref(array_type)? + "*"),
             ast::TypeRef::Function(fn_type) => {
                 let mut parameter_str = String::new();
-                for ele in fn_type.parameters {
-                    parameter_str += &self.generate_type_ref(&ele)?;
+                for ele in &fn_type.parameters {
+                    parameter_str += &self.generate_type_ref(ele)?;
                     parameter_str += ", ";
                 }
                 let return_type_str = self.generate_type_ref(&fn_type.return_type)?;
