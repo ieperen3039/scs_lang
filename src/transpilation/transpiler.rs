@@ -2,12 +2,13 @@ use std::{path::{Path, PathBuf}, rc::Rc, collections::HashMap};
 
 use simple_error::SimpleError;
 
-use crate::{parsing::{parser, lexer}, symbolization::type_collector};
+use crate::{parsing::{parser, lexer}, symbolization::{type_collector, meta_program, built_in_types}};
 
 struct Program {
 } 
 
 pub struct Transpiler {
+    parser: Rc<parser::Parser>,
     lexer: lexer::Lexer,
     parse_stack: Vec<PathBuf>,
     file_cache: HashMap<PathBuf, String>,
@@ -54,7 +55,8 @@ impl Transpiler {
 
         for include_file in files_to_compile {
             if !self.file_cache.contains_key(&include_file) {
-                let this_program = self.compile(&include_file)?;
+                self.parser.parse_program()
+
                 self.file_cache.insert(include_file.clone(), Rc::from(this_program));
             };
 
