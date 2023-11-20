@@ -50,7 +50,6 @@ fn main() {
 
     match compile_result {
         Ok(program) => {
-            print!("{}", program.name);
             transpilation::generator::GeneratorC::write(program);
         },
         Err(simple_error) => print!("{}", simple_error),

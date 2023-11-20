@@ -5,7 +5,6 @@ pub type NumericTypeIdentifier = u32;
 pub type NumericFunctionIdentifier = u32;
 
 pub struct Program {
-    pub name: String,
     pub namespaces: Scope,
     pub type_definitions: HashMap<NumericTypeIdentifier, TypeDefinition>,
     pub function_definitions: HashMap<NumericFunctionIdentifier, FunctionBody>,

@@ -10,7 +10,7 @@ pub struct TypeCollector {
     next_id: u32,
 }
 
-enum Definition {
+pub enum Definition {
     Type(TypeDefinition),
     Scope(Scope, Vec<TypeDefinition>),
     Other
@@ -58,7 +58,7 @@ impl TypeCollector {
     }
 
     // scope | type_definition | enum_definition | variant_definition | implementation | function_definition
-    fn read_definitions(&mut self, node: &RuleNode, scope: &Scope) -> Result<Definition, SimpleError> {
+    pub fn read_definitions(&mut self, node: &RuleNode, scope: &Scope) -> Result<Definition, SimpleError> {
         match node.rule_name {
             "scope" => {
                 let (sub_scope, types) = self.read_scope_definitions(node, scope)?;

@@ -92,15 +92,7 @@ impl FauxCompiler {
         }
 
         // start parsing the definitions?
-        let root_scope = symbolizer::parse_symbols(syntax_tree, &included_scope, &mut self.type_collector)?;
-
-        Ok(Program {
-            name: source_file.to_string_lossy().to_string(),
-            main: None,
-            namespaces: root_scope,
-            type_definitions: todo!(),
-            member_function_definitions: todo!(),
-            function_definitions: todo!(),
-        })
+        let program = symbolizer::parse_symbols(syntax_tree, &included_scope, &mut self.type_collector)?;
+        Ok(program)
     }
 }

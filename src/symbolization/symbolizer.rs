@@ -1,12 +1,12 @@
-use std::{collections::HashMap, rc::Rc};
+use std::rc::Rc;
 
 use simple_error::SimpleError;
 
 use crate::{
     parsing::rule_nodes::RuleNode,
     symbolization::{
-        ast::{Scope, VariableDeclaration, Identifier}, function_collector::FunctionCollector, function_parser::FunctionParser,
-        type_collector::TypeCollector, type_resolver,
+        ast::{Scope, VariableDeclaration, Identifier, self}, function_collector::FunctionCollector, function_parser::FunctionParser,
+        type_collector::{TypeCollector, Definition}, type_resolver,
     },
 };
 
@@ -14,7 +14,7 @@ pub fn parse_symbols(
     tree: RuleNode,
     external_scope: &Scope,
     type_collector: &mut TypeCollector,
-) -> Result<Scope, SimpleError> {
+) -> Result<ast::Program, SimpleError> {
     debug_assert_eq!(tree.rule_name, "faux_program");
 
     // first collect definitions
@@ -22,17 +22,20 @@ pub fn parse_symbols(
     let mut types = Vec::new();
     let mut functions = Vec::new();
 
+    // faux_program = [ version_declaration ], { include_declaration }, { _definition }, [ program_interface, function_block ];
+    // _definition = constant_def | scope | type_definition | enum_definition | variant_definition | implementation | function_definition;
     for node in &tree.sub_rules {
-        match node.rule_name {
-            "version_declaration" | "include_declaration" => {}
-            "function_interface" | "function_block" => {}
-            "scope" => {
-                let (new_scope, new_types) =
-                    type_collector.read_scope_definitions(&node, &proto_scope)?;
-                proto_scope.add_sub_scope(new_scope);
+        let found = type_collector.read_definitions(node, &proto_scope)?;
+        match found {
+            Definition::Type(type_def) => {
+                proto_scope.add_type(&type_def);
+                types.push(type_def);
+            }
+            Definition::Scope(sub_scope, new_types) => {
+                proto_scope.add_sub_scope(sub_scope);
                 types.extend(new_types);
             }
-            _ => {}
+            _ => {},
         }
     }
 
@@ -96,5 +99,11 @@ pub fn parse_symbols(
         }
     }
 
-    Ok(proto_scope)
+    Ok(ast::Program {
+        main: None,
+        namespaces: root_scope,
+        type_definitions: todo!(),
+        member_function_definitions: todo!(),
+        function_definitions: todo!(),
+    })
 }

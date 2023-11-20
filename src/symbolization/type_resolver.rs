@@ -227,13 +227,4 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
             generic_parameters,
         })
     }
-
-    fn resolve_function_name(
-        &self,
-        name: FunctionCall,
-        generics: &[Rc<GenericParameter>],
-        local_scope: &Scope,
-    ) -> Result<Rc<FunctionDeclaration>, SimpleError> {
-        todo!()
-    }
 }
