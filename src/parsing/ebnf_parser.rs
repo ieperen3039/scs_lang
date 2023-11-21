@@ -90,9 +90,9 @@ pub fn parse_ebnf(definition: &str) -> Result<EbnfAst, ErrResult> {
             ignore_rule,
         })
     } else {
-        Err(ErrResult::UnclosedGroup {
-            tokens_remaining: remaining_tokens.len(),
-        })
+        // if we remove remaining_tokens, then we have a valid program.
+        // This happens whenever a rule is invalid. We try parsing that part again, which must result in a parse error.
+        return Err(process_repeated(remaining_tokens, process_rule).unwrap_err());
     }
 }
 

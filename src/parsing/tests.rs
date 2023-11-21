@@ -157,7 +157,7 @@ fn simple_parser_with_simple_ignore() {
 fn simple_parser_with_token_usage() {
     let definition = r#"
         addition = number, _, "+", _, number;
-        number = ? NUMERIC ?;
+        number = ? NUMBER ?;
         _ = ? WHITESPACE ?;
     "#;
     let formula = r#"1 + 2"#;

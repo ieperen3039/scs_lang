@@ -50,7 +50,8 @@ fn main() {
 
     match compile_result {
         Ok(program) => {
-            transpilation::generator::GeneratorC::write(program);
+            let write = transpilation::generator::GeneratorC::write(program);
+            write.unwrap();
         },
         Err(simple_error) => print!("{}", simple_error),
     }

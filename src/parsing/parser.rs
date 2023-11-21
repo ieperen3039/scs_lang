@@ -136,8 +136,7 @@ impl<'bnf> Parser {
         for result in interpretations {
             match result {
                 Err(failure) => {
-                    let search_result =
-                    failures.binary_search_by(|other| compare_err_result(other, &failure));
+                    let search_result = failures.binary_search_by(|other| compare_err_result(other, &failure));
                     let index = match search_result {
                         Ok(v) => v,
                         Err(v) => v,
@@ -152,6 +151,8 @@ impl<'bnf> Parser {
                 Ok(interpretation) => {
                     let num_tokens_remaining = interpretation.remaining_tokens.len();
                     if num_tokens_remaining == 0 {
+                        // shortcut
+                        longest_success = interpretation;
                         break;
                     }
 
@@ -209,7 +210,7 @@ impl<'bnf> Parser {
         let is_transparent = rule.identifier.as_bytes()[0] == b'_';
 
         if !is_transparent {
-            self.log(&rule.identifier);
+            self.log(&format!("{}\n", rule.identifier));
         }
 
         let result_of_term = self.apply_term(tokens, &rule.pattern);
