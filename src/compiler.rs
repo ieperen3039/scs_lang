@@ -6,8 +6,7 @@ use simple_error::SimpleError;
 
 use crate::parsing::lexer::Lexer;
 use crate::parsing::{ebnf_parser, parser, lexer};
-use crate::symbolization::ast::{self, Program};
-use crate::symbolization::type_collector::TypeCollector;
+use crate::symbolization::{ast, type_collector::TypeCollector};
 use crate::symbolization::{meta_program, symbolizer, built_in_types};
 
 pub struct FauxCompiler {

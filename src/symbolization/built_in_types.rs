@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use super::ast::*;
 
 pub const TYPE_ID_INT: u32 = 0;

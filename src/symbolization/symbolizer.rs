@@ -57,10 +57,11 @@ pub fn parse_symbols(
     let mut root_scope = proto_scope.combined_with(external_scope.clone());
     
     // read function declarations
+    // faux_program = [ version_declaration ], { include_declaration }, { _definition }, [ program_interface, function_block ];
+    // _definition = constant_def | scope | type_definition | enum_definition | variant_definition | implementation | function_definition;
     for node in &tree.sub_rules {
         match node.rule_name {
-            "version_declaration" | "include_declaration" => {}
-            "function_interface" | "function_block" => {
+            "function_definition" => {
                 let new_functions =
                     function_collector.read_function_declarations(&node, &root_scope)?;
                 
@@ -75,20 +76,20 @@ pub fn parse_symbols(
         }
     }
     
-    let function_definitions = functions.into_iter().map(|f| (f.id, f)).collect();
+    let function_declarations = functions.into_iter().map(|f| (f.id, f)).collect();
 
     let function_parser = FunctionParser {
         root_scope: &root_scope,
-        functions: function_definitions,
+        functions: function_declarations,
     };
 
     // parse functions bodies
     for node in &tree.sub_rules {
         match node.rule_name {
-            "function_interface" | "function_block" => {
+            "function_definition" => {
                 let decl = function_collector.read_function_declaration(&node)?;
 
-                function_parser.read_function_body(
+                let function_body = function_parser.read_function_body(
                     &node,
                     function_parser.root_scope,
                     &decl.parameters,

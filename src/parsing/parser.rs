@@ -1,6 +1,6 @@
 use std::{
     cmp,
-    collections::{HashSet, VecDeque},
+    collections::VecDeque,
     io::Write,
 };
 

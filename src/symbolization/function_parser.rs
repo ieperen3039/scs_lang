@@ -235,15 +235,17 @@ impl FunctionParser<'_> {
             arguments.insert(Identifier::from(""), arg_value);
         } else {
             let named_arguments = node.find_nodes("named_argument");
-            // named_argument = identifier, _expression;
-            let parameter_name_node = node.expect_node("identifier")?;
-
-            let expression_node = node
-                .sub_rules
-                .last()
-                .ok_or_else(|| SimpleError::new("empty statement"))?;
-            let arg_value = self.read_expression(expression_node, this_scope, variables)?;
-            arguments.insert(parameter_name_node.as_identifier(), arg_value);
+            for arg in named_arguments {
+                // named_argument = identifier, _expression;
+                let parameter_name_node = arg.expect_node("identifier")?;
+    
+                let expression_node = arg
+                    .sub_rules
+                    .last()
+                    .ok_or_else(|| SimpleError::new("empty statement"))?;
+                let arg_value = self.read_expression(expression_node, this_scope, variables)?;
+                arguments.insert(parameter_name_node.as_identifier(), arg_value);
+            }
         }
 
         // TODO: explicit generic arguments

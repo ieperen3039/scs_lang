@@ -165,7 +165,6 @@ impl<'a> FunctionCollector<'a> {
         scope: &Scope,
     ) -> Result<(ImplType, Vec<FunctionDeclaration>), SimpleError> {
         debug_assert_eq!(node.rule_name, "implementation");
-        let base_type = node.expect_node("base_type_decl")?;
         let impl_type = self.read_impl_type_decl(node, scope)?;
 
         let mut function_definitions = Vec::new();

@@ -177,7 +177,7 @@ impl std::fmt::Debug for TypeDefinition {
             .field("id", &self.id)
             .field("generic_parameters", &self.generic_parameters)
             .field("sub_type", &self.sub_type)
-            .field("num_member_functions", &self.member_functions.len())
+            .field("member_functions.len()", &self.member_functions.len())
             .finish()
     }
 }
