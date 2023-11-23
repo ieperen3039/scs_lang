@@ -467,15 +467,10 @@ fn try_parse_example_faux() {
         })
         .unwrap();
 
-    println!("{}\n\n", ebnf_ast_write(&grammar));
-
-    let mut grammar = chomsker::convert_to_normal_form(grammar);
-    // grammar.rules.sort_by(|a, b| a.identifier.cmp(&b.identifier));
+    let grammar = chomsker::convert_to_normal_form(grammar);
 
     let mut converted_out = std::fs::File::create("converted_ebnf.ebnf").unwrap();
     write!(converted_out, "{}\n\n", ebnf_ast_write(&grammar)).unwrap();
-
-    return;
 
     // let xml_out = std::fs::File::create("test_try_parse_example_faux_output.xml").ok();
     let xml_out = None;

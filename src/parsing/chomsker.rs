@@ -12,6 +12,8 @@ struct ChomskyNormalFormConverter {
 
 pub fn convert_to_normal_form(ast: EbnfAst) -> EbnfAst {
     let mut converter = ChomskyNormalFormConverter { next_id: 0 };
+
+    let primary_rule_id = ast.rules.get(0).expect("Grammar must have rules").identifier.clone();
     let mut rules = VecDeque::from(ast.rules);
 
     loop {
@@ -24,6 +26,10 @@ pub fn convert_to_normal_form(ast: EbnfAst) -> EbnfAst {
         }
 
         if rules.len() == num_old_rules {
+            let old_primary_loc = rules.iter().position(|r| &r.identifier == &primary_rule_id);
+            let old_primary = rules.remove(old_primary_loc.unwrap()).unwrap();
+            rules.push_front(old_primary);
+
             return EbnfAst {
                 rules: Vec::from(rules),
                 ignore_rule: ast.ignore_rule,
@@ -67,16 +73,17 @@ impl ChomskyNormalFormConverter {
                 Term::Alternation(vec![Term::Empty, normalized_sub_term])
             }
             Term::Repetition(t) => {
+                // normalized_sub_term is guaranteed to be a Term::Identifier
                 let normalized_sub_term = self.normalize_to_identifier(*t, other_rules);
                 let new_rule_name = self.generate_rule_name();
                 other_rules.push_back(Rule {
                     identifier: new_rule_name.clone(),
                     pattern: Term::Alternation(vec![
+                        normalized_sub_term.clone(),
                         Term::Concatenation(vec![
                             normalized_sub_term,
                             Term::Identifier(new_rule_name.clone()),
                         ]),
-                        Term::Empty,
                     ]),
                 });
                 Term::Identifier(new_rule_name)
