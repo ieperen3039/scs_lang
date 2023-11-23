@@ -20,7 +20,7 @@ The compiler manages the memory implicitly.
 Every statement ends with a post-fix assignment.
 Assignment can also be used as part of a monadic operation, in which case the assignemnt is said to be 'conditional'.
 Assigning to `return` implies returning from the function, conditionally assigning `return` is a conditional return from the function.
-Conditionally assigned variables function as implicit monadic types: if the variable is not assigned at runtime, then any function call on the variable is not executed
+Conditionally assigned variables are implicit monadic types: if the variable is not assigned at runtime, then any function call on the variable is not executed
 
 ## Types
 ...

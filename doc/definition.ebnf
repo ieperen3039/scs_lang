@@ -2,8 +2,8 @@ faux_program            = _, [ version_declaration, _ ], { include_declaration, 
 program_interface       = _function_interface;
 
 (* version *)
+version_dialect         = "faux";
 version_declaration     = _keyword_version, _, version_dialect, [ _, version ];
-version_dialect         = ? IDENTIFIER ?;
 version                 = version_major, ".", version_minor, ".", version_patch;
 version_major           = ? NUMBER ?;
 version_minor           = ? NUMBER ?;
@@ -21,7 +21,7 @@ scope_name              = ? IDENTIFIER ?;
 type_definition         = _keyword_type, _, base_type_decl, _, "=",  ( derived_type | native_decl );
 field_declaration       = type_ref, _, identifier, _, ";";
 (* reference to existing type *)
-type_ref                = ( ( [ _scope_reference, "." ], base_type_ref ) | fn_type | tuple_inst ), { _, array_symbol };
+type_ref                = ( ( [ _scope_reference, "." ], base_type_ref ) | fn_type | tuple_inst ), { _, buffer_symbol };
 _scope_reference        = scope_name, { ".", scope_name };
 (* reference to existing basic type *)
 derived_type            = ( [ _scope_reference, "." ], base_type_ref ) | tuple_inst;
@@ -42,7 +42,7 @@ enum_value_decl         = ? IDENTIFIER ?;
 variant_definition      = _keyword_variant, _, identifier, _, [ generic_types_decl, _ ], "[", _, variant_value_decl, _, { ",", variant_value_decl, _ }, "]";
 variant_value_decl      = identifier, _, "(", _, type_ref, _, ")";
 (* generics are not instantiated, hence a base_type_decl *)
-implementation          = _keyword_start_implementation, _, base_type_decl, { _, array_symbol }, _, "{", _, { function_definition, _ }, "}";
+implementation          = _keyword_start_implementation, _, base_type_decl, { _, buffer_symbol }, _, "{", _, { function_definition, _ }, "}";
 
 constant_def            = _keyword_const, _, type_ref, _, identifier, _, "=", _, statement;
 
@@ -74,10 +74,10 @@ _type_list              = type_ref, { _, ",", _, type_ref };
 _name_list              = identifier, { _, ",", _, identifier };
 
 (* mutators, selectors and usage indicators *)
-_mutator                = method_call | static_function_call | operator;
+_mutator                = method_call | static_function_call | operator | mutator_cast | mutator_assign;
 operator                = ? SYMBOL ?;
-_mutator_cast           = usage_cast, _, type_ref, _, _cast_end;
-_mutator_assign         = usage_assign, _, ( return_decl | ( [ type_ref ], _, identifier) );
+mutator_cast           = _usage_cast, _, type_ref, _, _cast_end;
+mutator_assign         = _usage_assign, _, ( return_decl | ( [ type_ref ], _, identifier) );
 
 (* other statements *)
 array_initialisation    = "[", [ _, _expression, { _, ",", _, _expression } ], _, "]";
@@ -93,10 +93,10 @@ return_decl             = _keyword_return;
 native_decl             = _keyword_extern;
 
 (* symbol definitions *)
-usage_assign = "=";
-usage_cast = ":<";
+_usage_assign = "=";
+_usage_cast = ":<";
 _cast_end = ">";
-array_symbol = "[]";
+buffer_symbol = "[]";
 expansion_decl = "...";
 
 (* keywords *)
