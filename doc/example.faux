@@ -14,7 +14,7 @@ use "filesystem"
 {
     input_file
         File.open
-        // if it fails (File.open returns a negative value) assign it to file_open_error
+        // if it fails (File.open returns a negative value) assign it to file_open_error and stop this statement
         != file_open_error
         // the above assignment leaves us with the positive value
         read_to_string
@@ -54,6 +54,8 @@ use "filesystem"
         // to return a value from a function, we assign it to the return keyword
         = return;
 
+    // data was also assigned conditionally.
+    // if file_open_error exists, then data does not exists.
     data
         // ...
         = return;
