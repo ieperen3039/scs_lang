@@ -1,3 +1,4 @@
 /target
-converted_ebnf.ebnf
+chomsky.ebnf
+greibach_ebnf.ebnf
 test_try_parse_example_faux_output.xml

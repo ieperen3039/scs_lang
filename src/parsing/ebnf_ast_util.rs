@@ -1,4 +1,4 @@
-use std::fmt::{format, Write};
+use std::fmt::Write;
 
 use super::ebnf_ast::*;
 

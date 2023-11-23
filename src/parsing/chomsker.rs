@@ -1,9 +1,5 @@
 use std::collections::VecDeque;
 
-use simple_error::SimpleError;
-
-use crate::symbolization::ast::Identifier;
-
 use super::ebnf_ast::*;
 
 struct ChomskyNormalFormConverter {
@@ -39,32 +35,6 @@ pub fn convert_to_normal_form(ast: EbnfAst) -> EbnfAst {
 }
 
 impl ChomskyNormalFormConverter {
-    fn generate_rule_name(&mut self) -> String {
-        let id = self.next_id;
-        self.next_id = id + 1;
-        format!("__{:03}", id)
-    }
-
-    fn find_or_create_rule(
-        &mut self,
-        with_pattern: Term,
-        other_rules: &mut VecDeque<Rule>,
-    ) -> String {
-        for ele in &*other_rules {
-            if ele.pattern == with_pattern {
-                return ele.identifier.clone();
-            }
-        }
-
-        // no such rule exists, make a new one
-        let new_rule_name = self.generate_rule_name();
-        other_rules.push_back(Rule {
-            identifier: new_rule_name.clone(),
-            pattern: with_pattern,
-        });
-        new_rule_name
-    }
-
     // normalize to an alteration of concatenation of identifiers
     fn normalize_to_alteration(&mut self, term: Term, other_rules: &mut VecDeque<Rule>) -> Term {
         match term {
@@ -127,5 +97,31 @@ impl ChomskyNormalFormConverter {
         let normalized_sub_term = self.normalize_to_alteration(t, other_rules);
         let new_rule = self.find_or_create_rule(normalized_sub_term, other_rules);
         Term::Identifier(new_rule)
+    }
+
+    fn find_or_create_rule(
+        &mut self,
+        with_pattern: Term,
+        other_rules: &mut VecDeque<Rule>,
+    ) -> String {
+        for ele in &*other_rules {
+            if ele.pattern == with_pattern {
+                return ele.identifier.clone();
+            }
+        }
+
+        // no such rule exists, make a new one
+        let new_rule_name = self.generate_rule_name();
+        other_rules.push_back(Rule {
+            identifier: new_rule_name.clone(),
+            pattern: with_pattern,
+        });
+        new_rule_name
+    }
+    
+    fn generate_rule_name(&mut self) -> String {
+        let id = self.next_id;
+        self.next_id = id + 1;
+        format!("__{:03}", id)
     }
 }

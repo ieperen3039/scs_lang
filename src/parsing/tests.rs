@@ -6,7 +6,7 @@ use crate::parsing::{
     lexer::Lexer,
     parser,
     rule_nodes::RuleNode,
-    token::{Token, TokenClass}, chomsker, ebnf_ast_util::ebnf_ast_write,
+    token::{Token, TokenClass}, chomsker, ebnf_ast_util::ebnf_ast_write, greibacher,
 };
 
 #[test]
@@ -466,12 +466,20 @@ fn try_parse_example_faux() {
             err
         })
         .unwrap();
+    println!("ebnf parse done");
 
     let grammar = chomsker::convert_to_normal_form(grammar);
-
-    let mut converted_out = std::fs::File::create("converted_ebnf.ebnf").unwrap();
+    let mut converted_out = std::fs::File::create("chomsky.ebnf").unwrap();
     write!(converted_out, "{}\n\n", ebnf_ast_write(&grammar)).unwrap();
+    println!("chonker done");
 
+    let grammar = greibacher::convert_to_normal_form(grammar);
+
+    let mut converted_out = std::fs::File::create("greibach_ebnf.ebnf").unwrap();
+    write!(converted_out, "{}\n\n", ebnf_ast_write(&grammar)).unwrap();
+    println!("greibach done");
+
+    // return;
     // let xml_out = std::fs::File::create("test_try_parse_example_faux_output.xml").ok();
     let xml_out = None;
 
