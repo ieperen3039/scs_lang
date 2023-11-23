@@ -20,6 +20,7 @@ pub enum Term {
     Literal(String),
     //          | '?', ' ', character, { character },' ',  '?';
     Token(TokenClass),
+    Empty
 }
 
 

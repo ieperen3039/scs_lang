@@ -209,10 +209,6 @@ impl<'bnf> Parser {
     ) -> ParseResult<'prog, 'bnf> {
         let is_transparent = rule.identifier.as_bytes()[0] == b'_';
 
-        if !is_transparent {
-            self.log(&format!("{}\n", rule.identifier));
-        }
-
         let result_of_term = self.apply_term(tokens, &rule.pattern);
 
         if is_transparent {
@@ -220,26 +216,28 @@ impl<'bnf> Parser {
         }
 
         // not transparent: wrap every interpretation into a rulenode
-        Box::new(result_of_term.map(|result| match result {
-            Ok(interpretation) => {
-                let remaining_tokens = interpretation.remaining_tokens;
+        Box::new(result_of_term.map(move |result| {
+            match result {
+                    Ok(interpretation) => {
+                        let remaining_tokens = interpretation.remaining_tokens;
 
-                match tokens.len() - remaining_tokens.len() {
-                    0 => Ok(Interpretation {
-                        val: ParseNode::EmptyNode,
-                        remaining_tokens: tokens,
-                    }),
-                    num_tokens => Ok(Interpretation {
-                        val: ParseNode::Rule(RuleNode {
-                            rule_name: &rule.identifier,
-                            tokens: &tokens[..num_tokens],
-                            sub_rules: unwrap_to_rulenodes(interpretation.val),
-                        }),
-                        remaining_tokens: &tokens[num_tokens..],
-                    }),
+                        match tokens.len() - remaining_tokens.len() {
+                            0 => Ok(Interpretation {
+                                val: ParseNode::EmptyNode,
+                                remaining_tokens: tokens,
+                            }),
+                            num_tokens => Ok(Interpretation {
+                                val: ParseNode::Rule(RuleNode {
+                                    rule_name: &rule.identifier,
+                                    tokens: &tokens[..num_tokens],
+                                    sub_rules: unwrap_to_rulenodes(interpretation.val),
+                                }),
+                                remaining_tokens: &tokens[num_tokens..],
+                            }),
+                        }
+                    }
+                    Err(err) => Err(err),
                 }
-            }
-            Err(err) => Err(err),
         }))
     }
 
@@ -260,6 +258,7 @@ impl<'bnf> Parser {
             ebnf_ast::Term::Token(token) => {
                 Box::new(std::iter::once(self.parse_token(tokens, token)))
             }
+            ebnf_ast::Term::Empty => Box::new(std::iter::empty()),
         }
     }
 

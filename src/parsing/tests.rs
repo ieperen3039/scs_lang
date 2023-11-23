@@ -1,11 +1,12 @@
 use simple_error::SimpleError;
+use std::io::Write;
 
 use crate::parsing::{
     ebnf_parser,
     lexer::Lexer,
     parser,
     rule_nodes::RuleNode,
-    token::{Token, TokenClass},
+    token::{Token, TokenClass}, chomsker, ebnf_ast_util::ebnf_ast_write,
 };
 
 #[test]
@@ -466,12 +467,23 @@ fn try_parse_example_faux() {
         })
         .unwrap();
 
-    let xml_out = std::fs::File::create("test_try_parse_example_faux_output.xml").unwrap();
+    println!("{}\n\n", ebnf_ast_write(&grammar));
+
+    let mut grammar = chomsker::convert_to_normal_form(grammar);
+    // grammar.rules.sort_by(|a, b| a.identifier.cmp(&b.identifier));
+
+    let mut converted_out = std::fs::File::create("converted_ebnf.ebnf").unwrap();
+    write!(converted_out, "{}\n\n", ebnf_ast_write(&grammar)).unwrap();
+
+    return;
+
+    // let xml_out = std::fs::File::create("test_try_parse_example_faux_output.xml").ok();
+    let xml_out = None;
 
     let tokens = Lexer {}.read_all(&program).map_err(|err| {
         SimpleError::new(parser::Failure::LexerError{char_idx : err}.error_string(definition))
     }).unwrap();
-    let parser = parser::Parser::new(grammar, Some(xml_out)).unwrap();
+    let parser = parser::Parser::new(grammar, xml_out).unwrap();
     let parse_result = parser.parse_program(&tokens);
 
     if parse_result.is_err() {
