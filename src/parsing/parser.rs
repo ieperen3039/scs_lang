@@ -1,8 +1,4 @@
-use std::{
-    cmp,
-    collections::VecDeque,
-    io::Write,
-};
+use std::{cmp, collections::VecDeque, io::Write};
 
 use simple_error::SimpleError;
 
@@ -35,8 +31,6 @@ pub enum Failure<'bnf> {
     EndOfFile {
         expected: &'bnf str,
     },
-    // a rule in the bnf returned success with 0 tokens consumed
-    EmptyEvaluation,
     // there was an error reading the characters of the file
     LexerError {
         char_idx: usize,
@@ -130,13 +124,17 @@ impl<'bnf> Parser {
 
         let interpretations = self.apply_rule(&tokens, primary_rule);
 
-        let mut longest_success = Interpretation{ val: ParseNode::EmptyNode, remaining_tokens: tokens };
+        let mut longest_success = Interpretation {
+            val: ParseNode::EmptyNode,
+            remaining_tokens: tokens,
+        };
         let mut failures = VecDeque::new();
 
         for result in interpretations {
             match result {
                 Err(failure) => {
-                    let search_result = failures.binary_search_by(|other| compare_err_result(other, &failure));
+                    let search_result =
+                        failures.binary_search_by(|other| compare_err_result(other, &failure));
                     let index = match search_result {
                         Ok(v) => v,
                         Err(v) => v,
@@ -159,7 +157,7 @@ impl<'bnf> Parser {
                     if num_tokens_remaining < longest_success.remaining_tokens.len() {
                         longest_success = interpretation;
                     }
-                },
+                }
             }
         }
 
@@ -216,28 +214,26 @@ impl<'bnf> Parser {
         }
 
         // not transparent: wrap every interpretation into a rulenode
-        Box::new(result_of_term.map(move |result| {
-            match result {
-                    Ok(interpretation) => {
-                        let remaining_tokens = interpretation.remaining_tokens;
+        Box::new(result_of_term.map(move |result| match result {
+            Ok(interpretation) => {
+                let remaining_tokens = interpretation.remaining_tokens;
 
-                        match tokens.len() - remaining_tokens.len() {
-                            0 => Ok(Interpretation {
-                                val: ParseNode::EmptyNode,
-                                remaining_tokens: tokens,
-                            }),
-                            num_tokens => Ok(Interpretation {
-                                val: ParseNode::Rule(RuleNode {
-                                    rule_name: &rule.identifier,
-                                    tokens: &tokens[..num_tokens],
-                                    sub_rules: unwrap_to_rulenodes(interpretation.val),
-                                }),
-                                remaining_tokens: &tokens[num_tokens..],
-                            }),
-                        }
-                    }
-                    Err(err) => Err(err),
+                match tokens.len() - remaining_tokens.len() {
+                    0 => Ok(Interpretation {
+                        val: ParseNode::EmptyNode,
+                        remaining_tokens: tokens,
+                    }),
+                    num_tokens => Ok(Interpretation {
+                        val: ParseNode::Rule(RuleNode {
+                            rule_name: &rule.identifier,
+                            tokens: &tokens[..num_tokens],
+                            sub_rules: unwrap_to_rulenodes(interpretation.val),
+                        }),
+                        remaining_tokens: &tokens[num_tokens..],
+                    }),
                 }
+            }
+            Err(err) => Err(err),
         }))
     }
 
@@ -327,7 +323,7 @@ impl<'bnf> Parser {
                         if term_interp.remaining_tokens.len() != tokens.len() {
                             self.continue_repetition(term_interp, sub_term)
                         } else {
-                            Box::new(std::iter::once(Err(Failure::EmptyEvaluation)))
+                            Box::new(std::iter::empty())
                         }
                     } else {
                         Box::new(std::iter::once(term_result))
@@ -474,7 +470,6 @@ fn get_err_significance(failure: &Failure<'_>) -> i32 {
             *char_idx as i32
         }
         Failure::EndOfFile { .. } => i32::MAX - 5,
-        Failure::EmptyEvaluation => i32::MAX - 4,
         Failure::LexerError { .. } => i32::MAX - 3,
         Failure::Error(_) => i32::MAX - 2,
         Failure::InternalError(_) => i32::MAX - 1,

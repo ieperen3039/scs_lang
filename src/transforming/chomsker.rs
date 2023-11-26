@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use super::ebnf_ast::*;
+use crate::parsing::ebnf_ast::*;
 
 struct ChomskyNormalFormConverter {
     next_id: u32,
@@ -40,7 +40,7 @@ impl ChomskyNormalFormConverter {
         match term {
             Term::Optional(t) => {
                 let normalized_sub_term = self.normalize_to_concatenation(*t, other_rules);
-                Term::Alternation(vec![Term::Empty, normalized_sub_term])
+                Term::Alternation(vec![normalized_sub_term, Term::Empty])
             }
             Term::Repetition(t) => {
                 // normalized_sub_term is guaranteed to be a Term::Identifier
@@ -49,11 +49,11 @@ impl ChomskyNormalFormConverter {
                 other_rules.push_back(Rule {
                     identifier: new_rule_name.clone(),
                     pattern: Term::Alternation(vec![
-                        normalized_sub_term.clone(),
                         Term::Concatenation(vec![
                             normalized_sub_term,
                             Term::Identifier(new_rule_name.clone()),
                         ]),
+                        Term::Empty,
                     ]),
                 });
                 Term::Identifier(new_rule_name)

@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use super::ebnf_ast::*;
+use crate::parsing::ebnf_ast::*;
 
 struct GreibachNormalFormConverter {
     next_id: u32,
