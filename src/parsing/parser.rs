@@ -254,7 +254,6 @@ impl<'bnf> Parser {
             ebnf_ast::Term::Token(token) => {
                 Box::new(std::iter::once(self.parse_token(tokens, token)))
             }
-            ebnf_ast::Term::Empty => Box::new(std::iter::empty()),
         }
     }
 

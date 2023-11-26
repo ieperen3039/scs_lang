@@ -61,6 +61,5 @@ fn ebnf_ast_term_to_string(term: &Term, target: &mut String) {
             target.push_str(i.str());
             target.push_str(" ?");
         }
-        Term::Empty => target.push_str("? EMPTY ?"),
     };
 }
