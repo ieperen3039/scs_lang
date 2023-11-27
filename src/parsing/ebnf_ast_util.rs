@@ -1,5 +1,3 @@
-use std::fmt::Write;
-
 use super::ebnf_ast::*;
 
 pub fn ebnf_ast_write(ast: &EbnfAst) -> String {
