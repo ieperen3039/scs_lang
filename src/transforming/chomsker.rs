@@ -1,7 +1,5 @@
 use std::collections::{HashMap, VecDeque};
 
-use crate::symbolization::ast::Identifier;
-
 use super::{grammar::*, grammar_util, rule_name_generator::RuleNameGenerator};
 
 pub fn convert_to_normal_form(old_grammar: Grammar) -> Grammar {
@@ -96,10 +94,8 @@ fn normalize_to_alteration(
                 .map(|t| normalize_to_concatenation(t, name_generator, other_rules))
                 .collect(),
         ),
-        Term::Concatenation(terms) => {
-            normalize_to_concatenation(Term::Concatenation(terms), name_generator, other_rules)
-        }
-        other => other,
+        Term::Terminal(_) => term,
+        other => normalize_to_concatenation(other, name_generator, other_rules),
     }
 }
 
