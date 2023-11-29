@@ -1,6 +1,8 @@
 use crate::parsing::token::TokenClass;
 
 use super::rule_name_generator::RuleNameGenerator;
+
+#[derive(Clone)]
 pub struct Grammar {
     pub rules : Vec<Rule>,
     pub name_generator : RuleNameGenerator,

@@ -24,45 +24,45 @@ pub fn convert_to_normal_form(old_grammar: Grammar) -> Grammar {
             rules.push_back(rule);
         }
 
+        // all rules that are keys of this map will be inlined and removed
+        let mut renames = HashMap::new();
+        // pairs in this Vec will be swapped, before applying the inverse rename
+        let mut swaps = Vec::new();
+
         // find all rules that are renames
-        // all rules that are keys of this map will be removed
-        let renames: HashMap<_, _> = rules
-            .iter()
-            .filter_map(|r| {
-                if let Rule {
-                    identifier: a,
-                    pattern: Term::Identifier(b),
-                } = r
-                {
-                    // rules that do not start with an underscore must always be preserved.
-                    if !a.starts_with('_') {
-                        Some((b.to_owned(), a.to_owned()))
-                    } else {
-                        Some((a.to_owned(), b.to_owned()))
-                    }
-                } else {
-                    None
+        for r in &rules {
+            if let Rule {
+                identifier: a,
+                pattern: Term::Identifier(b),
+            } = r
+            {
+                if a.starts_with('_') {
+                    renames.insert(a.to_owned(), b.to_owned());
+                } else if b.starts_with('_') {
+                    // rules that are not transparent are always retained
+                    swaps.push((a.to_owned(), b.to_owned()));
                 }
-            })
-            .collect();
+            }
+        }
+
+        for (a, b) in swaps {
+            let mut a_rule = rules.remove(rules.iter().position(|r| r.identifier == a).expect(&a)).unwrap();
+            let b_rule = rules.remove(rules.iter().position(|r| r.identifier == b).expect(&b)).unwrap();
+
+            a_rule.pattern = b_rule.pattern;
+            rules.push_back(a_rule);
+
+            // schedule the inverse rename
+            renames.insert(b, a);
+        }
 
         println!("{:?}", renames);
 
         // apply renames
         for r in &mut rules {
-            // if we decided to swap which rule to inline (A = B, but we inline B)
-            // then we have to rename the original rule B to A
-            if renames.contains_key(&r.identifier) {
-                r.identifier = renames.get(&r.identifier).unwrap().clone();
-            }
-            
             grammar_util::transform_terminals(&mut r.pattern, &|t| match t {
                 Term::Identifier(id) => {
-                    Term::Identifier(renames
-                        .get(&id)
-                        .map(|t| t.to_owned())
-                        .unwrap_or(id)
-                )
+                    Term::Identifier(renames.get(&id).map(|t| t.to_owned()).unwrap_or(id))
                 }
                 other => other,
             });

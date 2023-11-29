@@ -23,15 +23,15 @@ fn write_conversion_outputs() {
     write!(converted_out, "{}\n\n", grammar_write(&grammar)).unwrap();
     println!("grammar converted");
 
-    let grammar = greibacher::convert(grammar);
+    let greibach = greibacher::convert(grammar.clone());
     let mut converted_out = std::fs::File::create("greibach_ebnf.ebnf").unwrap();
-    write!(converted_out, "{}\n\n", grammar_write(&grammar)).unwrap();
+    write!(converted_out, "{}\n\n", grammar_write(&greibach)).unwrap();
     println!("greibach done");
     let program = include_str!("../../doc/example.faux");
 
-    let grammar = chomsker::convert_to_normal_form(grammar);
+    let chomsky = chomsker::convert_to_normal_form(grammar.clone());
     let mut converted_out = std::fs::File::create("chomsky.ebnf").unwrap();
-    write!(converted_out, "{}\n\n", grammar_write(&grammar)).unwrap();
+    write!(converted_out, "{}\n\n", grammar_write(&chomsky)).unwrap();
     println!("chonker done");
 
     // let tokens = Lexer {}.read_all(&program).map_err(|err| {
