@@ -1,6 +1,67 @@
 use std::collections::{HashMap, VecDeque};
 
+use simple_error::SimpleError;
+
 use super::{grammar::*, grammar_util, rule_name_generator::RuleNameGenerator};
+
+enum ChomskyPattern {
+    NonTerminal(Vec<String>),
+    Terminal(Terminal)
+}
+struct ChomskyRule {
+    first_terminal : Terminal,
+    pattern : ChomskyPattern
+}
+
+struct Chomsky {
+    start : String,
+    rules : HashMap<String, ChomskyRule>
+}
+
+impl Chomsky {
+    pub fn from(grammar : Grammar) -> Result<Chomsky, SimpleError> {
+        let normal_grammar = convert_to_normal_form(grammar);
+        let start = normal_grammar.rules.first().map(|r| r.identifier.to_owned()).expect("No rules in grammar");
+
+        let mut non_terminal_rules = HashMap::new();
+        let mut terminal_rules = Vec::new();
+        for r in normal_grammar.rules {
+            let Rule { identifier, pattern } = r;
+            match pattern {
+                Term::Concatenation(terms) => {
+                    let mut pattern = Vec::new();
+                    for sub_term in terms {
+                        if let Term::Identifier(id) = sub_term {
+                            pattern.push(id);
+                        }
+                    }
+                    non_terminal_rules.insert(identifier, pattern);
+                },
+                Term::Alternation(a_terms) => {
+                    for a_term in a_terms {
+                        if let Term::Concatenation(c_terms) = a_term {
+                            let mut pattern = Vec::new();
+                            for c_term in c_terms {
+                                if let Term::Identifier(id) = c_term {
+                                    pattern.push(id);
+                                }
+                            }
+                            non_terminal_rules.insert(identifier.to_owned(), pattern);
+                        }
+                    }
+                },
+                Term::Identifier(id) => terminal_rules.push(id),
+                _ => return Err(SimpleError::new("this aint chomsky")),
+            }
+        }
+
+        let rules = HashMap::new();
+
+        todo!();
+
+        Ok(Chomsky { start, rules })
+    }
+}
 
 pub fn convert_to_normal_form(old_grammar: Grammar) -> Grammar {
     let mut name_generator = old_grammar.name_generator;
@@ -53,8 +114,6 @@ pub fn convert_to_normal_form(old_grammar: Grammar) -> Grammar {
             // schedule the inverse rename
             renames.insert(b, a);
         }
-
-        println!("{:?}", renames);
 
         // apply renames
         for r in &mut rules {
