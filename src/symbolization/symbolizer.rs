@@ -95,6 +95,8 @@ pub fn parse_symbols(
                     &decl.parameters,
                     Rc::from(VariableDeclaration{ var_type: decl.return_type, name: Identifier::from("return") }),
                 )?;
+
+                todo!();
             }
             _ => {}
         }

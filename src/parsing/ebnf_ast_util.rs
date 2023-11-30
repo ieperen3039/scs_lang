@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 use super::ebnf_ast::*;
 
 pub fn ebnf_ast_write(ast: &EbnfAst) -> String {

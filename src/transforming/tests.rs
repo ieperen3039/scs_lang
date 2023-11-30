@@ -1,8 +1,7 @@
 
 use std::io::Write;
-use simple_error::SimpleError;
 
-use crate::{parsing::{ebnf_parser, lexer::Lexer, parser}, transforming::{chomsker, greibacher, grammatificator, grammar_util::grammar_write}};
+use crate::{parsing::ebnf_parser, transforming::{chomsker, greibacher, grammatificator, grammar_util::grammar_write}};
 
 #[test]
 fn write_conversion_outputs() {
