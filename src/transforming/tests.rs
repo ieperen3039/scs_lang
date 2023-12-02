@@ -1,7 +1,7 @@
 
 use std::io::Write;
 
-use crate::{parsing::ebnf_parser, transforming::{chomsker::{self, Chomsky}, greibacher, grammatificator, grammar_util::grammar_write}};
+use crate::{parsing::ebnf_parser, transforming::{chomsker::{self, Chomsky}, grammatificator, grammar_util::grammar_write}};
 
 #[test]
 fn write_conversion_outputs() {
@@ -22,10 +22,10 @@ fn write_conversion_outputs() {
     write!(converted_out, "{}\n\n", grammar_write(&grammar)).unwrap();
     println!("grammar converted");
 
-    let greibach = greibacher::convert(grammar.clone());
-    let mut converted_out = std::fs::File::create("greibach_ebnf.ebnf").unwrap();
-    write!(converted_out, "{}\n\n", grammar_write(&greibach)).unwrap();
-    println!("greibach done");
+    // let greibach = greibacher::convert(grammar.clone());
+    // let mut converted_out = std::fs::File::create("greibach_ebnf.ebnf").unwrap();
+    // write!(converted_out, "{}\n\n", grammar_write(&greibach)).unwrap();
+    // println!("greibach done");
 
     let chomsky = Chomsky::from(grammar.clone()).unwrap();
     let mut converted_out = std::fs::File::create("chomsky.ebnf").unwrap();

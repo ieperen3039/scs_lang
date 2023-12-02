@@ -1,17 +1,14 @@
+use std::collections::HashMap;
+
 use crate::parsing::token::TokenClass;
 
 use super::rule_name_generator::RuleNameGenerator;
 
 #[derive(Clone)]
 pub struct Grammar {
-    pub rules : Vec<Rule>,
+    pub start_rule : String,
+    pub rules : HashMap<String, Vec<Term>>,
     pub name_generator : RuleNameGenerator,
-}
-
-#[derive(Clone)]
-pub struct Rule {
-    pub identifier : String,
-    pub pattern : Term
 }
 
 #[derive(Debug, Clone, PartialEq)]

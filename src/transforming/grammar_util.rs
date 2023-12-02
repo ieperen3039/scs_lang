@@ -1,17 +1,17 @@
 use super::grammar::*;
 
-pub fn grammar_write(ast: &Grammar) -> String {
+pub fn grammar_write(grammar: &Grammar) -> String {
+    grammar_write_rules(&grammar.rules)
+}
+
+pub fn grammar_write_rules(rules: &std::collections::HashMap<String, Vec<Term>>) -> String {
     let mut output_string = String::new();
-    for rule in &ast.rules {
-        output_string.push_str(&format!("{:30} = ", &rule.identifier));
-        if let Term::Alternation(terms) = &rule.pattern {
-            grammar_to_string(&terms[0], &mut output_string);
-            for sub_term in &terms[1..] {
-                output_string.push_str(&format!("\n{:30} | ", ""));
-                grammar_to_string(sub_term, &mut output_string);
-            }
-        } else {
-            grammar_to_string(&rule.pattern, &mut output_string);
+    for (identifier, terms) in rules {
+        output_string.push_str(&format!("{:30} = ", &identifier));
+        grammar_to_string(&terms[0], &mut output_string);
+        for sub_term in &terms[1..] {
+            output_string.push_str(&format!("\n{:30} | ", ""));
+            grammar_to_string(sub_term, &mut output_string);
         }
         output_string.push_str(";\n");
     }

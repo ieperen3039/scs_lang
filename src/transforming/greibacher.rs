@@ -1,17 +1,10 @@
-use std::collections::VecDeque;
+use std::collections::HashMap;
 
 use super::{grammar::*, rule_name_generator::RuleNameGenerator};
 
 pub fn convert(ast: Grammar) -> Grammar {
     let mut name_generator = ast.name_generator;
 
-    let primary_rule_id = ast
-        .rules
-        .get(0)
-        .expect("Grammar must have rules")
-        .identifier
-        .clone();
-    
     let mut rules = VecDeque::from(ast.rules);
 
     let mut max_iterations = 65535;
@@ -22,11 +15,11 @@ pub fn convert(ast: Grammar) -> Grammar {
 
         for _ in 0..num_old_rules {
             let mut rule = rules.pop_front().unwrap();
-            let new_pattern = normalize_top_level(rule.pattern.clone(), &mut name_generator, &mut rules);
+            let new_pattern = normalize_top_level(rule.patterns.clone(), &mut name_generator, &mut rules);
 
-            if rule.pattern != new_pattern {
+            if rule.patterns != new_pattern {
                 is_done = false;
-                rule.pattern = new_pattern;
+                rule.patterns = new_pattern;
             }
 
             rules.push_back(rule);
@@ -34,11 +27,8 @@ pub fn convert(ast: Grammar) -> Grammar {
         }
 
         if is_done || max_iterations <= 0 {
-            let old_primary_loc = rules.iter().position(|r| &r.identifier == &primary_rule_id);
-            let old_primary = rules.remove(old_primary_loc.unwrap()).unwrap();
-            rules.push_front(old_primary);
-
             return Grammar {
+                start_rule: ast.start_rule,
                 rules: Vec::from(rules),
                 name_generator,
             };
@@ -49,7 +39,7 @@ pub fn convert(ast: Grammar) -> Grammar {
 fn normalize_top_level(
     term: Term,
     name_generator: &mut RuleNameGenerator,
-    other_rules: &mut VecDeque<Rule>,
+    other_rules: &mut HashMap<String, Vec<Term>>,
 ) -> Term {
     match term {
         Term::Alternation(terms) => Term::Alternation(
@@ -65,7 +55,7 @@ fn normalize_top_level(
 fn normalize(
     term: Term,
     name_generator: &mut RuleNameGenerator,
-    other_rules: &mut VecDeque<Rule>,
+    other_rules: &mut HashMap<String, Vec<Term>>,
 ) -> Term {
     match term {
         Term::Concatenation(mut terms) => {
@@ -76,7 +66,7 @@ fn normalize(
             let new_rule_name = name_generator.generate_rule_name();
             other_rules.push_back(Rule {
                 identifier: new_rule_name.clone(),
-                pattern: Term::Alternation(terms),
+                patterns: Term::Alternation(terms),
             });
             Term::Identifier(new_rule_name)
         }
@@ -87,9 +77,9 @@ fn normalize(
                 .find(|r| &r.identifier == &id)
                 .expect(&id);
 
-            match referenced_rule.pattern {
+            match referenced_rule.patterns {
                 Term::Alternation(_) => Term::Identifier(id),
-                _ => referenced_rule.pattern.clone(),
+                _ => referenced_rule.patterns.clone(),
             }
         }
         other => other,
