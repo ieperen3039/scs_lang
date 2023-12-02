@@ -162,10 +162,12 @@ pub fn convert_to_normal_form(old_grammar: Grammar) -> Grammar {
 
         let keys: Vec<String> = rules.keys().map(String::to_owned).collect();
         for rule_id in &keys {
-            let terms = rules.get_mut(rule_id).unwrap();
+            let terms = rules.remove(rule_id).unwrap();
+            let mut new_terms = Vec::new();
             for term in terms {
-                *term = normalize_to_alteration(*term, &mut name_generator, &mut rules);
+                new_terms.push(normalize_to_alteration(term, &mut name_generator, &mut rules));
             }
+            rules.insert(rule_id.to_owned(), new_terms);
         }
 
         let mut renames = HashMap::new();
