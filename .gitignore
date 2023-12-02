@@ -1,6 +1,7 @@
 /target
 grammar.ebnf
 chomsky.ebnf
+chomsky_*.ebnf
 greibach_ebnf.ebnf
 lexer_out.txt
 test_try_parse_example_faux_output.xml
