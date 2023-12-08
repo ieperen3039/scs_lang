@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{rc::Rc, collections::HashMap};
 
 use simple_error::SimpleError;
 
@@ -44,14 +44,14 @@ pub fn parse_symbols(
     // then resolve type cross-references
     let types = type_resolver::resolve_type_definitions(types, external_scope, &proto_scope)?;
 
-    let type_definitions = types
+    let type_definitions : HashMap<ast::NumericTypeIdentifier, ast::TypeDefinition> = types
         .into_iter()
         .map(|t| (t.id, t))
         .collect();
 
     let mut function_collector = FunctionCollector::new(
         type_collector,
-        type_definitions,
+        type_definitions.clone()
     );
 
     let mut root_scope = proto_scope.combined_with(external_scope.clone());
@@ -81,6 +81,7 @@ pub fn parse_symbols(
     let function_parser = FunctionParser {
         root_scope: &root_scope,
         functions: function_declarations,
+        type_definitions
     };
 
     // parse functions bodies

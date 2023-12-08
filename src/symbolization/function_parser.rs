@@ -1,19 +1,20 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, rc::Rc, fmt::format};
 
 use simple_error::SimpleError;
 
 use crate::parsing::rule_nodes::RuleNode;
 
-use super::{ast::*, type_resolver};
+use super::{ast::*, type_resolver, type_collector::TypeCollector};
 
 type VarStorage = HashMap<Identifier, Rc<VariableDeclaration>>;
 
-pub struct FunctionParser<'s> {
+pub struct FunctionParser<'s, 'tc> {
     pub root_scope: &'s Scope,
     pub functions: HashMap<NumericFunctionIdentifier, FunctionDeclaration>,
+    pub type_collector: &'tc TypeCollector,
 }
 
-impl FunctionParser<'_> {
+impl FunctionParser<'_, '_> {
     // function_block          = statement, { statement_separator, [ statement ] }
     pub fn read_function_block(
         &self,
@@ -183,6 +184,7 @@ impl FunctionParser<'_> {
             "method_call" => Ok(Mutator::FunctionCall(self.read_method_call(
                 expression_type,
                 mutator_node,
+                this_scope,
                 variables,
             )?)),
             "static_function_call" => Ok(Mutator::FunctionCall(self.read_static_function_call(
@@ -210,6 +212,7 @@ impl FunctionParser<'_> {
         this_scope: &Scope,
         variables: &mut VarStorage,
     ) -> Result<FunctionCall, SimpleError> {
+        assert_eq!(node.rule_name, "static_function_call");
         let scope: Vec<Identifier> = node
             .find_nodes("scope_name")
             .into_iter()
@@ -227,26 +230,7 @@ impl FunctionParser<'_> {
             this_scope,
         )?;
 
-        let maybe_single_argument = node.find_node("single_argument");
-
-        let mut arguments = HashMap::new();
-        if let Some(single_argument) = maybe_single_argument {
-            let arg_value = self.read_expression(single_argument, this_scope, variables)?;
-            arguments.insert(Identifier::from(""), arg_value);
-        } else {
-            let named_arguments = node.find_nodes("named_argument");
-            for arg in named_arguments {
-                // named_argument = identifier, _expression;
-                let parameter_name_node = arg.expect_node("identifier")?;
-    
-                let expression_node = arg
-                    .sub_rules
-                    .last()
-                    .ok_or_else(|| SimpleError::new("empty statement"))?;
-                let arg_value = self.read_expression(expression_node, this_scope, variables)?;
-                arguments.insert(parameter_name_node.as_identifier(), arg_value);
-            }
-        }
+        let arguments = self.read_arguments(node, this_scope, variables)?;
 
         // TODO: explicit generic arguments
         Ok(FunctionCall {
@@ -256,16 +240,56 @@ impl FunctionParser<'_> {
         })
     }
 
+    fn read_arguments(
+        &self,
+        node: &RuleNode<'_, '_>,
+        this_scope: &Scope,
+        variables: &mut HashMap<Rc<str>, Rc<VariableDeclaration>>,
+    ) -> Result<HashMap<Rc<str>, Expression>, SimpleError> {
+        let mut arguments = HashMap::new();
+        if let Some(single_argument) = node.find_node("single_argument") {
+            let arg_value = self.read_expression(single_argument, this_scope, variables)?;
+            arguments.insert(Identifier::from(""), arg_value);
+        } else {
+            let named_arguments = node.find_nodes("named_argument");
+            for arg in named_arguments {
+                // named_argument = identifier, _expression;
+                let parameter_name_node = arg.expect_node("identifier")?;
+
+                let expression_node = arg
+                    .sub_rules
+                    .last()
+                    .ok_or_else(|| SimpleError::new("empty statement"))?;
+                let arg_value = self.read_expression(expression_node, this_scope, variables)?;
+                arguments.insert(parameter_name_node.as_identifier(), arg_value);
+            }
+        }
+        Ok(arguments)
+    }
+
     // method_call             = [ type_ref ], function_name, [ _argument_list ];
+    // _argument_list          = single_argument | ( named_argument, { _, ",", _, named_argument } );
     fn read_method_call(
         &self,
         expression_type: &TypeRef,
         node: &RuleNode<'_, '_>,
+        this_scope: &Scope,
         variables: &mut VarStorage,
     ) -> Result<FunctionCall, SimpleError> {
-        let type_ref_node = node.expect_node("type_ref");
 
-        todo!()
+        let obj_type = if let Some(type_ref_node) = node.find_node("type_ref") {
+            self.type_collector.read_type_ref(type_ref_node)?
+        } else {
+            expression_type.clone()
+        };
+
+        let function_name_node = node.expect_node("function_name")?;
+        let function_id = this_scope.functions.get(&function_name_node.as_identifier())
+            .ok_or_else(|| SimpleError::new(format!("Unknown function {}", function_name_node.as_identifier())))?;
+
+        let arguments = self.read_arguments(node, this_scope, variables)?;
+        
+        Ok(FunctionCall { id: *function_id, generic_arguments: HashMap::new(), arguments })
     }
 
     fn read_array_initialisation(
