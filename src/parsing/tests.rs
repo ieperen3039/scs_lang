@@ -5,7 +5,7 @@ use crate::parsing::{
     lexer::Lexer,
     parser,
     rule_nodes::RuleNode,
-    token::{Token, TokenClass}
+    token::{Token, TokenClass}, naive_recursive_descent_parser
 };
 
 #[test]
@@ -51,7 +51,7 @@ fn simple_lexer_and_parser() {
         ]
     );
 
-    let parser = parser::Parser::new(grammar, None).unwrap();
+    let parser = naive_recursive_descent_parser::Parser::new(grammar, None).unwrap();
     let program_ast = parser.parse_program(&tokens).unwrap();
 
     assert_eq!(
@@ -129,7 +129,7 @@ fn simple_parser_with_simple_ignore() {
         ]
     );
 
-    let parser = parser::Parser::new(grammar, None).unwrap();
+    let parser = naive_recursive_descent_parser::Parser::new(grammar, None).unwrap();
     let program_ast = parser.parse_program(&tokens).unwrap();
 
     assert_eq!(
@@ -207,7 +207,7 @@ fn simple_parser_with_token_usage() {
         ]
     );
 
-    let parser = parser::Parser::new(grammar, None).unwrap();
+    let parser = naive_recursive_descent_parser::Parser::new(grammar, None).unwrap();
     let program_ast = parser.parse_program(&tokens).unwrap();
 
     assert_eq!(
@@ -384,7 +384,7 @@ fn complex_parser_with_complex_ignore() {
         ]
     );
 
-    let parser = parser::Parser::new(grammar, None).unwrap();
+    let parser = naive_recursive_descent_parser::Parser::new(grammar, None).unwrap();
     let program_ast = parser
         .parse_program(&tokens)
         .map_err(|v| {
@@ -474,7 +474,7 @@ fn try_parse_example_faux() {
     let tokens = Lexer {}.read_all(&program).map_err(|err| {
         SimpleError::new(parser::Failure::LexerError{char_idx : err}.error_string(definition))
     }).unwrap();
-    let parser = parser::Parser::new(grammar, xml_out).unwrap();
+    let parser = naive_recursive_descent_parser::Parser::new(grammar, xml_out).unwrap();
     let parse_result = parser.parse_program(&tokens);
 
     if parse_result.is_err() {

@@ -5,12 +5,12 @@ use std::rc::Rc;
 use simple_error::SimpleError;
 
 use crate::parsing::lexer::Lexer;
-use crate::parsing::{ebnf_parser, parser, lexer};
+use crate::parsing::{ebnf_parser, lexer, naive_recursive_descent_parser, parser};
 use crate::symbolization::{ast, type_collector::TypeCollector};
 use crate::symbolization::{meta_program, symbolizer, built_in_types};
 
 pub struct FauxCompiler {
-    parser: Rc<parser::Parser>,
+    parser: Rc<naive_recursive_descent_parser::Parser>,
     lexer: lexer::Lexer,
     parse_stack: Vec<PathBuf>,
     file_cache: HashMap<PathBuf, Rc<ast::Program>>,
@@ -28,7 +28,7 @@ impl FauxCompiler {
             return None;
         }
 
-        let parser = parser::Parser::new(grammar.unwrap(), xml_out);
+        let parser = naive_recursive_descent_parser::Parser::new(grammar.unwrap(), xml_out);
         if let Err(err) = parser {
             println!("Error creating parser: {}", err);
             return None;
