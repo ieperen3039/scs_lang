@@ -1,7 +1,7 @@
 
 use std::io::Write;
 
-use crate::{parsing::ebnf_parser, transforming::{chomsker::{self, Chomsky}, grammatificator, grammar_util::grammar_write}};
+use crate::{parsing::ebnf_parser, transforming::{chomsker::{self}, grammatificator, grammar_util::grammar_write}};
 
 #[test]
 fn write_conversion_outputs() {
@@ -27,10 +27,11 @@ fn write_conversion_outputs() {
     // write!(converted_out, "{}\n\n", grammar_write(&greibach)).unwrap();
     // println!("greibach done");
 
-    let chomsky = Chomsky::from(grammar.clone()).unwrap();
-    let mut converted_out = std::fs::File::create("chomsky.ebnf").unwrap();
-    write!(converted_out, "{}\n\n", chomsker::chomsky_write(&chomsky)).unwrap();
-    println!("chonker done");
+    let chomsky = chomsker::convert_to_normal_form(grammar.clone());
+    // let chomsky = Chomsky::from(grammar.clone()).unwrap();
+    // let mut converted_out = std::fs::File::create("chomsky.ebnf").unwrap();
+    // write!(converted_out, "{}\n\n", chomsker::chomsky_write(&chomsky)).unwrap();
+    // println!("chonker done");
 
     // let program = include_str!("../../doc/example.faux");
     // let tokens = Lexer {}.read_all(&program).map_err(|err| {
