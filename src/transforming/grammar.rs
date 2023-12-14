@@ -16,12 +16,12 @@ pub enum Term {
     Concatenation(Vec<Term>),
     Alternation(Vec<Term>),
     Identifier(String),
-    Terminal(Terminal)
+    Terminal(Terminal),
+    Empty
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Terminal {
     Literal(String),
-    Token(TokenClass),
-    Empty
+    Token(TokenClass)
 }

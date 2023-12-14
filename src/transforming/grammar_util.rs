@@ -92,7 +92,7 @@ fn grammar_to_string(term: &Term, target: &mut String) {
             target.push_str(i.str());
             target.push_str(" ?");
         }
-        Term::Terminal(Terminal::Empty) => {
+        Term::Empty => {
             target.push_str("? EMPTY ?");
         }
     };

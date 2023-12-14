@@ -44,7 +44,7 @@ fn grammificate(
             let normalized_sub_term = grammificate(*t, name_generator, other_rules);
             grammar::Term::Alternation(vec![
                 normalized_sub_term,
-                grammar::Term::Terminal(grammar::Terminal::Empty),
+                grammar::Term::Empty,
             ])
         }
         ebnf_ast::Term::Repetition(t) => {
@@ -58,7 +58,7 @@ fn grammificate(
                         normalized_sub_term,
                         grammar::Term::Identifier(new_rule_name.clone()),
                     ]),
-                    grammar::Term::Terminal(grammar::Terminal::Empty),
+                    grammar::Term::Empty,
                 ],
             );
             grammar::Term::Identifier(new_rule_name)
