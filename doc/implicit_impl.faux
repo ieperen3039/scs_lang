@@ -23,14 +23,12 @@ impl int {
 
     fn less_than(int other) : boolean extern
     fn less_or_equal_to(int other) : boolean { 
-        this equal_to(other) 
-            or({ this less_than(other) })
+        this equal_to(other) or({ this less_than(other) })
     }
 
     fn greater_than(int other) : boolean extern
     fn greater_or_equal_to(int other) : boolean { 
-        this equal_to(other) 
-            or({ this greater_than(other) })
+        this equal_to(other) or({ this greater_than(other) })
     }
 
     fn equal_to(int other) : boolean extern
@@ -62,13 +60,13 @@ impl Result<P, N> {
         this switch(Pos: Result.Neg, Neg: Result.Pos)
     }
 
-    fn unwrap_pos_or(N default) : P { switch(Pos: identity, Neg: { : default }) }
-    fn unwrap_neg_or(P default) : N { switch(Pos: { : default }, Neg: identity) }
+    fn unwrap_pos_or(P default) : P { switch(Pos: identity, Neg: { : default }) }
+    fn unwrap_neg_or(N default) : N { switch(Pos: { : default }, Neg: identity) }
     
     fn map_both(fn<(P)PR> pos, fn<(N)NR> neg) : Result<PR, NR> {
         this 
-            ? pos // Result<R, N>
-            ? neg // Result<R, R>
+            ? pos // Result<PR, N>
+            ! neg // Result<PR, NR>
     }
 
     fn on_pos<R>(fn<(P)R> mapping) : Result<R, N> { map_both(pos: mapping, neg: identity) }
@@ -101,8 +99,8 @@ impl Maybe<T> {
 }
 
 impl boolean {
-    fn or(boolean else) : boolean { this !: else }
-    fn and(boolean else) : boolean { this ?: else }
+    fn or(fn<boolean> else) : boolean { this !: else() }
+    fn and(fn<boolean> else) : boolean { this ?: else() }
 }
 
 impl Maybe<T>[] {
