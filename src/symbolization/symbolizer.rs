@@ -81,7 +81,7 @@ pub fn parse_symbols(
     let function_parser = FunctionParser {
         root_scope: &root_scope,
         functions: function_declarations,
-        type_definitions
+        type_collector
     };
 
     // parse functions bodies

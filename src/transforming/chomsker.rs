@@ -8,6 +8,7 @@ use super::{grammar::*, grammar_util, rule_name_generator::RuleNameGenerator};
 pub enum ChomskyPattern {
     NonTerminal(Vec<String>),
     Terminal(Terminal),
+    Rule(String),
 }
 pub struct ChomskyRule {
     pub first_terminal: Terminal,
@@ -32,22 +33,23 @@ impl Chomsky {
             for pattern in patterns {
                 match pattern {
                     Term::Concatenation(terms) => {
-                        non_terminal_rules.insert(identifier.to_owned(), create_pattern(terms)?);
-                    }
-                    Term::Alternation(a_terms) => {
-                        for a_term in a_terms {
-                            if let Term::Concatenation(c_terms) = a_term {
-                                non_terminal_rules
-                                    .insert(identifier.to_owned(), create_pattern(c_terms)?);
-                            } else {
-                                return Err(SimpleError::new("this aint chomsky"));
-                            }
-                        }
+                        non_terminal_rules.insert(identifier.to_owned(), identifiers_to_strings(terms)?);
                     }
                     Term::Terminal(t) => {
                         terminal_rules.insert(identifier.to_owned(), t);
                     }
-                    Term::Identifier(_) | Term::Empty => return Err(SimpleError::new("this aint chomsky")),
+                    Term::Identifier(rule)  if !rule.starts_with('_') => {
+                        non_terminal_rules.insert(identifier.to_owned(), vec![rule]);
+                    }
+                    Term::Identifier(_) => {
+                        return Err(SimpleError::new("Non-transparent identifier"));
+                    }
+                    Term::Empty => {
+                        return Err(SimpleError::new("Empty rule"));
+                    }
+                    Term::Alternation(_) => {
+                        return Err(SimpleError::new("Top-level alternations should have been removed"));
+                    }
                 }
             }
         }
@@ -95,6 +97,19 @@ impl Chomsky {
     }
 }
 
+fn identifiers_to_strings(terms: Vec<Term>) -> Result<Vec<String>, SimpleError> {
+    let mut pattern = Vec::new();
+
+    for sub_term in terms {
+        if let Term::Identifier(id) = sub_term {
+            pattern.push(id);
+        } else {
+            return Err(SimpleError::new("this aint chomsky"));
+        }
+    }
+    Ok(pattern)
+}
+
 pub fn chomsky_write(chomsky_grammar: &Chomsky) -> String {
     let mut target = String::new();
     let chomsky_rule = chomsky_grammar
@@ -110,9 +125,9 @@ pub fn chomsky_write(chomsky_grammar: &Chomsky) -> String {
                 target.push_str(t)
             }
         }
-        ChomskyPattern::Terminal(Terminal::Literal(i)) => {
+        ChomskyPattern::Terminal(Terminal::Literal(literal)) => {
             target.push('"');
-            target.push_str(i);
+            target.push_str(literal);
             target.push('"');
         }
         ChomskyPattern::Terminal(Terminal::Token(i)) => {
@@ -120,27 +135,16 @@ pub fn chomsky_write(chomsky_grammar: &Chomsky) -> String {
             target.push_str(i.str());
             target.push_str(" ?");
         }
+        ChomskyPattern::Rule(identifier) => {
+            target.push_str(identifier);
+        },
     }
 
     target
 }
 
-fn create_pattern(terms: Vec<Term>) -> Result<Vec<String>, SimpleError> {
-    let mut pattern = Vec::new();
-
-    for sub_term in terms {
-        if let Term::Identifier(id) = sub_term {
-            pattern.push(id);
-        } else {
-            return Err(SimpleError::new("this aint chomsky"));
-        }
-    }
-    Ok(pattern)
-}
-
 pub fn convert_to_normal_form(old_grammar: Grammar) -> Grammar {
     let mut name_generator = old_grammar.name_generator;
-
     let rules = old_grammar.rules;
 
     let mut converted_out = std::fs::File::create(format!("chomsky_START.ebnf")).unwrap();
@@ -174,6 +178,7 @@ pub fn convert_to_normal_form(old_grammar: Grammar) -> Grammar {
     .unwrap();
 
     let rules = chomsky_unit(rules);
+    let rules = unwrap_top_level_elements(rules);
 
     // log
     let mut converted_out = std::fs::File::create(format!("chomsky_UNIT.ebnf")).unwrap();
@@ -192,49 +197,76 @@ pub fn convert_to_normal_form(old_grammar: Grammar) -> Grammar {
 }
 
 // find and remove all rules that are renames
-// also inline all top-level alterations
 fn chomsky_unit(rules: HashMap<String, Vec<Term>>) -> HashMap<String, Vec<Term>> {
-    let mut renames = HashMap::new();
+    let mut old_rules = rules;
 
+    loop {
+        let mut new_rules: HashMap<String, Vec<Term>> = HashMap::new();
+        let mut any_change = false;
+
+        for (rule_id, terms) in &old_rules {
+            let mut new_terms = Vec::new();
+            for term in terms {
+                match term {
+                    Term::Identifier(alias) if alias.starts_with('_') => {
+                        // For each rule B -> X..., add A -> X...
+                        let alias_terms = new_rules.get(alias).or_else(|| old_rules.get(alias)).unwrap();
+                        new_terms.extend(alias_terms.clone());
+                        any_change = true;
+                    }
+                    other => new_terms.push(other.to_owned()),
+                }
+            }
+            new_rules.insert(rule_id.to_owned(), new_terms);
+        }
+
+        if !any_change {
+            return new_rules;
+        }
+
+        old_rules = new_rules;
+    }
+}
+
+// inline all empty rules, top-level alterations and single-element concatenations
+fn unwrap_top_level_elements(rules: HashMap<String, Vec<Term>>) -> HashMap<String, Vec<Term>> {
     let mut new_rules = HashMap::new();
     for (rule_id, terms) in rules {
         let mut new_terms = Vec::new();
         for term in terms {
             match term {
-                Term::Identifier(b) if b.starts_with('_') => {
-                    renames.insert(b, rule_id.clone());
+                Term::Concatenation(sub_terms) if sub_terms.len() < 2 => {
+                    println!("Unwrap Concatenation");
+                    for t in sub_terms {
+                        new_terms.push(t)
+                    }
                 }
-                Term::Alternation(terms) => {
-                    new_terms.extend(terms);
+                Term::Alternation(sub_terms) => {
+                    println!("Unwrap Alternation");
+                    new_terms.extend(sub_terms);
                 }
+
                 other => new_terms.push(other),
             }
         }
-        new_rules.insert(rule_id, new_terms);
-    }
-
-    // apply renames
-    let mut renamed_rules = HashMap::new();
-    for (identifier, patterns) in &new_rules {
-        if let Some(rename_target) = renames.get(identifier) {
-            renamed_rules.insert(rename_target.clone(), patterns.clone());
+        if !new_terms.is_empty() {
+            new_rules.insert(rule_id, new_terms);
+        } else {
+            println!("Removed empty rule {}", rule_id);
         }
     }
-
-    new_rules.extend(renamed_rules);
-
     new_rules
 }
 
+// eliminate all empty rules
 fn chomsky_del(rules: HashMap<String, Vec<Term>>) -> HashMap<String, Vec<Term>> {
     let mut nullable_rules = HashSet::new();
     let mut null_rules = HashSet::new();
 
     for (rule_id, terms) in &rules {
-        if terms.iter().all(|t| { matches!(t, Term::Empty)}) {
+        if terms.iter().all(|t| matches!(t, Term::Empty)) {
             null_rules.insert(rule_id.to_owned());
-        }
-        else if terms.iter().any(|t| is_nullable(t)) {
+        } else if terms.iter().any(|t| is_nullable(t)) {
             nullable_rules.insert(rule_id.to_owned());
         }
     }
@@ -249,9 +281,13 @@ fn chomsky_del(rules: HashMap<String, Vec<Term>>) -> HashMap<String, Vec<Term>> 
                 }
                 Term::Concatenation(terms) => {
                     let inlined_terms = inline_nullable(terms, &nullable_rules, &null_rules);
-                    for concatenation in inlined_terms {
-                        assert!(!concatenation.is_empty());
-                        new_terms.push(Term::Concatenation(concatenation));
+                    for mut concatenation in inlined_terms {
+                        if concatenation.len() > 1 {
+                            new_terms.push(Term::Concatenation(concatenation));
+                        } else if concatenation.len() == 1 {
+                            // unwrap the element
+                            new_terms.push(concatenation.remove(0));
+                        }
                     }
                 }
                 other => new_terms.push(other),
@@ -317,6 +353,7 @@ fn is_nullable(term: &Term) -> bool {
     }
 }
 
+// extract all terminals, reduce all concatenations to two
 fn chomsky_bin_term(
     rules: HashMap<String, Vec<Term>>,
     name_generator: &mut RuleNameGenerator,
@@ -407,10 +444,16 @@ fn normalize_to_identifier(
         Term::Alternation(sub_terms) => {
             // if the new rule would be an alteration, unwrap the alteration
             for sub_term in sub_terms {
-                new_terms.push(normalize_to_concatenation(sub_term, name_generator, other_rules))
+                new_terms.push(normalize_to_concatenation(
+                    sub_term,
+                    name_generator,
+                    other_rules,
+                ))
             }
         }
-        Term::Concatenation(terms) => new_terms.push(subdivide_to_two(&terms, name_generator, other_rules)),
+        Term::Concatenation(terms) => {
+            new_terms.push(subdivide_to_two(&terms, name_generator, other_rules))
+        }
     };
 
     assert!(!new_terms.is_empty());
