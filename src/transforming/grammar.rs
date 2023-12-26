@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
+
+pub type RuleId = Rc<str>;
+pub type RuleStorage = HashMap<RuleId, Vec<Term>>;
 
 use crate::parsing::token::TokenClass;
 
@@ -6,8 +9,8 @@ use super::rule_name_generator::RuleNameGenerator;
 
 #[derive(Clone)]
 pub struct Grammar {
-    pub start_rule : String,
-    pub rules : HashMap<String, Vec<Term>>,
+    pub start_rule : RuleId,
+    pub rules : RuleStorage,
     pub name_generator : RuleNameGenerator,
 }
 
@@ -15,7 +18,7 @@ pub struct Grammar {
 pub enum Term {
     Concatenation(Vec<Term>),
     Alternation(Vec<Term>),
-    Identifier(String),
+    Identifier(RuleId),
     Terminal(Terminal),
     Empty
 }

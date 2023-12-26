@@ -4,7 +4,7 @@ pub fn grammar_write(grammar: &Grammar) -> String {
     grammar_write_rules(&grammar.rules)
 }
 
-pub fn grammar_write_rules(rules: &std::collections::HashMap<String, Vec<Term>>) -> String {
+pub fn grammar_write_rules(rules: &RuleStorage) -> String {
     let mut output_string = String::new();
     for (identifier, terms) in rules {
         output_string.push_str(&format!("{:30} = ", &identifier));

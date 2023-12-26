@@ -6,9 +6,9 @@ use simple_error::SimpleError;
 use super::{grammar::*, grammar_util, rule_name_generator::RuleNameGenerator};
 
 pub enum ChomskyPattern {
-    NonTerminal(Vec<String>),
+    NonTerminal(Vec<RuleId>),
     Terminal(Terminal),
-    Rule(String),
+    Rule(RuleId),
 }
 pub struct ChomskyRule {
     pub first_terminal: Terminal,
@@ -16,8 +16,8 @@ pub struct ChomskyRule {
 }
 
 pub struct Chomsky {
-    pub start: String,
-    pub rules: HashMap<String, ChomskyRule>,
+    pub start: RuleId,
+    pub rules: HashMap<RuleId, ChomskyRule>,
 }
 
 impl Chomsky {
@@ -34,7 +34,7 @@ impl Chomsky {
                 match pattern {
                     Term::Concatenation(terms) => {
                         non_terminal_rules
-                            .insert(identifier.to_owned(), identifiers_to_strings(terms)?);
+                            .insert(identifier.to_owned(), unwrap_identifiers(terms)?);
                     }
                     Term::Terminal(t) => {
                         terminal_rules.insert(identifier.to_owned(), t);
@@ -100,7 +100,7 @@ impl Chomsky {
     }
 }
 
-fn identifiers_to_strings(terms: Vec<Term>) -> Result<Vec<String>, SimpleError> {
+fn unwrap_identifiers(terms: Vec<Term>) -> Result<Vec<RuleId>, SimpleError> {
     let mut pattern = Vec::new();
 
     for sub_term in terms {
@@ -211,11 +211,11 @@ pub fn convert_to_normal_form(old_grammar: Grammar) -> Grammar {
 }
 
 // find and remove all rules that are renames
-fn chomsky_unit(rules: HashMap<String, Vec<Term>>) -> HashMap<String, Vec<Term>> {
+fn chomsky_unit(rules: RuleStorage) -> RuleStorage {
     let mut old_rules = rules;
 
     loop {
-        let mut new_rules: HashMap<String, Vec<Term>> = HashMap::new();
+        let mut new_rules: RuleStorage = RuleStorage::new();
         let mut any_change = false;
 
         for (rule_id, terms) in &old_rules {
@@ -246,7 +246,7 @@ fn chomsky_unit(rules: HashMap<String, Vec<Term>>) -> HashMap<String, Vec<Term>>
 }
 
 // eliminate all empty rules
-fn chomsky_del(rules: HashMap<String, Vec<Term>>) -> HashMap<String, Vec<Term>> {
+fn chomsky_del(rules: RuleStorage) -> RuleStorage {
     let mut nullable_rules = HashSet::new();
     let mut null_rules = HashSet::new();
 
@@ -258,7 +258,7 @@ fn chomsky_del(rules: HashMap<String, Vec<Term>>) -> HashMap<String, Vec<Term>> 
         }
     }
 
-    let mut new_rules = HashMap::new();
+    let mut new_rules = RuleStorage::new();
     for (rule_id, terms) in rules {
         let mut new_terms = Vec::new();
         for term in terms.clone() {
@@ -290,8 +290,8 @@ fn chomsky_del(rules: HashMap<String, Vec<Term>>) -> HashMap<String, Vec<Term>> 
 
 fn inline_nullable(
     mut concatenation: Vec<Term>,
-    nullable_rules: &HashSet<String>,
-    null_rules: &HashSet<String>,
+    nullable_rules: &HashSet<RuleId>,
+    null_rules: &HashSet<RuleId>,
 ) -> Vec<Vec<Term>> {
     if concatenation.is_empty() {
         // base case: we have one prefix: the empty string
@@ -341,10 +341,7 @@ fn is_nullable(term: &Term) -> bool {
 }
 
 // extract all terminals, reduce all concatenations to two
-fn chomsky_bin_term(
-    rules: HashMap<String, Vec<Term>>,
-    name_generator: &mut RuleNameGenerator,
-) -> HashMap<String, Vec<Term>> {
+fn chomsky_bin_term(rules: RuleStorage, name_generator: &mut RuleNameGenerator) -> RuleStorage {
     let mut new_rules = rules.clone();
     for (rule_id, terms) in rules {
         let mut new_terms = Vec::new();
@@ -378,7 +375,7 @@ fn chomsky_bin_term(
 fn normalize_to_concatenation(
     term: Term,
     name_generator: &mut RuleNameGenerator,
-    other_rules: &mut HashMap<String, Vec<Term>>,
+    other_rules: &mut RuleStorage,
 ) -> Term {
     match term {
         Term::Concatenation(terms) => subdivide_to_two(&terms, name_generator, other_rules),
@@ -390,7 +387,7 @@ fn normalize_to_concatenation(
 fn subdivide_to_two(
     terms: &[Term],
     name_generator: &mut RuleNameGenerator,
-    other_rules: &mut HashMap<String, Vec<Term>>,
+    other_rules: &mut RuleStorage,
 ) -> Term {
     assert!(!terms.is_empty());
 
@@ -421,7 +418,7 @@ fn subdivide_to_two(
 fn normalize_to_identifier(
     term: Term,
     name_generator: &mut RuleNameGenerator,
-    other_rules: &mut HashMap<String, Vec<Term>>,
+    other_rules: &mut RuleStorage,
 ) -> Term {
     let mut new_terms = Vec::new();
 
@@ -450,8 +447,8 @@ fn normalize_to_identifier(
 }
 
 // inline all empty rules, top-level alterations and single-element concatenations
-fn unwrap_top_level_elements(rules: HashMap<String, Vec<Term>>) -> HashMap<String, Vec<Term>> {
-    let mut new_rules = HashMap::new();
+fn unwrap_top_level_elements(rules: RuleStorage) -> RuleStorage {
+    let mut new_rules = RuleStorage::new();
     for (rule_id, terms) in rules {
         let mut new_terms = Vec::new();
         for term in terms {
@@ -491,24 +488,24 @@ impl std::hash::Hash for Term {
     }
 }
 
-fn deduplicate(rules: HashMap<String, Vec<Term>>) -> HashMap<String, Vec<Term>> {
-    let mut renames: HashMap<String, String> = HashMap::new();
-    let mut inverse_rules: HashMap<&[Term], &str> = HashMap::new();
+fn deduplicate(rules: RuleStorage) -> RuleStorage {
+    let mut renames: HashMap<RuleId, RuleId> = HashMap::new();
+    let mut inverse_rules: HashMap<&[Term], RuleId> = HashMap::new();
 
     for (rule_id, terms) in &rules {
         if !is_transparent_rule(rule_id) {
             // never rename a transparent rule
             if let Some(other) = inverse_rules.get(terms.as_slice()) {
-                if is_transparent_rule(other) {
-                    renames.insert(other.to_string(), rule_id.to_string());
+                if is_transparent_rule(&other) {
+                    renames.insert(other.clone(), rule_id.clone());
                 }
             } else {
-                inverse_rules.insert(&terms, rule_id);
+                inverse_rules.insert(&terms, rule_id.clone());
             }
         } else if let Some(other) = inverse_rules.get(terms.as_slice()) {
-            renames.insert(rule_id.to_string(), other.to_string());
+            renames.insert(rule_id.clone(), other.clone());
         } else {
-            inverse_rules.insert(&terms, rule_id);
+            inverse_rules.insert(&terms, rule_id.clone());
         }
     }
 
@@ -521,10 +518,7 @@ fn is_transparent_rule(rule_id: &str) -> bool {
     rule_id.starts_with('_')
 }
 
-fn apply_renames(
-    rules: HashMap<String, Vec<Term>>,
-    renames: HashMap<String, String>,
-) -> HashMap<String, Vec<Term>> {
+fn apply_renames(rules: RuleStorage, renames: HashMap<RuleId, RuleId>) -> RuleStorage {
     let mut new_rules = HashMap::new();
     for (rule_id, mut terms) in rules {
         if renames.contains_key(&rule_id) {
@@ -543,12 +537,12 @@ fn apply_renames(
     new_rules
 }
 
-fn rename_or_this(t: Term, renames: &HashMap<String, String>) -> Term {
-    match t {
-        Term::Identifier(id) => Term::Identifier(match renames.get(&id) {
-            Some(other_id) => other_id.to_string(),
-            None => id,
-        }),
-        _ => t
+fn rename_or_this(original_terminal: Term, renames: &HashMap<RuleId, RuleId>) -> Term {
+    match original_terminal {
+        Term::Identifier(id) if renames.contains_key(&id) => {
+            let new_rule_name = renames.get(&id).unwrap();
+            Term::Identifier(new_rule_name.clone())
+        }
+        _ => original_terminal,
     }
 }

@@ -12,4 +12,4 @@ mod tests;
 pub mod token;
 pub mod ebnf_ast_util;
 pub mod naive_recursive_descent_parser;
-pub mod chomsky_parser;
+// pub mod chomsky_parser;

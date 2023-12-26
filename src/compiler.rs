@@ -29,13 +29,9 @@ impl FauxCompiler {
         }
 
         let parser = naive_recursive_descent_parser::Parser::new(grammar.unwrap(), xml_out);
-        if let Err(err) = parser {
-            println!("Error creating parser: {}", err);
-            return None;
-        }
 
         Some(FauxCompiler {
-            parser: Rc::from(parser.unwrap()),
+            parser: Rc::from(parser),
             file_cache: HashMap::new(),
             parse_stack: Vec::new(),
             type_collector: TypeCollector::new(),
