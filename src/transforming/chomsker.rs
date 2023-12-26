@@ -1,8 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
 
-use simple_error::SimpleError;
-
 use super::{grammar::*, grammar_util, rule_name_generator::RuleNameGenerator};
 
 pub enum ChomskyPattern {
@@ -11,75 +9,77 @@ pub enum ChomskyPattern {
     Rule(RuleId),
 }
 pub struct ChomskyRule {
+    pub identifier: RuleId,
     pub first_terminal: Terminal,
     pub pattern: ChomskyPattern,
 }
 
 pub struct Chomsky {
     pub start: RuleId,
-    pub rules: HashMap<RuleId, ChomskyRule>,
+    pub rules: Vec<ChomskyRule>,
 }
 
 impl Chomsky {
-    pub fn from(grammar: Grammar) -> Result<Chomsky, SimpleError> {
+    pub fn from(grammar: Grammar) -> Chomsky {
         let normal_grammar = convert_to_normal_form(grammar);
 
         let start = normal_grammar.start_rule;
 
         // first collect all terminal and non-terminal rules
-        let mut non_terminal_rules = HashMap::new();
-        let mut terminal_rules = HashMap::new();
+        let mut non_terminal_rules = Vec::new();
+        let mut terminal_rules = Vec::new();
         for (identifier, patterns) in normal_grammar.rules {
             for pattern in patterns {
                 match pattern {
                     Term::Concatenation(terms) => {
                         non_terminal_rules
-                            .insert(identifier.to_owned(), unwrap_identifiers(terms)?);
+                            .push((identifier.to_owned(), unwrap_identifiers(terms)));
                     }
                     Term::Terminal(t) => {
-                        terminal_rules.insert(identifier.to_owned(), t);
+                        terminal_rules.push((identifier.to_owned(), t));
                     }
                     Term::Identifier(rule) if !is_transparent_rule(&rule) => {
-                        non_terminal_rules.insert(identifier.to_owned(), vec![rule]);
+                        non_terminal_rules.push((identifier.to_owned(), vec![rule]));
                     }
                     Term::Identifier(_) => {
-                        return Err(SimpleError::new("Non-transparent identifier"));
+                        panic!("Non-transparent identifier");
                     }
                     Term::Empty => {
-                        return Err(SimpleError::new("Empty rule"));
+                        panic!("Empty rule");
                     }
                     Term::Alternation(_) => {
-                        return Err(SimpleError::new(
-                            "Top-level alternations should have been removed",
-                        ));
+                        panic!("Top-level alternations should have been removed");
                     }
                 }
             }
         }
 
         // now calculate for each rule the first terminal
-        let mut rules = HashMap::new();
+        let mut rules = Vec::new();
         for (id, concatenation) in &non_terminal_rules {
             let mut other = concatenation
                 .first()
-                .ok_or_else(|| SimpleError::new(format!("{id} has no rules")))?;
+                .expect(&format!("rule {id} has no rules"));
+
             loop {
-                match non_terminal_rules.get(other) {
-                    Some(referred) => {
+                let maybe_other_rule = non_terminal_rules.iter().find(|(id, r)| id == other);
+                match maybe_other_rule {
+                    Some((id, referred)) => {
                         other = referred
                             .first()
-                            .ok_or_else(|| SimpleError::new(format!("{other} has no rules")))?
+                            .expect(&format!("rule {other} has no rules"))
                     }
                     None => break,
                 }
             }
-            let terminal = terminal_rules
-                .get(other)
-                .ok_or_else(|| SimpleError::new(format!("rule {other} not found")))?;
+            let (id, terminal) = terminal_rules
+                .iter()
+                .find(|(id, r)| id == other)
+                .expect(&format!("rule {other} not found"));
 
-            rules.insert(
-                id.clone(),
+            rules.push(
                 ChomskyRule {
+                    identifier: id.clone(),
                     first_terminal: terminal.to_owned(),
                     pattern: ChomskyPattern::NonTerminal(concatenation.clone()),
                 },
@@ -87,63 +87,65 @@ impl Chomsky {
         }
 
         for (id, t) in terminal_rules {
-            rules.insert(
-                id,
+            rules.push(
                 ChomskyRule {
+                    identifier: id,
                     first_terminal: t.clone(),
                     pattern: ChomskyPattern::Terminal(t),
                 },
             );
         }
 
-        Ok(Chomsky { start, rules })
+        Chomsky { start, rules }
     }
 }
 
-fn unwrap_identifiers(terms: Vec<Term>) -> Result<Vec<RuleId>, SimpleError> {
+fn unwrap_identifiers(terms: Vec<Term>) -> Vec<RuleId> {
     let mut pattern = Vec::new();
 
     for sub_term in terms {
         if let Term::Identifier(id) = sub_term {
             pattern.push(id);
         } else {
-            return Err(SimpleError::new("Nested non-terminals"));
+            panic!("Nested non-terminals");
         }
     }
-    Ok(pattern)
+
+    pattern
 }
 
 pub fn chomsky_write(chomsky_grammar: &Chomsky) -> String {
-    let mut target = String::new();
-    let chomsky_rule = chomsky_grammar
-        .rules
-        .get(&chomsky_grammar.start)
-        .expect("Start must point to an existing rule");
+    let mut output_string = String::new();
 
-    match &chomsky_rule.pattern {
-        ChomskyPattern::NonTerminal(terms) => {
-            target.push_str(&terms[0]);
-            for t in &terms[1..] {
-                target.push_str(", ");
-                target.push_str(t)
+    for rule in &chomsky_grammar.rules {
+        output_string.push_str(&format!("{:30} = ", &rule.identifier));
+
+        match &rule.pattern {
+            ChomskyPattern::NonTerminal(terms) => {
+                output_string.push_str(&terms[0]);
+                for t in &terms[1..] {
+                    output_string.push_str(", ");
+                    output_string.push_str(t)
+                }
+            }
+            ChomskyPattern::Terminal(Terminal::Literal(literal)) => {
+                output_string.push('"');
+                output_string.push_str(literal);
+                output_string.push('"');
+            }
+            ChomskyPattern::Terminal(Terminal::Token(i)) => {
+                output_string.push_str("? ");
+                output_string.push_str(i.str());
+                output_string.push_str(" ?");
+            }
+            ChomskyPattern::Rule(identifier) => {
+                output_string.push_str(identifier);
             }
         }
-        ChomskyPattern::Terminal(Terminal::Literal(literal)) => {
-            target.push('"');
-            target.push_str(literal);
-            target.push('"');
-        }
-        ChomskyPattern::Terminal(Terminal::Token(i)) => {
-            target.push_str("? ");
-            target.push_str(i.str());
-            target.push_str(" ?");
-        }
-        ChomskyPattern::Rule(identifier) => {
-            target.push_str(identifier);
-        }
+        output_string.push_str(";\n");
     }
 
-    target
+    output_string
 }
 
 pub fn convert_to_normal_form(old_grammar: Grammar) -> Grammar {
