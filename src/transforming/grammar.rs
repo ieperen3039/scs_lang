@@ -11,7 +11,7 @@ pub struct Grammar {
     pub name_generator : RuleNameGenerator,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Term {
     Concatenation(Vec<Term>),
     Alternation(Vec<Term>),
@@ -20,7 +20,7 @@ pub enum Term {
     Empty
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Terminal {
     Literal(String),
     Token(TokenClass)

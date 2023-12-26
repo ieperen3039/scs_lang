@@ -33,12 +33,13 @@ impl Chomsky {
             for pattern in patterns {
                 match pattern {
                     Term::Concatenation(terms) => {
-                        non_terminal_rules.insert(identifier.to_owned(), identifiers_to_strings(terms)?);
+                        non_terminal_rules
+                            .insert(identifier.to_owned(), identifiers_to_strings(terms)?);
                     }
                     Term::Terminal(t) => {
                         terminal_rules.insert(identifier.to_owned(), t);
                     }
-                    Term::Identifier(rule)  if !rule.starts_with('_') => {
+                    Term::Identifier(rule) if !is_transparent_rule(&rule) => {
                         non_terminal_rules.insert(identifier.to_owned(), vec![rule]);
                     }
                     Term::Identifier(_) => {
@@ -48,7 +49,9 @@ impl Chomsky {
                         return Err(SimpleError::new("Empty rule"));
                     }
                     Term::Alternation(_) => {
-                        return Err(SimpleError::new("Top-level alternations should have been removed"));
+                        return Err(SimpleError::new(
+                            "Top-level alternations should have been removed",
+                        ));
                     }
                 }
             }
@@ -104,7 +107,7 @@ fn identifiers_to_strings(terms: Vec<Term>) -> Result<Vec<String>, SimpleError> 
         if let Term::Identifier(id) = sub_term {
             pattern.push(id);
         } else {
-            return Err(SimpleError::new("this aint chomsky"));
+            return Err(SimpleError::new("Nested non-terminals"));
         }
     }
     Ok(pattern)
@@ -137,7 +140,7 @@ pub fn chomsky_write(chomsky_grammar: &Chomsky) -> String {
         }
         ChomskyPattern::Rule(identifier) => {
             target.push_str(identifier);
-        },
+        }
     }
 
     target
@@ -178,10 +181,21 @@ pub fn convert_to_normal_form(old_grammar: Grammar) -> Grammar {
     .unwrap();
 
     let rules = chomsky_unit(rules);
-    let rules = unwrap_top_level_elements(rules);
 
     // log
     let mut converted_out = std::fs::File::create(format!("chomsky_UNIT.ebnf")).unwrap();
+    write!(
+        converted_out,
+        "{}",
+        grammar_util::grammar_write_rules(&rules)
+    )
+    .unwrap();
+
+    let rules = unwrap_top_level_elements(rules);
+    let rules = deduplicate(rules);
+
+    // log
+    let mut converted_out = std::fs::File::create(format!("chomsky_DEDUP.ebnf")).unwrap();
     write!(
         converted_out,
         "{}",
@@ -208,9 +222,12 @@ fn chomsky_unit(rules: HashMap<String, Vec<Term>>) -> HashMap<String, Vec<Term>>
             let mut new_terms = Vec::new();
             for term in terms {
                 match term {
-                    Term::Identifier(alias) if alias.starts_with('_') => {
+                    Term::Identifier(alias) if is_transparent_rule(alias) => {
                         // For each rule B -> X..., add A -> X...
-                        let alias_terms = new_rules.get(alias).or_else(|| old_rules.get(alias)).unwrap();
+                        let alias_terms = new_rules
+                            .get(alias)
+                            .or_else(|| old_rules.get(alias))
+                            .unwrap();
                         new_terms.extend(alias_terms.clone());
                         any_change = true;
                     }
@@ -226,36 +243,6 @@ fn chomsky_unit(rules: HashMap<String, Vec<Term>>) -> HashMap<String, Vec<Term>>
 
         old_rules = new_rules;
     }
-}
-
-// inline all empty rules, top-level alterations and single-element concatenations
-fn unwrap_top_level_elements(rules: HashMap<String, Vec<Term>>) -> HashMap<String, Vec<Term>> {
-    let mut new_rules = HashMap::new();
-    for (rule_id, terms) in rules {
-        let mut new_terms = Vec::new();
-        for term in terms {
-            match term {
-                Term::Concatenation(sub_terms) if sub_terms.len() < 2 => {
-                    println!("Unwrap Concatenation");
-                    for t in sub_terms {
-                        new_terms.push(t)
-                    }
-                }
-                Term::Alternation(sub_terms) => {
-                    println!("Unwrap Alternation");
-                    new_terms.extend(sub_terms);
-                }
-
-                other => new_terms.push(other),
-            }
-        }
-        if !new_terms.is_empty() {
-            new_rules.insert(rule_id, new_terms);
-        } else {
-            println!("Removed empty rule {}", rule_id);
-        }
-    }
-    new_rules
 }
 
 // eliminate all empty rules
@@ -460,4 +447,108 @@ fn normalize_to_identifier(
     let new_rule_name = name_generator.generate_rule_name();
     other_rules.insert(new_rule_name.clone(), new_terms);
     Term::Identifier(new_rule_name)
+}
+
+// inline all empty rules, top-level alterations and single-element concatenations
+fn unwrap_top_level_elements(rules: HashMap<String, Vec<Term>>) -> HashMap<String, Vec<Term>> {
+    let mut new_rules = HashMap::new();
+    for (rule_id, terms) in rules {
+        let mut new_terms = Vec::new();
+        for term in terms {
+            match term {
+                Term::Concatenation(sub_terms) if sub_terms.len() < 2 => {
+                    println!("Unwrap Concatenation");
+                    for t in sub_terms {
+                        new_terms.push(t)
+                    }
+                }
+                Term::Alternation(sub_terms) => {
+                    println!("Unwrap Alternation");
+                    new_terms.extend(sub_terms);
+                }
+
+                other => new_terms.push(other),
+            }
+        }
+        if !new_terms.is_empty() {
+            new_rules.insert(rule_id, new_terms);
+        } else {
+            println!("Removed empty rule {}", rule_id);
+        }
+    }
+    new_rules
+}
+
+impl std::hash::Hash for Term {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            Term::Concatenation(t) => t.hash(state),
+            Term::Alternation(t) => t.hash(state),
+            Term::Identifier(s) => s.hash(state),
+            Term::Terminal(t) => core::mem::discriminant(t).hash(state),
+            Term::Empty => core::mem::discriminant(self).hash(state),
+        }
+    }
+}
+
+fn deduplicate(rules: HashMap<String, Vec<Term>>) -> HashMap<String, Vec<Term>> {
+    let mut renames: HashMap<String, String> = HashMap::new();
+    let mut inverse_rules: HashMap<&[Term], &str> = HashMap::new();
+
+    for (rule_id, terms) in &rules {
+        if !is_transparent_rule(rule_id) {
+            // never rename a transparent rule
+            if let Some(other) = inverse_rules.get(terms.as_slice()) {
+                if is_transparent_rule(other) {
+                    renames.insert(other.to_string(), rule_id.to_string());
+                }
+            } else {
+                inverse_rules.insert(&terms, rule_id);
+            }
+        } else if let Some(other) = inverse_rules.get(terms.as_slice()) {
+            renames.insert(rule_id.to_string(), other.to_string());
+        } else {
+            inverse_rules.insert(&terms, rule_id);
+        }
+    }
+
+    println!("Removing {}/{} rules", renames.len(), rules.len());
+
+    apply_renames(rules, renames)
+}
+
+fn is_transparent_rule(rule_id: &str) -> bool {
+    rule_id.starts_with('_')
+}
+
+fn apply_renames(
+    rules: HashMap<String, Vec<Term>>,
+    renames: HashMap<String, String>,
+) -> HashMap<String, Vec<Term>> {
+    let mut new_rules = HashMap::new();
+    for (rule_id, mut terms) in rules {
+        if renames.contains_key(&rule_id) {
+            assert!(is_transparent_rule(&rule_id));
+            continue;
+        }
+
+        for term in &mut terms {
+            grammar_util::transform_terminals(term, &|t| rename_or_this(t, &renames))
+        }
+
+        assert!(!terms.is_empty());
+        new_rules.insert(rule_id, terms);
+    }
+
+    new_rules
+}
+
+fn rename_or_this(t: Term, renames: &HashMap<String, String>) -> Term {
+    match t {
+        Term::Identifier(id) => Term::Identifier(match renames.get(&id) {
+            Some(other_id) => other_id.to_string(),
+            None => id,
+        }),
+        _ => t
+    }
 }

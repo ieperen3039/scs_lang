@@ -15,12 +15,8 @@ impl<'bnf> Parser {
     pub fn new(
         grammar: ebnf_ast::EbnfAst,
         xml_out: Option<std::fs::File>,
-    ) -> Result<Parser, SimpleError> {
-        if grammar.rules.is_empty() {
-            Err(SimpleError::new("No rules in grammar"))
-        } else {
-            Ok(Parser { grammar, xml_out })
-        }
+    ) -> Parser {
+        Parser { grammar, xml_out }
     }
 
     fn log(&'bnf self, string: &str) {
