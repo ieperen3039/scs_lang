@@ -27,20 +27,8 @@ fn write_conversion_outputs() {
     // write!(converted_out, "{}\n\n", grammar_write(&greibach)).unwrap();
     // println!("greibach done");
 
-    let chomsky = Chomsky::from(grammar.clone()).unwrap();
+    let chomsky = Chomsky::from(grammar.clone());
     let mut converted_out = std::fs::File::create("chomsky.ebnf").unwrap();
     write!(converted_out, "{}\n\n", chomsker::chomsky_write(&chomsky)).unwrap();
     println!("chonker done");
-
-    // let program = include_str!("../../doc/example.faux");
-    // let tokens = Lexer {}.read_all(&program).map_err(|err| {
-    //     SimpleError::new(parser::Failure::LexerError{char_idx : err}.error_string(program))
-    // }).unwrap();
-    
-    // let mut converted_out = std::fs::File::create("lexer_out.txt").unwrap();
-
-    // for t in tokens {
-    //     if t.slice.contains('\n') { write!(converted_out, "\n").unwrap() };
-    //     write!(converted_out, "{:?} ", t.class).unwrap();
-    // }
 }

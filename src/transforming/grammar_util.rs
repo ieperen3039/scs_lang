@@ -1,23 +1,5 @@
 use super::grammar::*;
 
-pub fn grammar_write(grammar: &Grammar) -> String {
-    grammar_write_rules(&grammar.rules)
-}
-
-pub fn grammar_write_rules(rules: &RuleStorage) -> String {
-    let mut output_string = String::new();
-    for (identifier, terms) in rules {
-        output_string.push_str(&format!("{:30} = ", &identifier));
-        grammar_to_string(&terms[0], &mut output_string);
-        for sub_term in &terms[1..] {
-            output_string.push_str(&format!("\n{:30} | ", ""));
-            grammar_to_string(sub_term, &mut output_string);
-        }
-        output_string.push_str(";\n");
-    }
-    output_string
-}
-
 pub fn transform_terminals<Transformation>(term: &mut Term, transformation: &Transformation)
 where
     Transformation: Fn(Term) -> Term,
@@ -59,6 +41,24 @@ where
         }
         _ => {}
     };
+}
+
+pub fn grammar_write(grammar: &Grammar) -> String {
+    grammar_write_rules(&grammar.rules)
+}
+
+pub fn grammar_write_rules(rules: &RuleStorage) -> String {
+    let mut output_string = String::new();
+    for (identifier, terms) in rules {
+        output_string.push_str(&format!("{:30} = ", &identifier));
+        grammar_to_string(&terms[0], &mut output_string);
+        for sub_term in &terms[1..] {
+            output_string.push_str(&format!("\n{:30} | ", ""));
+            grammar_to_string(sub_term, &mut output_string);
+        }
+        output_string.push_str(";\n");
+    }
+    output_string
 }
 
 fn grammar_to_string(term: &Term, target: &mut String) {
