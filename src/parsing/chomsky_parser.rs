@@ -98,20 +98,17 @@ impl<'c> Parser<'c> {
         tokens: &'prog [Token<'prog>],
         rule_name: &'c str,
     ) -> Result<RuleNode<'prog, 'c>, Vec<Failure<'c>>> {
+        if tokens.is_empty() {
+            return Err(vec![Failure::EndOfFile{ expected: rule_name }]);
+        }
+
         let next_token = &tokens[0];
         let mut all_failures = Vec::new();
 
         let possible_patterns = self.parse_table.get(rule_name, next_token);
-        println!(
-            "Rule '{:10}' with token '{}': {} patterns",
-            rule_name,
-            next_token,
-            possible_patterns.len()
-        );
 
-        // this for loop is for the case where the given grammar is not an LL(1) grammar
+        // this for-loop is for the case where the given grammar is not an LL(1) grammar
         for pattern in possible_patterns {
-            println!("Trying pattern {:?}", pattern);
             match pattern {
                 ChomskyPattern::Terminal(terminal) => {
                     let has_match = match terminal {
@@ -195,8 +192,6 @@ fn construct_parse_table<'c>(grammar: &'c Chomsky) -> ParseTable<'c> {
             }
         }
     }
-
-    println!("{:?}", table);
 
     ParseTable { table }
 }

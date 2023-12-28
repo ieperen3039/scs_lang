@@ -544,8 +544,9 @@ fn apply_renames(rules: RuleStorage, renames: HashMap<RuleId, RuleId>) -> RuleSt
 fn rename_or_this(original_terminal: Term, renames: &HashMap<RuleId, RuleId>) -> Term {
     match original_terminal {
         Term::Identifier(id) if renames.contains_key(&id) => {
-            let new_rule_name = renames.get(&id).unwrap();
-            Term::Identifier(new_rule_name.clone())
+            let new_rule_name = renames.get(&id).unwrap().to_owned();
+            // recursively resolve renames, there may be chains of renames in the hashmap
+            rename_or_this(Term::Identifier(new_rule_name), renames)
         }
         _ => original_terminal,
     }

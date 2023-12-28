@@ -22,11 +22,6 @@ fn write_conversion_outputs() {
     write!(converted_out, "{}\n\n", grammar_write(&grammar)).unwrap();
     println!("grammar converted");
 
-    // let greibach = greibacher::convert(grammar.clone());
-    // let mut converted_out = std::fs::File::create("greibach_ebnf.ebnf").unwrap();
-    // write!(converted_out, "{}\n\n", grammar_write(&greibach)).unwrap();
-    // println!("greibach done");
-
     let chomsky = Chomsky::from(grammar.clone());
     let mut converted_out = std::fs::File::create("chomsky.ebnf").unwrap();
     write!(converted_out, "{}\n\n", chomsker::chomsky_write(&chomsky)).unwrap();

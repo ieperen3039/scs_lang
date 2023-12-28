@@ -254,6 +254,8 @@ fn try_parse_example_faux() {
     let definition = include_str!("../../doc/definition.ebnf");
     let program = include_str!("../../doc/example.faux");
 
+    let start = std::time::Instant::now();
+
     let grammar = ebnf_parser::parse_ebnf(definition)
         .map(grammatificator::convert_to_grammar)
         .map(Chomsky::from)
@@ -265,9 +267,13 @@ fn try_parse_example_faux() {
             err
         })
         .unwrap();
-    println!("ebnf parse done");
 
     let xml_out = None;
+    let parser = chomsky_parser::Parser::new(&grammar, xml_out);
+
+    println!("Reading grammar done (took {:?})", start.elapsed());
+
+    let start = std::time::Instant::now();
 
     let tokens = Lexer {}
         .read_all(&program)
@@ -275,8 +281,9 @@ fn try_parse_example_faux() {
             SimpleError::new(parser::Failure::LexerError { char_idx: err }.error_string(definition))
         })
         .unwrap();
-    let parser = chomsky_parser::Parser::new(&grammar, xml_out);
     let parse_result = parser.parse_program(&tokens);
+
+    println!("Parsing done (took {:?})", start.elapsed());
 
     if parse_result.is_err() {
         print!(
