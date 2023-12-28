@@ -5,12 +5,13 @@ use std::rc::Rc;
 use simple_error::SimpleError;
 
 use crate::parsing::lexer::Lexer;
-use crate::parsing::{ebnf_parser, lexer, naive_recursive_descent_parser, parser};
+use crate::parsing::{ebnf_parser, lexer, parser, chomsky_parser};
 use crate::symbolization::{ast, type_collector::TypeCollector};
 use crate::symbolization::{meta_program, symbolizer, built_in_types};
+use crate::transforming::grammatificator;
 
 pub struct FauxCompiler {
-    parser: Rc<naive_recursive_descent_parser::Parser>,
+    parser: Rc<chomsky_parser::Parser>,
     lexer: lexer::Lexer,
     parse_stack: Vec<PathBuf>,
     file_cache: HashMap<PathBuf, Rc<ast::Program>>,
@@ -19,16 +20,18 @@ pub struct FauxCompiler {
 
 impl FauxCompiler {
     pub fn build(definition: &str, xml_out: Option<std::fs::File>) -> Option<FauxCompiler> {
-        let grammar = ebnf_parser::parse_ebnf(definition);
-        if let Err(err) = grammar {
-            println!(
-                "Error parsing EBNF definition: {}",
-                ebnf_parser::error_string(&err, definition)
-            );
-            return None;
-        }
+        let grammar = match ebnf_parser::parse_ebnf(definition) {
+            Ok(ebnf_grammar) => grammatificator::convert_to_grammar(ebnf_grammar),
+            Err(err) => {
+                println!(
+                    "Error parsing EBNF definition: {}",
+                    ebnf_parser::error_string(&err, definition)
+                );
+                return None;
+            }
+        };
 
-        let parser = naive_recursive_descent_parser::Parser::new(grammar.unwrap(), xml_out);
+        let parser = chomsky_parser::Parser::new(grammar, xml_out);
 
         Some(FauxCompiler {
             parser: Rc::from(parser),

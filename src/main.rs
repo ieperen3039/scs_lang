@@ -51,7 +51,8 @@ fn main() {
 
     match compile_result {
         Ok(program) => {
-            let write = transpilation::generator::GeneratorC::write(program);
+            let mut out = std::io::stdout();
+            let write = transpilation::generator::GeneratorC::write(&mut out, program);
             write.unwrap();
         },
         Err(simple_error) => print!("{}", simple_error),

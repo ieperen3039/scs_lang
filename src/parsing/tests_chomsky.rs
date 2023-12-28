@@ -2,7 +2,7 @@ use simple_error::SimpleError;
 
 use crate::{
     parsing::{chomsky_parser, ebnf_parser, lexer::Lexer, parser, rule_nodes::RuleNode},
-    transforming::{chomsker::Chomsky, grammatificator},
+    transforming::grammatificator,
 };
 
 #[test]
@@ -15,7 +15,6 @@ fn simple_lexer_and_parser() {
 
     let grammar = ebnf_parser::parse_ebnf(definition)
         .map(grammatificator::convert_to_grammar)
-        .map(Chomsky::from)
         .map_err(|err| {
             SimpleError::new(ebnf_parser::error_string(&err, definition));
             err
@@ -29,7 +28,7 @@ fn simple_lexer_and_parser() {
         })
         .unwrap();
 
-    let parser = chomsky_parser::Parser::new(&grammar, None);
+    let parser = chomsky_parser::Parser::new(grammar, None);
     let program_ast = parser.parse_program(&tokens).unwrap();
 
     assert_eq!(
@@ -64,7 +63,6 @@ fn simple_parser_with_simple_ignore() {
 
     let grammar = ebnf_parser::parse_ebnf(definition)
         .map(grammatificator::convert_to_grammar)
-        .map(Chomsky::from)
         .map_err(|err| {
             println!("{}", ebnf_parser::error_string(&err, definition));
             err
@@ -78,7 +76,7 @@ fn simple_parser_with_simple_ignore() {
         })
         .unwrap();
 
-    let parser = chomsky_parser::Parser::new(&grammar, None);
+    let parser = chomsky_parser::Parser::new(grammar, None);
     let program_ast = parser.parse_program(&tokens).unwrap();
 
     assert_eq!(
@@ -113,7 +111,6 @@ fn simple_parser_with_token_usage() {
 
     let grammar = ebnf_parser::parse_ebnf(definition)
         .map(grammatificator::convert_to_grammar)
-        .map(Chomsky::from)
         .map_err(|err| {
             println!("{}", ebnf_parser::error_string(&err, definition));
             err
@@ -127,7 +124,7 @@ fn simple_parser_with_token_usage() {
         })
         .unwrap();
 
-    let parser = chomsky_parser::Parser::new(&grammar, None);
+    let parser = chomsky_parser::Parser::new(grammar, None);
     let program_ast = parser.parse_program(&tokens).unwrap();
 
     assert_eq!(
@@ -168,7 +165,6 @@ fn complex_parser_with_complex_ignore() {
 
     let grammar = ebnf_parser::parse_ebnf(definition)
         .map(grammatificator::convert_to_grammar)
-        .map(Chomsky::from)
         .map_err(|err| {
             println!("{}", ebnf_parser::error_string(&err, definition));
             err
@@ -182,7 +178,7 @@ fn complex_parser_with_complex_ignore() {
         })
         .unwrap();
 
-    let parser = chomsky_parser::Parser::new(&grammar, None);
+    let parser = chomsky_parser::Parser::new(grammar, None);
     let program_ast = parser
         .parse_program(&tokens)
         .map_err(|v| {
@@ -258,7 +254,6 @@ fn try_parse_example_faux() {
 
     let grammar = ebnf_parser::parse_ebnf(definition)
         .map(grammatificator::convert_to_grammar)
-        .map(Chomsky::from)
         .map_err(|err| {
             println!(
                 "Error parsing EBNF definition: {}",
@@ -268,8 +263,8 @@ fn try_parse_example_faux() {
         })
         .unwrap();
 
-    let xml_out = None;
-    let parser = chomsky_parser::Parser::new(&grammar, xml_out);
+    let xml_out = Some(std::fs::File::create("test_try_parse_example_faux_output.xml").unwrap());
+    let parser = chomsky_parser::Parser::new(grammar, xml_out);
 
     println!("Reading grammar done (took {:?})", start.elapsed());
 

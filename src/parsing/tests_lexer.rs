@@ -261,6 +261,45 @@ fn complex_parser_with_complex_ignore() {
 }
 
 #[test]
+fn shebang_is_ignored() {
+    let formula = "#! bin/null\n1+2";
+
+    let tokens = Lexer {}
+        .read_all(&formula)
+        .map_err(|err| {
+            SimpleError::new(Failure::LexerError { char_idx: err }.error_string(formula))
+        })
+        .unwrap();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                class: TokenClass::WHITESPACE,
+                slice: "\n",
+                char_idx: 11
+            },
+            Token {
+                class: TokenClass::NUMBER,
+                slice: "1",
+                char_idx: 12
+            },
+            Token {
+                class: TokenClass::SYMBOL,
+                slice: "+",
+                char_idx: 13
+            },
+            Token {
+                class: TokenClass::NUMBER,
+                slice: "2",
+                char_idx: 14
+            }
+        ]
+    );
+}
+
+
+#[test]
 fn try_parse_example_faux() {
     let program = include_str!("../../doc/example.faux");
 

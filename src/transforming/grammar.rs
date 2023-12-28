@@ -23,7 +23,7 @@ pub enum Term {
     Empty
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Terminal {
     Literal(String),
     Token(TokenClass)
