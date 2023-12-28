@@ -3,15 +3,21 @@ use std::io::Write;
 
 use super::{grammar::*, grammar_util, rule_name_generator::RuleNameGenerator};
 
+#[derive(Debug, Clone)]
 pub enum ChomskyPattern {
     NonTerminal(Vec<RuleId>),
     Terminal(Terminal),
 }
 
+#[derive(Debug, Clone)]
+pub struct ChomskyRule {
+    pub pattern: ChomskyPattern,
+    pub first_terminals: Vec<Terminal>,
+}
+
 pub struct Chomsky {
     pub start: RuleId,
-    pub rules: HashMap<RuleId, Vec<ChomskyPattern>>,
-    pub first_terminals: HashMap<RuleId, Vec<Terminal>>,
+    pub rules: HashMap<RuleId, Vec<ChomskyRule>>,
 }
 
 impl Chomsky {
@@ -21,7 +27,7 @@ impl Chomsky {
         let start = normal_grammar.start_rule;
 
         // first collect all terminal and non-terminal rules
-        let mut rules = HashMap::new();
+        let mut raw_rules = HashMap::new();
 
         for (identifier, patterns) in normal_grammar.rules {
             let mut chomsky_terms = Vec::new();
@@ -48,46 +54,50 @@ impl Chomsky {
                 }
             }
 
-            rules.insert(identifier, chomsky_terms);
+            raw_rules.insert(identifier, chomsky_terms);
         }
 
         // now calculate for each rule the list of terminals
-        let mut first_terminals = HashMap::new();
+        let mut rules = HashMap::new();
 
-        for (id, patterns) in &rules {
-            let mut open_set: Vec<&ChomskyPattern> = patterns.into_iter().collect();
-            let mut these_terminals = Vec::new();
+        for (id, patterns) in &raw_rules {
+            let mut pattern_rule = Vec::new();
 
-            while !open_set.is_empty() {
-                let next_to_read = open_set.pop().unwrap();
-
-                match next_to_read {
-                    ChomskyPattern::NonTerminal(other_rules) => {
-                        let first_rule = other_rules.first().expect("Some rule contains no terms");
-                        let value = rules
-                            .get(first_rule)
-                            .expect(&format!("Rule {first_rule} not found"));
-                        for rule in value {
-                            open_set.push(rule)
+            for pattern in patterns {
+                let mut open_set: Vec<&ChomskyPattern> = vec![pattern];
+                let mut these_terminals = Vec::new();
+    
+                while !open_set.is_empty() {
+                    let next_to_read = open_set.pop().unwrap();
+    
+                    match next_to_read {
+                        ChomskyPattern::NonTerminal(other_rules) => {
+                            let first_rule = other_rules.first().expect("Some rule contains no terms");
+                            let value = raw_rules
+                                .get(first_rule)
+                                .expect(&format!("Rule {first_rule} not found"));
+                            for rule in value {
+                                open_set.push(rule)
+                            }
                         }
-                    }
-                    ChomskyPattern::Terminal(t) => {
-                        if these_terminals.iter().find(|&other| other == t).is_none() {
-                            these_terminals.push(t.clone())
+                        ChomskyPattern::Terminal(t) => {
+                            if these_terminals.iter().find(|&other| other == t).is_none() {
+                                these_terminals.push(t.clone())
+                            }
                         }
                     }
                 }
+    
+                assert!(!these_terminals.is_empty());
+                pattern_rule.push(ChomskyRule {
+                    pattern: pattern.clone(),
+                    first_terminals: these_terminals,
+                })
             }
-
-            assert!(!these_terminals.is_empty());
-            first_terminals.insert(id.clone(), these_terminals);
+            rules.insert(id.clone(), pattern_rule);
         }
 
-        Chomsky {
-            start,
-            rules,
-            first_terminals,
-        }
+        Chomsky { start, rules }
     }
 }
 
@@ -107,14 +117,13 @@ fn unwrap_identifiers(terms: Vec<Term>) -> Vec<RuleId> {
 
 pub fn chomsky_write(grammar: &Chomsky) -> String {
     let mut output_string = String::new();
-    for (identifier, patterns) in &grammar.rules {
-        let first_terminals = grammar.first_terminals.get(identifier).unwrap();
-        output_string.push_str(&format!("(* Starts with {:?} *)\n", first_terminals));
+    for (identifier, rules) in &grammar.rules {
+        // output_string.push_str(&format!("(* Starts with {:?} *)\n", first_terminals));
         output_string.push_str(&format!("{:30} = ", &identifier));
-        chomsky_to_string(&patterns[0], &mut output_string);
-        for sub_term in &patterns[1..] {
+        chomsky_to_string(&rules[0].pattern, &mut output_string);
+        for sub_term in &rules[1..] {
             output_string.push_str(&format!("\n{:30} | ", ""));
-            chomsky_to_string(sub_term, &mut output_string);
+            chomsky_to_string(&sub_term.pattern, &mut output_string);
         }
         output_string.push_str(";\n");
     }
@@ -505,8 +514,6 @@ fn deduplicate(rules: RuleStorage) -> RuleStorage {
             inverse_rules.insert(&terms, rule_id.clone());
         }
     }
-
-    println!("Removing {}/{} rules", renames.len(), rules.len());
 
     apply_renames(rules, renames)
 }

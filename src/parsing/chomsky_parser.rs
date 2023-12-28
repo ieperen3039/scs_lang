@@ -1,124 +1,202 @@
-use std::{collections::VecDeque, io::Write};
+use std::{
+    collections::{HashMap, VecDeque},
+    io::Write,
+    iter,
+};
 
 use simple_error::SimpleError;
 
-use crate::transforming::chomsker::Chomsky;
+use crate::transforming::{
+    chomsker::{Chomsky, ChomskyPattern, ChomskyRule},
+    grammar::{RuleId, Terminal},
+};
 
-use super::{token::{Token, TokenClass}, parser::*, rule_nodes::RuleNode};
+use super::{
+    parser::*,
+    rule_nodes::RuleNode,
+    token::{Token, TokenClass},
+};
 
-pub struct Parser {
-    grammar: Chomsky,
+pub struct Parser<'c> {
+    grammar: &'c Chomsky,
+    parse_table: ParseTable<'c>,
     xml_out: Option<std::fs::File>,
 }
 
-struct ParseTable {
-
+#[derive(Debug, PartialEq, Eq, Hash)]
+enum LookAheadToken<'c> {
+    Literal(&'c str),
+    Token(TokenClass),
 }
 
-impl ParseTable {
-    pub fn get()
+struct ParseTable<'c> {
+    table: HashMap<RuleId, HashMap<LookAheadToken<'c>, Vec<&'c ChomskyPattern>>>,
 }
 
-impl<'bnf> Parser {
-    pub fn new(
-        grammar: Chomsky,
-        xml_out: Option<std::fs::File>,
-    ) -> Parser {
-        Parser { grammar, xml_out }
+impl<'c> ParseTable<'c> {
+    pub fn get(&self, parse_stack: &str, look_ahead: &Token) -> Vec<&'c ChomskyPattern> {
+        let maybe_row = self.table.get(parse_stack);
+
+        if let Some(row) = maybe_row {
+            let as_literal_iter = row
+                .get(&LookAheadToken::Literal(look_ahead.slice))
+                .into_iter()
+                .flat_map(|v| v.iter())
+                .map(|&p| p);
+
+            let as_token_iter = row
+                .get(&LookAheadToken::Token(look_ahead.class))
+                .into_iter()
+                .flat_map(|v| v.iter())
+                .map(|&p| p);
+
+            return as_literal_iter.chain(as_token_iter).collect();
+        } else {
+            return Vec::new();
+        }
+    }
+}
+
+impl<'c> Parser<'c> {
+    pub fn new(grammar: &'c Chomsky, xml_out: Option<std::fs::File>) -> Parser<'c> {
+        let parse_table = construct_parse_table(grammar);
+        Parser {
+            grammar,
+            parse_table,
+            xml_out,
+        }
     }
 
-    fn log(&'bnf self, string: &str) {
+    fn log(&'c self, string: &str) {
         if let Some(mut file) = self.xml_out.as_ref() {
             let _ = write!(file, "{string}");
         }
     }
 
-    pub fn parse_program<'prog: 'bnf>(
-        &'bnf self,
+    pub fn parse_program<'prog: 'c>(
+        &'c self,
         tokens: &'prog [Token<'prog>],
-    ) -> Result<RuleNode<'prog, 'bnf>, Vec<Failure<'bnf>>> {
-        let primary_rule = self.grammar.rules.get(&self.grammar.start);
+    ) -> Result<RuleNode<'prog, 'c>, Vec<Failure<'c>>> {
+        let interpretation = self.apply_rule(tokens, &self.grammar.start);
 
-        let parse_table = construct_parse_table(&self.grammar);
+        match interpretation {
+            Err(failures) => Err(failures),
+            Ok(parsed_program) => {
+                if !parsed_program.tokens.len() == tokens.len() {
+                    Err(vec![Failure::IncompleteParse {
+                        char_idx: parsed_program.tokens.len(),
+                    }])
+                } else {
+                    Ok(parsed_program)
+                }
+            }
+        }
+    }
 
-        let interpretations = self.apply_rule(&tokens, primary_rule);
+    fn apply_rule<'prog: 'c>(
+        &'c self,
+        tokens: &'prog [Token<'prog>],
+        rule_name: &'c str,
+    ) -> Result<RuleNode<'prog, 'c>, Vec<Failure<'c>>> {
+        let next_token = &tokens[0];
+        let mut all_failures = Vec::new();
 
-        let mut longest_success = Interpretation {
-            val: ParseNode::EmptyNode,
-            remaining_tokens: tokens,
-        };
-        let mut failures = VecDeque::new();
+        let possible_patterns = self.parse_table.get(rule_name, next_token);
+        println!(
+            "Rule '{:10}' with token '{}': {} patterns",
+            rule_name,
+            next_token,
+            possible_patterns.len()
+        );
 
-        for result in interpretations {
-            match result {
-                Err(failure) => {
-                    let search_result =
-                        failures.binary_search_by(|other| compare_err_result(other, &failure));
-                    let index = match search_result {
-                        Ok(v) => v,
-                        Err(v) => v,
+        // this for loop is for the case where the given grammar is not an LL(1) grammar
+        for pattern in possible_patterns {
+            println!("Trying pattern {:?}", pattern);
+            match pattern {
+                ChomskyPattern::Terminal(terminal) => {
+                    let has_match = match terminal {
+                        Terminal::Literal(str) => str == next_token.slice,
+                        Terminal::Token(class) => *class == next_token.class,
                     };
-                    if failures.len() < MAX_ERRORS_PER_RULE {
-                        failures.insert(index, failure);
-                    } else if index > 0 {
-                        failures.insert(index, failure);
-                        failures.pop_front();
-                    }
-                }
-                Ok(interpretation) => {
-                    let num_tokens_remaining = interpretation.remaining_tokens.len();
-                    if num_tokens_remaining == 0 {
-                        // shortcut
-                        longest_success = interpretation;
-                        break;
-                    }
 
-                    if num_tokens_remaining < longest_success.remaining_tokens.len() {
-                        longest_success = interpretation;
+                    if has_match {
+                        return Ok(RuleNode {
+                            rule_name,
+                            tokens: &tokens[..1],
+                            sub_rules: Vec::new(),
+                        });
                     }
                 }
+                ChomskyPattern::NonTerminal(sub_rule_names) => {
+                    let result = self.apply_non_terminal(rule_name, tokens, sub_rule_names);
+                    match result {
+                        Ok(n) => return Ok(n),
+                        Err(failures) => all_failures.extend(failures),
+                    }
+                }
+            };
+        }
+
+        return Err(all_failures);
+    }
+
+    fn apply_non_terminal<'prog: 'c>(
+        &'c self,
+        current_rule_name: &'c str,
+        tokens: &'prog [Token<'prog>],
+        sub_rule_names: &'c [RuleId],
+    ) -> Result<RuleNode<'prog, 'c>, Vec<Failure<'c>>> {
+        let mut sub_rules = Vec::new();
+        let mut token_offset = 0;
+
+        for new_rule_name in sub_rule_names {
+            let applied_rule = self.apply_rule(&tokens[token_offset..], new_rule_name);
+            match applied_rule {
+                Ok(rule) => {
+                    token_offset += rule.tokens.len();
+                    let is_transparent = rule.rule_name.as_bytes()[0] == b'_';
+                    if is_transparent {
+                        sub_rules.extend(rule.sub_rules);
+                    } else {
+                        sub_rules.push(rule);
+                    }
+                }
+                Err(failures) => return Err(failures),
             }
         }
 
-        if let ParseNode::EmptyNode = longest_success.val {
-            return Err(failures.into());
-        }
-
-        if !longest_success.remaining_tokens.is_empty() {
-            let mut furthest_failures = vec![Failure::IncompleteParse {
-                char_idx: longest_success
-                    .remaining_tokens
-                    .first()
-                    .map(|t| t.char_idx - 1)
-                    .ok_or_else(|| {
-                        vec![Failure::InternalError(SimpleError::new(
-                            "incomplete parse, but no remaining tokens",
-                        ))]
-                    })?,
-            }];
-
-            for failure in failures {
-                let minimum = get_err_significance(furthest_failures.last().unwrap())
-                    - MAX_NUM_TOKENS_BACKTRACE_ON_ERROR;
-                if get_err_significance(&failure) > minimum {
-                    furthest_failures.push(failure);
-                    furthest_failures.sort_by(compare_err_result);
-                }
-            }
-
-            return Err(furthest_failures);
-        }
-
-        if let ParseNode::Rule(rule_node) = longest_success.val {
-            return Ok(rule_node);
-        } else {
-            return Err(vec![Failure::InternalError(SimpleError::new(
-                "Primary rule was no rule",
-            ))]);
-        }
+        Ok(RuleNode {
+            rule_name: current_rule_name,
+            tokens: &tokens[..token_offset],
+            sub_rules,
+        })
     }
 }
 
-fn construct_parse_table(grammar: &Chomsky) -> _ {
-    todo!()
+// T[A,a] contains the rule "A => w" if and only if `w` may start with an `a`
+fn construct_parse_table<'c>(grammar: &'c Chomsky) -> ParseTable<'c> {
+    let mut table: HashMap<RuleId, HashMap<LookAheadToken<'c>, Vec<&'c ChomskyPattern>>> =
+        HashMap::new();
+
+    for (rule_id, rules) in &grammar.rules {
+        for rule in rules {
+            let hashtable_of_rule = table.entry(rule_id.clone()).or_insert(HashMap::new());
+            for terminal in &rule.first_terminals {
+                let list = match terminal {
+                    Terminal::Literal(str) => {
+                        hashtable_of_rule.entry(LookAheadToken::Literal(&str))
+                    }
+                    Terminal::Token(class) => {
+                        hashtable_of_rule.entry(LookAheadToken::Token(*class))
+                    }
+                };
+
+                list.or_insert(Vec::new()).push(&rule.pattern);
+            }
+        }
+    }
+
+    println!("{:?}", table);
+
+    ParseTable { table }
 }
