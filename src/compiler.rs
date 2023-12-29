@@ -4,17 +4,15 @@ use std::rc::Rc;
 
 use simple_error::SimpleError;
 
-use crate::parsing::lexer::Lexer;
-use crate::parsing::{ebnf_parser, lexer, parser, chomsky_parser};
-use crate::symbolization::{ast, type_collector::TypeCollector};
-use crate::symbolization::{meta_program, symbolizer, built_in_types};
+use crate::symbolization::{ast, type_collector::TypeCollector, meta_program, symbolizer, built_in_types};
+use crate::parsing::{lexer::{Lexer, self}, ebnf_parser, parser, chomsky_parser};
 use crate::transforming::grammatificator;
 
 pub struct FauxCompiler {
     parser: Rc<chomsky_parser::Parser>,
     lexer: lexer::Lexer,
-    parse_stack: Vec<PathBuf>,
-    file_cache: HashMap<PathBuf, Rc<ast::Program>>,
+    parse_stack: Vec<Box<Path>>,
+    file_cache: HashMap<Box<Path>, Rc<ast::Program>>,
     type_collector: TypeCollector
 }
 
@@ -43,9 +41,10 @@ impl FauxCompiler {
     }
 
     pub fn compile(&mut self, source_file: &Path) -> Result<ast::Program, SimpleError> {
-        if self.parse_stack.iter().any(|file| file == source_file) {
+        if self.parse_stack.iter().any(|file| file.as_ref() == source_file) {
             return Err(SimpleError::new(format!("Recursive include : {:?}", self.parse_stack)));
         }
+        self.parse_stack.push(Box::from(source_file));
 
         let file_contents = std::fs::read_to_string(source_file)
             .map_err(SimpleError::from)?;
@@ -80,16 +79,17 @@ impl FauxCompiler {
         let mut included_scope = built_in_types::get_implicit();
 
         for include_file in files_to_compile {
-            if !self.file_cache.contains_key(&include_file) {
+            if !self.file_cache.contains_key(include_file.as_path()) {
                 let this_program = self.compile(&include_file)?;
-                self.file_cache.insert(include_file.clone(), Rc::from(this_program));
+                self.file_cache.insert(Box::from(include_file.clone()), Rc::from(this_program));
             };
 
-            let include_program = self.file_cache.get(&include_file).expect("if-statement above should compile on-demand");
+            let include_program = self.file_cache.get(include_file.as_path()).expect("if-statement above should compile on-demand");
             included_scope.extend(include_program.namespaces.clone());
         }
 
-        // start parsing the definitions?
+        // we have resolved and compiled all includes.
+        // now we can start parsing this file
         let program = symbolizer::parse_symbols(syntax_tree, &included_scope, &mut self.type_collector)?;
         Ok(program)
     }

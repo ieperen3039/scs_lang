@@ -84,22 +84,6 @@ impl<'c> Parser {
         }
     }
 
-    fn log_enter(&'c self, rule_name: &str) {
-        if let Some(mut file) = self.xml_out.as_ref() {
-            if !is_transparent(rule_name) {
-                let _ = writeln!(file, "<{rule_name}>");
-            }
-        }
-    }
-
-    fn log_exit(&'c self, rule_name: &str) {
-        if let Some(mut file) = self.xml_out.as_ref() {
-            if !is_transparent(rule_name) {
-                let _ = writeln!(file, "</{rule_name}>");
-            }
-        }
-    }
-
     pub fn parse_program<'prog: 'c>(
         &'c self,
         tokens: &'prog [Token<'prog>],
@@ -162,8 +146,19 @@ impl<'c> Parser {
                 .collect());
         }
 
+        let mut pattern_nr = 1;
+        let max = possible_patterns.len();
+
         // this for-loop is for the case where the given grammar is not an LL(1) grammar
         for pattern in possible_patterns {
+            if max > 1 {
+                if let Some(mut file) = self.xml_out.as_ref() {
+                    let _ = writeln!(file, "{:20} {:>2}/{:<2}: {:?}", rule_name, pattern_nr, max, pattern);
+                }
+            }
+
+            pattern_nr += 1;
+
             match pattern {
                 ChomskyPattern::Terminal(terminal) => {
                     let has_match = match terminal {
@@ -172,6 +167,8 @@ impl<'c> Parser {
                     };
 
                     if has_match {
+                        self.log_consume_token(&tokens[token_index]);
+
                         return Ok(RuleNode {
                             rule_name,
                             tokens: &tokens[token_index..=token_index],
@@ -224,6 +221,32 @@ impl<'c> Parser {
             tokens: &tokens[token_index..sub_rule_token_index],
             sub_rules,
         })
+    }
+
+    fn log_consume_token(&'c self, token: &Token<'_>) {
+        if let Some(mut file) = self.xml_out.as_ref() {
+            if token.class == TokenClass::WHITESPACE { return; }
+            if !token.slice.contains(|c : char| !c.is_whitespace()) { return; }
+
+            let new_slice = token.slice.replace(char::is_whitespace, " ");
+            let _ = writeln!(file, "\"{}\"", &new_slice);
+        }
+    }
+
+    fn log_enter(&'c self, rule_name: &str) {
+        if let Some(mut file) = self.xml_out.as_ref() {
+            if !is_transparent(rule_name) {
+                let _ = writeln!(file, "<{rule_name}>");
+            }
+        }
+    }
+
+    fn log_exit(&'c self, rule_name: &str) {
+        if let Some(mut file) = self.xml_out.as_ref() {
+            if !is_transparent(rule_name) {
+                let _ = writeln!(file, "</{rule_name}>");
+            }
+        }
     }
 }
 

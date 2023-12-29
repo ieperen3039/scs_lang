@@ -3,6 +3,10 @@ use super::token::{Token, TokenClass};
 pub struct Lexer {}
 
 impl Lexer {
+    pub fn read<'prog>(string: &'prog str) -> Result<Vec<Token<'prog>>, usize> {
+        Lexer{}.read_all(string)
+    }
+
     pub fn read_all<'prog>(&self, string: &'prog str) -> Result<Vec<Token<'prog>>, usize> {
         let mut cursor = 0;
         let mut tokens = Vec::new();

@@ -114,7 +114,7 @@ impl TypeCollector {
             name: base_type_name,
             id: self.new_id(),
             generic_parameters: generic_types,
-            sub_type: TypeSubType::Base {
+            type_class: TypeClass::Base {
                 derived: derived_from,
             },
             member_functions: Vec::new(),
@@ -192,7 +192,7 @@ impl TypeCollector {
             name: name_node.as_identifier(),
             id: self.new_id(),
             generic_parameters: Vec::new(),
-            sub_type: TypeSubType::Enum {
+            type_class: TypeClass::Enum {
                 values: value_names,
             },
             member_functions: Vec::new(),
@@ -225,7 +225,7 @@ impl TypeCollector {
             name: name_node.as_identifier(),
             id: self.new_id(),
             generic_parameters: generic_types,
-            sub_type: TypeSubType::Variant {
+            type_class: TypeClass::Variant {
                 variants: variant_values,
             },
             member_functions: Vec::new(),

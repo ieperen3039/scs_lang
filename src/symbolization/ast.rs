@@ -73,7 +73,7 @@ pub struct TypeDefinition {
     pub full_scope: Vec<Identifier>,
     // there are generic declarations; brand new identifiers
     pub generic_parameters: Vec<Rc<GenericParameter>>,
-    pub sub_type: TypeSubType,
+    pub type_class: TypeClass,
     // may be unnecessary (already in Program::function_definitions)
     pub member_functions: Vec<FunctionDeclaration>,
 }
@@ -84,7 +84,7 @@ pub struct GenericParameter {
 }
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
-pub enum TypeSubType {
+pub enum TypeClass {
     Base { derived: Option<Box<TypeRef>> },
     Enum { values: Vec<Identifier> },
     Variant { variants: Vec<VariantValue> },
@@ -176,7 +176,7 @@ impl std::fmt::Debug for TypeDefinition {
             .field("name", &self.name)
             .field("id", &self.id)
             .field("generic_parameters", &self.generic_parameters)
-            .field("sub_type", &self.sub_type)
+            .field("sub_type", &self.type_class)
             .field("member_functions.len()", &self.member_functions.len())
             .finish()
     }
@@ -184,7 +184,7 @@ impl std::fmt::Debug for TypeDefinition {
 
 impl PartialEq for TypeDefinition {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id && self.sub_type == other.sub_type
+        self.id == other.id && self.type_class == other.type_class
     }
 }
 

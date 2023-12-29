@@ -150,10 +150,10 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
         type_to_resolve: &mut TypeDefinition,
         local_scope: &Scope,
     ) -> Result<(), SimpleError> {
-        match &mut type_to_resolve.sub_type {
-            TypeSubType::Base { derived: None } => {}
-            TypeSubType::Enum { .. } => {}
-            TypeSubType::Base {
+        match &mut type_to_resolve.type_class {
+            TypeClass::Base { derived: None } => {}
+            TypeClass::Enum { .. } => {}
+            TypeClass::Base {
                 derived: Some(to_resolve),
             } => {
                 self.resolve_type_ref(
@@ -162,7 +162,7 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
                     local_scope,
                 )?;
             }
-            TypeSubType::Variant { variants } => {
+            TypeClass::Variant { variants } => {
                 for variant in variants {
                     self.resolve_type_ref(
                         &mut variant.value_type,
@@ -171,7 +171,7 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
                     )?;
                 }
             }
-            TypeSubType::Tuple { elements } => {
+            TypeClass::Tuple { elements } => {
                 for elt in elements {
                     self.resolve_type_ref(elt, &type_to_resolve.generic_parameters, local_scope)?;
                 }

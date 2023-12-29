@@ -3,6 +3,10 @@ use std::io::Write;
 
 use super::{grammar::*, grammar_util, rule_name_generator::RuleNameGenerator};
 
+// True chomsky normal forms has non-terminal rules of at most 2 elements.
+// we support other rule lengths as well
+const TERM_LENGTH: usize = 3;
+
 #[derive(Debug, Clone)]
 pub enum ChomskyPattern {
     NonTerminal(Vec<RuleId>),
@@ -66,13 +70,14 @@ impl Chomsky {
             for pattern in patterns {
                 let mut open_set: Vec<&ChomskyPattern> = vec![pattern];
                 let mut these_terminals = Vec::new();
-    
+
                 while !open_set.is_empty() {
                     let next_to_read = open_set.pop().unwrap();
-    
+
                     match next_to_read {
                         ChomskyPattern::NonTerminal(other_rules) => {
-                            let first_rule = other_rules.first().expect("Some rule contains no terms");
+                            let first_rule =
+                                other_rules.first().expect("Some rule contains no terms");
                             let value = raw_rules
                                 .get(first_rule)
                                 .expect(&format!("Rule {first_rule} not found"));
@@ -87,7 +92,7 @@ impl Chomsky {
                         }
                     }
                 }
-    
+
                 assert!(!these_terminals.is_empty());
                 pattern_rule.push(ChomskyRule {
                     pattern: pattern.clone(),
@@ -384,40 +389,50 @@ fn normalize_to_concatenation(
     other_rules: &mut RuleStorage,
 ) -> Term {
     match term {
-        Term::Concatenation(terms) => subdivide_to_two(&terms, name_generator, other_rules),
+        Term::Concatenation(terms) => subdivide(terms, TERM_LENGTH, name_generator, other_rules),
         other => normalize_to_identifier(other, name_generator, other_rules),
     }
 }
 
 // split a concatenation of multiple terms into a series of rules with a concatenation of 2 elememnts
-fn subdivide_to_two(
-    terms: &[Term],
+fn subdivide(
+    mut terms: Vec<Term>,
+    max_num_elements: usize,
     name_generator: &mut RuleNameGenerator,
     other_rules: &mut RuleStorage,
 ) -> Term {
     assert!(!terms.is_empty());
 
     // end-condition
-    if terms.len() == 2 {
-        let normalized_first_term =
-            normalize_to_identifier(terms[0].to_owned(), name_generator, other_rules);
-        let normalized_second_term =
-            normalize_to_identifier(terms[1].to_owned(), name_generator, other_rules);
-        return Term::Concatenation(vec![normalized_first_term, normalized_second_term]);
+    if terms.len() <= max_num_elements {
+        return Term::Concatenation(
+            terms
+                .into_iter()
+                .map(|t| normalize_to_identifier(t, name_generator, other_rules))
+                .collect(),
+        );
     }
 
-    // edge case (should never happen), unwrap the element
-    if terms.len() == 1 {
-        return normalize_to_identifier(terms[0].to_owned(), name_generator, other_rules);
-    }
-
-    let subdivided_term = subdivide_to_two(&terms[1..], name_generator, other_rules);
     let new_rule_name = name_generator.generate_rule_name();
-    other_rules.insert(new_rule_name.clone(), vec![subdivided_term]);
+    let remaining_terms = terms.split_off(max_num_elements - 1);
+    
+    let subdivided_terms: Vec<_> = terms
+        .into_iter()
+        .map(|t| normalize_to_identifier(t, name_generator, other_rules))
+        // append the rule containing the remaining therms
+        .chain(std::iter::once(Term::Identifier(new_rule_name.clone())))
+        .collect();
 
-    let normalized_first_term =
-        normalize_to_identifier(terms[0].to_owned(), name_generator, other_rules);
-    Term::Concatenation(vec![normalized_first_term, Term::Identifier(new_rule_name)])
+    let subdivided_term = subdivide(
+        remaining_terms,
+        max_num_elements,
+        name_generator,
+        other_rules,
+    );
+
+    other_rules.insert(new_rule_name, vec![subdivided_term]);
+
+    Term::Concatenation(subdivided_terms)
 }
 
 // if this is not an identifier, extract to a new rule
@@ -442,7 +457,7 @@ fn normalize_to_identifier(
             }
         }
         Term::Concatenation(terms) => {
-            new_terms.push(subdivide_to_two(&terms, name_generator, other_rules))
+            new_terms.push(subdivide(terms, TERM_LENGTH, name_generator, other_rules))
         }
     };
 
