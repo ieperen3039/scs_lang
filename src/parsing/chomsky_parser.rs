@@ -1,5 +1,5 @@
 use std::{
-    collections::{hash_map::Keys, HashMap},
+    collections::{hash_map::Keys, HashMap, HashSet},
     io::Write,
 };
 
@@ -75,6 +75,7 @@ impl<'c> ParseTable {
 impl<'c> Parser {
     pub fn new(grammar: Grammar, xml_out: Option<std::fs::File>) -> Parser {
         let chomsky_grammar = Chomsky::from(grammar);
+        let chomsky_grammar = remove_conflicts(chomsky_grammar);
         let start_rule = chomsky_grammar.start.clone();
         let parse_table = construct_parse_table(chomsky_grammar);
         Parser {
@@ -248,6 +249,21 @@ impl<'c> Parser {
             }
         }
     }
+}
+
+fn remove_conflicts(chomsky_grammar: Chomsky) -> Chomsky {
+    let new_rules = HashMap::new();
+
+    // remove FIRST/FIRST conflicts
+    for (rule_id, patterns) in chomsky_grammar.rules {
+        for a in &patterns {
+            for b in &patterns {
+                
+            }
+        }
+    }
+
+    Chomsky { start: chomsky_grammar.start, rules: new_rules  }
 }
 
 fn is_transparent(rule_name: &str) -> bool {

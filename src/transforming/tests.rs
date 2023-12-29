@@ -1,7 +1,7 @@
 
 use std::io::Write;
 
-use crate::{parsing::ebnf_parser, transforming::{chomsker::{self, Chomsky}, grammatificator, grammar_util::grammar_write}};
+use crate::{parsing::ebnf_parser, transforming::{chomsker::Chomsky, grammatificator, grammar::Grammar}};
 
 #[test]
 fn write_conversion_outputs() {
@@ -19,11 +19,11 @@ fn write_conversion_outputs() {
 
     let grammar = grammatificator::convert_to_grammar(ebnf_grammar);
     let mut converted_out = std::fs::File::create("grammar.ebnf").unwrap();
-    write!(converted_out, "{}\n\n", grammar_write(&grammar)).unwrap();
+    write!(converted_out, "{}\n\n", Grammar::write(&grammar)).unwrap();
     println!("grammar converted");
 
     let chomsky = Chomsky::from(grammar.clone());
     let mut converted_out = std::fs::File::create("chomsky.ebnf").unwrap();
-    write!(converted_out, "{}\n\n", chomsker::chomsky_write(&chomsky)).unwrap();
+    write!(converted_out, "{}\n\n", Chomsky::write(&chomsky)).unwrap();
     println!("chonker done");
 }

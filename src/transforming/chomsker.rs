@@ -26,7 +26,7 @@ pub struct Chomsky {
 
 impl Chomsky {
     pub fn from(grammar: Grammar) -> Chomsky {
-        let normal_grammar = convert_to_normal_form(grammar);
+        let normal_grammar = Chomsky::convert_to_normal_form(grammar);
 
         let start = normal_grammar.start_rule;
 
@@ -104,6 +104,82 @@ impl Chomsky {
 
         Chomsky { start, rules }
     }
+
+    pub fn convert_to_normal_form(old_grammar: Grammar) -> Grammar {
+        let mut name_generator = old_grammar.name_generator;
+        let rules = old_grammar.rules;
+
+        let mut converted_out = std::fs::File::create(format!("chomsky_START.ebnf")).unwrap();
+        write!(converted_out, "{}", Grammar::write_rules(&rules)).unwrap();
+
+        let rules = chomsky_bin_term(rules, &mut name_generator);
+
+        // log
+        let mut converted_out = std::fs::File::create(format!("chomsky_BIN_TERM.ebnf")).unwrap();
+        write!(converted_out, "{}", Grammar::write_rules(&rules)).unwrap();
+
+        let rules = chomsky_del(rules);
+
+        // log
+        let mut converted_out = std::fs::File::create(format!("chomsky_DEL.ebnf")).unwrap();
+        write!(converted_out, "{}", Grammar::write_rules(&rules)).unwrap();
+
+        let rules = chomsky_unit(rules);
+
+        // log
+        let mut converted_out = std::fs::File::create(format!("chomsky_UNIT.ebnf")).unwrap();
+        write!(converted_out, "{}", Grammar::write_rules(&rules)).unwrap();
+
+        let rules = unwrap_top_level_elements(rules);
+        let rules = deduplicate(rules);
+
+        // log
+        let mut converted_out = std::fs::File::create(format!("chomsky_DEDUP.ebnf")).unwrap();
+        write!(converted_out, "{}", Grammar::write_rules(&rules)).unwrap();
+
+        return Grammar {
+            start_rule: old_grammar.start_rule,
+            rules,
+            name_generator,
+        };
+    }
+
+    pub fn write(grammar: &Chomsky) -> String {
+        let mut output_string = String::new();
+        for (identifier, rules) in &grammar.rules {
+            // output_string.push_str(&format!("(* Starts with {:?} *)\n", first_terminals));
+            output_string.push_str(&format!("{:30} = ", &identifier));
+            Chomsky::to_string(&rules[0].pattern, &mut output_string);
+            for sub_term in &rules[1..] {
+                output_string.push_str(&format!("\n{:30} | ", ""));
+                Chomsky::to_string(&sub_term.pattern, &mut output_string);
+            }
+            output_string.push_str(";\n");
+        }
+        output_string
+    }
+
+    fn to_string(pattern: &ChomskyPattern, output_string: &mut String) {
+        match &pattern {
+            ChomskyPattern::NonTerminal(terms) => {
+                output_string.push_str(&terms[0]);
+                for t in &terms[1..] {
+                    output_string.push_str(", ");
+                    output_string.push_str(t)
+                }
+            }
+            ChomskyPattern::Terminal(Terminal::Literal(literal)) => {
+                output_string.push('"');
+                output_string.push_str(literal);
+                output_string.push('"');
+            }
+            ChomskyPattern::Terminal(Terminal::Token(i)) => {
+                output_string.push_str("? ");
+                output_string.push_str(i.str());
+                output_string.push_str(" ?");
+            }
+        }
+    }
 }
 
 fn unwrap_identifiers(terms: Vec<Term>) -> Vec<RuleId> {
@@ -118,107 +194,6 @@ fn unwrap_identifiers(terms: Vec<Term>) -> Vec<RuleId> {
     }
 
     pattern
-}
-
-pub fn chomsky_write(grammar: &Chomsky) -> String {
-    let mut output_string = String::new();
-    for (identifier, rules) in &grammar.rules {
-        // output_string.push_str(&format!("(* Starts with {:?} *)\n", first_terminals));
-        output_string.push_str(&format!("{:30} = ", &identifier));
-        chomsky_to_string(&rules[0].pattern, &mut output_string);
-        for sub_term in &rules[1..] {
-            output_string.push_str(&format!("\n{:30} | ", ""));
-            chomsky_to_string(&sub_term.pattern, &mut output_string);
-        }
-        output_string.push_str(";\n");
-    }
-    output_string
-}
-
-fn chomsky_to_string(pattern: &ChomskyPattern, output_string: &mut String) {
-    match &pattern {
-        ChomskyPattern::NonTerminal(terms) => {
-            output_string.push_str(&terms[0]);
-            for t in &terms[1..] {
-                output_string.push_str(", ");
-                output_string.push_str(t)
-            }
-        }
-        ChomskyPattern::Terminal(Terminal::Literal(literal)) => {
-            output_string.push('"');
-            output_string.push_str(literal);
-            output_string.push('"');
-        }
-        ChomskyPattern::Terminal(Terminal::Token(i)) => {
-            output_string.push_str("? ");
-            output_string.push_str(i.str());
-            output_string.push_str(" ?");
-        }
-    }
-}
-
-pub fn convert_to_normal_form(old_grammar: Grammar) -> Grammar {
-    let mut name_generator = old_grammar.name_generator;
-    let rules = old_grammar.rules;
-
-    let mut converted_out = std::fs::File::create(format!("chomsky_START.ebnf")).unwrap();
-    write!(
-        converted_out,
-        "{}",
-        grammar_util::grammar_write_rules(&rules)
-    )
-    .unwrap();
-
-    let rules = chomsky_bin_term(rules, &mut name_generator);
-
-    // log
-    let mut converted_out = std::fs::File::create(format!("chomsky_BIN_TERM.ebnf")).unwrap();
-    write!(
-        converted_out,
-        "{}",
-        grammar_util::grammar_write_rules(&rules)
-    )
-    .unwrap();
-
-    let rules = chomsky_del(rules);
-
-    // log
-    let mut converted_out = std::fs::File::create(format!("chomsky_DEL.ebnf")).unwrap();
-    write!(
-        converted_out,
-        "{}",
-        grammar_util::grammar_write_rules(&rules)
-    )
-    .unwrap();
-
-    let rules = chomsky_unit(rules);
-
-    // log
-    let mut converted_out = std::fs::File::create(format!("chomsky_UNIT.ebnf")).unwrap();
-    write!(
-        converted_out,
-        "{}",
-        grammar_util::grammar_write_rules(&rules)
-    )
-    .unwrap();
-
-    let rules = unwrap_top_level_elements(rules);
-    let rules = deduplicate(rules);
-
-    // log
-    let mut converted_out = std::fs::File::create(format!("chomsky_DEDUP.ebnf")).unwrap();
-    write!(
-        converted_out,
-        "{}",
-        grammar_util::grammar_write_rules(&rules)
-    )
-    .unwrap();
-
-    return Grammar {
-        start_rule: old_grammar.start_rule,
-        rules,
-        name_generator,
-    };
 }
 
 // find and remove all rules that are renames
@@ -415,7 +390,7 @@ fn subdivide(
 
     let new_rule_name = name_generator.generate_rule_name();
     let remaining_terms = terms.split_off(max_num_elements - 1);
-    
+
     let subdivided_terms: Vec<_> = terms
         .into_iter()
         .map(|t| normalize_to_identifier(t, name_generator, other_rules))

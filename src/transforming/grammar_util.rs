@@ -43,57 +43,60 @@ where
     };
 }
 
-pub fn grammar_write(grammar: &Grammar) -> String {
-    grammar_write_rules(&grammar.rules)
-}
-
-pub fn grammar_write_rules(rules: &RuleStorage) -> String {
-    let mut output_string = String::new();
-    for (identifier, terms) in rules {
-        output_string.push_str(&format!("{:30} = ", &identifier));
-        grammar_to_string(&terms[0], &mut output_string);
-        for sub_term in &terms[1..] {
-            output_string.push_str(&format!("\n{:30} | ", ""));
-            grammar_to_string(sub_term, &mut output_string);
-        }
-        output_string.push_str(";\n");
+impl Grammar {
+    pub fn write(grammar: &Grammar) -> String {
+        Grammar::write_rules(&grammar.rules)
     }
-    output_string
-}
-
-fn grammar_to_string(term: &Term, target: &mut String) {
-    match term {
-        Term::Concatenation(terms) => {
-            target.push_str("( ");
-            grammar_to_string(&terms[0], target);
-            for t in &terms[1..] {
-                target.push_str(", ");
-                grammar_to_string(t, target);
+    
+    pub fn write_rules(rules: &RuleStorage) -> String {
+        let mut output_string = String::new();
+        for (identifier, terms) in rules {
+            output_string.push_str(&format!("{:30} = ", &identifier));
+            Grammar::to_string(&terms[0], &mut output_string);
+            for sub_term in &terms[1..] {
+                output_string.push_str(&format!("\n{:30} | ", ""));
+                Grammar::to_string(sub_term, &mut output_string);
             }
-            target.push_str(" )");
+            output_string.push_str(";\n");
         }
-        Term::Alternation(terms) => {
-            target.push_str("( ");
-            grammar_to_string(&terms[0], target);
-            for t in &terms[1..] {
-                target.push_str(" | ");
-                grammar_to_string(t, target);
+        output_string
+    }
+    
+    fn to_string(term: &Term, target: &mut String) {
+        match term {
+            Term::Concatenation(terms) => {
+                target.push_str("( ");
+                Grammar::to_string(&terms[0], target);
+                for t in &terms[1..] {
+                    target.push_str(", ");
+                    Grammar::to_string(t, target);
+                }
+                target.push_str(" )");
             }
-            target.push_str(" )");
-        }
-        Term::Identifier(i) => target.push_str(i),
-        Term::Terminal(Terminal::Literal(i)) => {
-            target.push('"');
-            target.push_str(i);
-            target.push('"');
-        }
-        Term::Terminal(Terminal::Token(i)) => {
-            target.push_str("? ");
-            target.push_str(i.str());
-            target.push_str(" ?");
-        }
-        Term::Empty => {
-            target.push_str("? EMPTY ?");
-        }
-    };
+            Term::Alternation(terms) => {
+                target.push_str("( ");
+                Grammar::to_string(&terms[0], target);
+                for t in &terms[1..] {
+                    target.push_str(" | ");
+                    Grammar::to_string(t, target);
+                }
+                target.push_str(" )");
+            }
+            Term::Identifier(i) => target.push_str(i),
+            Term::Terminal(Terminal::Literal(i)) => {
+                target.push('"');
+                target.push_str(i);
+                target.push('"');
+            }
+            Term::Terminal(Terminal::Token(i)) => {
+                target.push_str("? ");
+                target.push_str(i.str());
+                target.push_str(" ?");
+            }
+            Term::Empty => {
+                target.push_str("? EMPTY ?");
+            }
+        };
+    }
+    
 }
