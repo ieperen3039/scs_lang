@@ -32,21 +32,21 @@ impl GeneratorC {
     fn write_type_definition<Writer: std::io::Write>(&self, out: &mut Writer, definition: &ast::TypeDefinition) -> Result<(), SimpleError> {
         let this_name = self.get_full_type_name(&definition)?;
 
-        match &definition.sub_type {
-            ast::TypeSubType::Base { derived : None } => {
+        match &definition.type_class {
+            ast::TypeClass::Base { derived : None } => {
                 simple_write!(out, "struct {this_name} {{\n\tvoid* mPtr;\n}}")
             },
-            ast::TypeSubType::Base { derived : Some(derived) } => {
+            ast::TypeClass::Base { derived : Some(derived) } => {
                 simple_write!(out, "typedef {} {}", self.get_type_ref(&derived)?, this_name)
             },
-            ast::TypeSubType::Enum { values } => {
+            ast::TypeClass::Enum { values } => {
                 simple_write!(out, "enum {this_name} {{\n")?;
                 for enum_val in values {
                     simple_write!(out, "\t{this_name}${enum_val};\n")?;
                 }
                 simple_write!(out, "}}")
             }
-            ast::TypeSubType::Variant { variants } => {
+            ast::TypeClass::Variant { variants } => {
                 // first write the enum type
                 simple_write!(out, "enum {this_name} {{\n")?;
                 for variant in variants {
@@ -65,7 +65,7 @@ impl GeneratorC {
                 simple_write!(out, "\t}} mData;\n")?;
                 simple_write!(out, "}};")
             },
-            ast::TypeSubType::Tuple { elements } => {
+            ast::TypeClass::Tuple { elements } => {
                 simple_write!(out, "struct {this_name} {{\n")?;
                 for i in 0..elements.len() {
                     simple_write!(out, "\t{}${};\n", i, self.get_type_ref(&elements[i])?)?;

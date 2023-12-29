@@ -1,4 +1,7 @@
 pub mod generator;
 
 #[cfg(test)]
-mod tests;
+mod tests_types;
+
+#[cfg(test)]
+mod test_util;
