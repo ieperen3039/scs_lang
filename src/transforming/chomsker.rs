@@ -30,34 +30,10 @@ impl Chomsky {
 
         let start = normal_grammar.start_rule;
 
-        // first collect all terminal and non-terminal rules
         let mut raw_rules = HashMap::new();
 
         for (identifier, patterns) in normal_grammar.rules {
-            let mut chomsky_terms = Vec::new();
-            for pattern in patterns {
-                match pattern {
-                    Term::Concatenation(terms) => {
-                        chomsky_terms.push(ChomskyPattern::NonTerminal(unwrap_identifiers(terms)));
-                    }
-                    Term::Terminal(t) => {
-                        chomsky_terms.push(ChomskyPattern::Terminal(t));
-                    }
-                    Term::Identifier(rule) if !is_transparent_rule(&rule) => {
-                        chomsky_terms.push(ChomskyPattern::NonTerminal(vec![rule]));
-                    }
-                    Term::Identifier(_) => {
-                        panic!("Non-transparent rename rules are not allowed");
-                    }
-                    Term::Empty => {
-                        panic!("Empty rule are not allowed");
-                    }
-                    Term::Alternation(_) => {
-                        panic!("Top-level alternations should have been removed");
-                    }
-                }
-            }
-
+            let chomsky_terms = to_chomsky_terms(patterns);
             raw_rules.insert(identifier, chomsky_terms);
         }
 
@@ -180,20 +156,79 @@ impl Chomsky {
             }
         }
     }
+
+    fn unwrap_identifiers(terms: Vec<Term>) -> Vec<RuleId> {
+        let mut pattern = Vec::new();
+
+        for sub_term in terms {
+            if let Term::Identifier(id) = sub_term {
+                pattern.push(id);
+            } else {
+                panic!("Nested non-terminals");
+            }
+        }
+
+        pattern
+    }
 }
 
-fn unwrap_identifiers(terms: Vec<Term>) -> Vec<RuleId> {
-    let mut pattern = Vec::new();
+fn to_chomsky_terms(patterns: Vec<Term>) -> Vec<ChomskyPattern> {
+    let mut terminals = Vec::new();
+    let mut non_terminals = Vec::new();
 
-    for sub_term in terms {
-        if let Term::Identifier(id) = sub_term {
-            pattern.push(id);
-        } else {
-            panic!("Nested non-terminals");
+    for pattern in patterns {
+        match pattern {
+            Term::Concatenation(terms) => {
+                non_terminals.push(Chomsky::unwrap_identifiers(terms));
+            }
+            Term::Terminal(t) => {
+                terminals.push(t);
+            }
+            Term::Identifier(rule) if !is_transparent_rule(&rule) => {
+                non_terminals.push(vec![rule]);
+            }
+            Term::Identifier(_) => {
+                panic!("Non-transparent rename rules are not allowed");
+            }
+            Term::Empty => {
+                panic!("Empty rules are not allowed");
+            }
+            Term::Alternation(_) => {
+                panic!("Top-level alternations should have been removed");
+            }
         }
     }
 
-    pattern
+    for idx_a in 0..non_terminals.len() {
+        let mut duplicate_indices = Vec::new();
+        let a_terms = &non_terminals[idx_a];
+
+        for idx_b in (idx_a + 1)..non_terminals.len() {
+            let b_terms = &non_terminals[idx_b];
+            if a_terms[0] == b_terms[0] {
+                duplicate_indices.push(idx_b);
+            }
+        }
+
+        if !duplicate_indices.is_empty() {
+
+        }
+    }
+
+    // for terms in &non_terminals {
+    //     for other_terms in &non_terminals {
+    //         if (terms.as_ptr() != other_terms.as_ptr()) && (terms[0] == other_terms[0]) {
+
+    //         }
+    //     }
+    // }
+
+    // this also sorts the terminals to be first
+    terminals
+        .into_iter()
+        .map(ChomskyPattern::Terminal)
+        .chain(non_terminals.into_iter().map(ChomskyPattern::NonTerminal))
+        .collect()
 }
 
 // find and remove all rules that are renames
@@ -258,8 +293,8 @@ fn chomsky_del(rules: RuleStorage) -> RuleStorage {
                         if concatenation.len() > 1 {
                             new_terms.push(Term::Concatenation(concatenation));
                         } else if concatenation.len() == 1 {
-                            // unwrap the element
-                            new_terms.push(concatenation.remove(0));
+                            // concatenation of 1 term: unwrap to the term itself
+                            new_terms.push(concatenation.pop().unwrap());
                         }
                     }
                 }
@@ -284,7 +319,7 @@ fn inline_nullable(
         return vec![Vec::new()];
     }
 
-    let last = concatenation.remove(concatenation.len() - 1);
+    let last = concatenation.pop().unwrap();
 
     // remove_nullable will return all possible prefixes
     let mut new_terms = inline_nullable(concatenation, nullable_rules, null_rules);

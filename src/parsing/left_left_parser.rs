@@ -3,10 +3,7 @@ use std::{
     io::Write,
 };
 
-use crate::transforming::{
-    chomsker::{Chomsky, ChomskyPattern, ChomskyRule},
-    grammar::{Grammar, RuleId, Terminal},
-};
+use crate::transforming::grammar::{Grammar, RuleId, Terminal, Term};
 
 use super::{
     parser::*,
@@ -21,29 +18,30 @@ pub struct Parser {
 }
 
 struct ParseTable {
-    literals: HashMap<RuleId, HashMap<String, Vec<ChomskyPattern>>>,
-    tokens: HashMap<RuleId, HashMap<TokenClass, Vec<ChomskyPattern>>>,
+    rules : Vec<Term>,
+    literals: HashMap<RuleId, HashMap<String, Vec<usize>>>,
+    tokens: HashMap<RuleId, HashMap<TokenClass, Vec<usize>>>,
 }
 
 impl<'c> ParseTable {
-    pub fn get(&'c self, parse_stack: &str, look_ahead: &Token) -> Vec<&'c ChomskyPattern> {
-        let lit_iter: Vec<_> = self
+    pub fn get(&'c self, parse_stack: &str, look_ahead: &Token) -> Vec<&'c Term> {
+        let indices_from_literals: Vec<usize> = self
             .literals
             .get(parse_stack)
             .iter()
             .flat_map(|m| m.get(look_ahead.slice))
-            .flatten()
+            .flat_map(|&i| i)
             .collect();
 
-        let tok_iter: Vec<_> = self
+        let indices_from_tokens: Vec<usize> = self
             .tokens
             .get(parse_stack)
             .iter()
             .flat_map(|m| m.get(&look_ahead.class))
-            .flatten()
+            .flat_map(|&i| i)
             .collect();
 
-        lit_iter.into_iter().chain(tok_iter).collect()
+        indices_from_literals.into_iter().chain(indices_from_tokens).map(|idx| &self.rules[idx]).collect()
     }
 
     pub fn get_expected(&'c self, parse_stack: &str) -> Vec<&'c str> {
@@ -74,9 +72,8 @@ impl<'c> ParseTable {
 
 impl<'c> Parser {
     pub fn new(grammar: Grammar, xml_out: Option<std::fs::File>) -> Parser {
-        let chomsky_grammar = Chomsky::from(grammar);
-        let start_rule = chomsky_grammar.start.clone();
-        let parse_table = construct_parse_table(chomsky_grammar);
+        let start_rule = grammar.start_rule.clone();
+        let parse_table = construct_parse_table(grammar);
         Parser {
             start_rule,
             parse_table,
@@ -164,7 +161,7 @@ impl<'c> Parser {
             pattern_nr += 1;
 
             match pattern {
-                ChomskyPattern::Terminal(terminal) => {
+                Term::Terminal(terminal) => {
                     let has_match = match terminal {
                         Terminal::Literal(str) => str == next_token.slice,
                         Terminal::Token(class) => *class == next_token.class,
@@ -180,14 +177,16 @@ impl<'c> Parser {
                         });
                     }
                 }
-                ChomskyPattern::NonTerminal(sub_rule_names) => {
-                    let result =
-                        self.apply_non_terminal(rule_name, token_index, tokens, sub_rule_names);
+                Term::Concatenation(sub_rule_names) => {
+                    let result = self.apply_non_terminal(rule_name, token_index, tokens, sub_rule_names);
                     match result {
                         Ok(n) => return Ok(n),
                         Err(failures) => all_failures.extend(failures),
                     }
                 }
+                Term::Alternation(_) => todo!(),
+                Term::Identifier(_) => todo!(),
+                Term::Empty => todo!(),
             };
         }
 
@@ -263,12 +262,14 @@ fn is_transparent(rule_name: &str) -> bool {
 }
 
 // T[A,a] contains the rule "A => w" if and only if `w` may start with an `a`
-fn construct_parse_table(grammar: Chomsky) -> ParseTable {
-    let mut literals: HashMap<RuleId, HashMap<String, Vec<ChomskyPattern>>> = HashMap::new();
-    let mut tokens: HashMap<RuleId, HashMap<TokenClass, Vec<ChomskyPattern>>> = HashMap::new();
+fn construct_parse_table(grammar: Grammar) -> ParseTable {
+    let mut literals: HashMap<RuleId, HashMap<String, Vec<usize>>> = HashMap::new();
+    let mut tokens: HashMap<RuleId, HashMap<TokenClass, Vec<usize>>> = HashMap::new();
+    let mut rules: Vec<Term> = Vec::new();
 
-    for (rule_id, rules) in grammar.rules {
-        for rule in rules {
+    let mut idx = 0;
+    for (rule_id, pattern) in grammar.rules {
+        for rule in pattern {
             for terminal in rule.first_terminals {
                 match terminal {
                     Terminal::Literal(str) => literals
@@ -276,18 +277,20 @@ fn construct_parse_table(grammar: Chomsky) -> ParseTable {
                         .or_insert(HashMap::new())
                         .entry(str)
                         .or_insert(Vec::new())
-                        .push(rule.pattern.clone()),
+                        .push(idx),
                     Terminal::Token(class) => tokens
                         .entry(rule_id.clone())
                         .or_insert(HashMap::new())
                         .entry(class)
                         .or_insert(Vec::new())
-                        .push(rule.pattern.clone()),
+                        .push(idx),
                 };
             }
+            idx += 1;
+            rules.push(rule);
         }
     }
 
     // note that the original grammar is destroyed
-    ParseTable { literals, tokens }
+    ParseTable { literals, tokens, rules }
 }
