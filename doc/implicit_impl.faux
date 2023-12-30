@@ -60,8 +60,12 @@ impl Result<P, N> {
         this switch(Pos: Result.Neg, Neg: Result.Pos)
     }
 
-    fn unwrap_pos_or(P default) : P { switch(Pos: identity, Neg: { : default }) }
-    fn unwrap_neg_or(N default) : N { switch(Pos: { : default }, Neg: identity) }
+    fn is_pos boolean {
+        this ?: true !: false
+    }
+
+    fn unwrap_pos_or(P default) : P { switch(Pos: identity, Neg: default) }
+    fn unwrap_neg_or(N default) : N { switch(Pos: default, Neg: identity) }
     
     fn map_both(fn<(P)PR> pos, fn<(N)NR> neg) : Result<PR, NR> {
         this 
@@ -69,8 +73,8 @@ impl Result<P, N> {
             ! neg // Result<PR, NR>
     }
 
-    fn on_pos<R>(fn<(P)R> mapping) : Result<R, N> { map_both(pos: mapping, neg: identity) }
-    fn on_neg<R>(fn<(N)R> mapping) : Result<P, R> { map_both(pos: identity, neg: mapping) }
+    fn on_pos<R>(fn<(P)R> mapping) : Result<R, N> { this switch(Pos: mapping Result.Pos, Neg: Result.Neg ) }
+    fn on_neg<R>(fn<(N)R> mapping) : Result<P, R> { this switch(Pos: Result.Pos, Neg: mapping Result.Neg ) }
 }
 
 // any array of results can be collapsed
