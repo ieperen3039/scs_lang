@@ -1,9 +1,13 @@
 use std::{
-    collections::{hash_map::Keys, HashMap, HashSet},
+    collections::{
+        hash_map::{DefaultHasher, Keys},
+        HashMap, HashSet,
+    },
+    hash::Hash,
     io::Write,
 };
 
-use crate::transforming::grammar::{Grammar, RuleId, Terminal, Term};
+use crate::transforming::grammar::{Grammar, RuleId, Term, Terminal};
 
 use super::{
     parser::*,
@@ -18,7 +22,7 @@ pub struct Parser {
 }
 
 struct ParseTable {
-    rules : Vec<Term>,
+    rules: Vec<Term>,
     literals: HashMap<RuleId, HashMap<String, Vec<usize>>>,
     tokens: HashMap<RuleId, HashMap<TokenClass, Vec<usize>>>,
 }
@@ -30,7 +34,8 @@ impl<'c> ParseTable {
             .get(parse_stack)
             .iter()
             .flat_map(|m| m.get(look_ahead.slice))
-            .flat_map(|&i| i)
+            .flatten()
+            .map(|i| i.to_owned())
             .collect();
 
         let indices_from_tokens: Vec<usize> = self
@@ -38,10 +43,15 @@ impl<'c> ParseTable {
             .get(parse_stack)
             .iter()
             .flat_map(|m| m.get(&look_ahead.class))
-            .flat_map(|&i| i)
+            .flatten()
+            .map(|i| i.to_owned())
             .collect();
 
-        indices_from_literals.into_iter().chain(indices_from_tokens).map(|idx| &self.rules[idx]).collect()
+        indices_from_literals
+            .into_iter()
+            .chain(indices_from_tokens)
+            .map(|idx| &self.rules[idx])
+            .collect()
     }
 
     pub fn get_expected(&'c self, parse_stack: &str) -> Vec<&'c str> {
@@ -178,7 +188,7 @@ impl<'c> Parser {
                     }
                 }
                 Term::Concatenation(sub_rule_names) => {
-                    let result = self.apply_non_terminal(rule_name, token_index, tokens, sub_rule_names);
+                    let result = self.apply_non_terminal(rule_name, token_index, tokens, todo!());
                     match result {
                         Ok(n) => return Ok(n),
                         Err(failures) => all_failures.extend(failures),
@@ -261,36 +271,213 @@ fn is_transparent(rule_name: &str) -> bool {
     rule_name.as_bytes()[0] == b'_'
 }
 
-// T[A,a] contains the rule "A => w" if and only if `w` may start with an `a`
+/// `T[A,a]` contains the rule "A => w" if and only if
+/// (`w` may start with an `a`) &&
+/// (`w` may be empty and `A` may be followed by an `a`)
 fn construct_parse_table(grammar: Grammar) -> ParseTable {
     let mut literals: HashMap<RuleId, HashMap<String, Vec<usize>>> = HashMap::new();
     let mut tokens: HashMap<RuleId, HashMap<TokenClass, Vec<usize>>> = HashMap::new();
-    let mut rules: Vec<Term> = Vec::new();
+    let mut patterns: Vec<Term> = Vec::new();
 
-    let mut idx = 0;
-    for (rule_id, pattern) in grammar.rules {
-        for rule in pattern {
-            for terminal in rule.first_terminals {
+    let follow_sets = get_follow_terminals(&grammar);
+
+    let mut first_terminal_map = HashMap::new();
+    for (rule_id, rule_patterns) in &grammar.rules {
+        first_terminal_map.insert(
+            rule_id.clone(),
+            rule_patterns
+                .iter()
+                .map(|t| get_first_terminals_of_term(t, &grammar))
+                .collect::<Vec<_>>()
+        );
+    }
+
+    for (rule_id, rule_patterns) in grammar.rules {
+        let follow_set = follow_sets.get(&rule_id).unwrap();
+        let first_terminals_of_rule = first_terminal_map.remove(&rule_id).unwrap();
+
+        for (pattern, first_terminals) in rule_patterns.into_iter().zip(first_terminals_of_rule) {
+            let this_idx = get_index_or_add(&mut patterns, pattern);
+
+            let literals_row = literals.entry(rule_id.clone()).or_insert(HashMap::new());
+            let tokens_row = tokens.entry(rule_id.clone()).or_insert(HashMap::new());
+
+            for terminal in first_terminals {
                 match terminal {
-                    Terminal::Literal(str) => literals
-                        .entry(rule_id.clone())
-                        .or_insert(HashMap::new())
-                        .entry(str)
-                        .or_insert(Vec::new())
-                        .push(idx),
-                    Terminal::Token(class) => tokens
-                        .entry(rule_id.clone())
-                        .or_insert(HashMap::new())
-                        .entry(class)
-                        .or_insert(Vec::new())
-                        .push(idx),
+                    None => {
+                        for additional_terminal in follow_set {
+                            add_terminal(
+                                additional_terminal.clone(),
+                                this_idx,
+                                literals_row,
+                                tokens_row,
+                            );
+                        }
+                    }
+                    Some(terminal) => add_terminal(terminal, this_idx, literals_row, tokens_row),
                 };
             }
-            idx += 1;
-            rules.push(rule);
+        }
+    }
+
+    for (rule, row) in &literals {
+        for (literal, follows) in row {
+            if follows.len() > 1 {
+                println!(
+                    "Rule {} with literal '{}' has {} possibilities",
+                    rule,
+                    literal,
+                    follows.len()
+                );
+            }
+        }
+    }
+    for (rule, row) in &tokens {
+        for (token_class, follows) in row {
+            if follows.len() > 1 {
+                println!(
+                    "Rule {} with token '{}' has {} possibilities",
+                    rule,
+                    token_class.str(),
+                    follows.len()
+                );
+            }
         }
     }
 
     // note that the original grammar is destroyed
-    ParseTable { literals, tokens, rules }
+    ParseTable {
+        literals,
+        tokens,
+        rules: patterns,
+    }
+}
+
+fn get_index_or_add(patterns: &mut Vec<Term>, pattern: Term) -> usize {
+    let index_of_pattern = patterns.iter().position(|p| p == &pattern);
+    match index_of_pattern {
+        Some(idx) => idx,
+        None => {
+            patterns.push(pattern);
+            patterns.len() - 1
+        }
+    }
+}
+
+fn add_terminal(
+    terminal: Terminal,
+    this_idx: usize,
+    literals_row: &mut HashMap<String, Vec<usize>>,
+    tokens_row: &mut HashMap<TokenClass, Vec<usize>>,
+) {
+    match terminal {
+        Terminal::Literal(str) => literals_row.entry(str).or_insert(Vec::new()).push(this_idx),
+        Terminal::Token(class) => tokens_row.entry(class).or_insert(Vec::new()).push(this_idx),
+    }
+}
+
+fn get_follow_terminals(grammar: &Grammar) -> HashMap<RuleId, HashSet<Terminal>> {
+    // initialize Fo(S) with { EOF } and every other Fo(A) with the empty set
+    // (we do not initialize Fo(S) however, because our lexer does not append the EOF symbol)
+    let mut follow_terminals = HashMap::new();
+
+    loop {
+        let mut has_change = false;
+
+        for (rule_a, _) in &grammar.rules {
+            // let follow_set = follow_terminals
+            //     .entry(rule_a.clone())
+            //     .or_insert(HashSet::new());
+            let mut follow_set = follow_terminals.remove(rule_a).unwrap_or(HashSet::new());
+            let len = follow_set.len();
+
+            for (rule_b, pattern) in &grammar.rules {
+                for term in pattern {
+                    // if there is a rule of the form `B = vAw`, then
+                    find_terms_containing_rule(rule_a, term, &mut |mut w_terms| {
+                        if let Some(term) = w_terms.next() {
+                            let first_terminals = get_first_terminals_of_term(term, &grammar);
+                            //     if `empty` is in Fi(w), then add Fo(B) to Fo(A)
+                            if first_terminals.contains(&None) {
+                                if let Some(follow_set_of_b) = follow_terminals.get(rule_b) {
+                                    follow_set.extend(follow_set_of_b.clone());
+                                }
+                            }
+                            //     if the terminal a is in Fi(w), then add a to Fo(A)
+                            follow_set.extend(first_terminals.iter().filter_map(Option::to_owned));
+                        } else {
+                            //     if w has length 0, then add Fo(B) to Fo(A)
+                            if let Some(follow_set_of_b) = follow_terminals.get(rule_b) {
+                                follow_set.extend(follow_set_of_b.clone());
+                            }
+                        }
+                    })
+                }
+            }
+            if len != follow_set.len() {
+                has_change = true;
+            }
+
+            follow_terminals.insert(rule_a.clone(), follow_set);
+        }
+
+        // repeat step 2 until all Fo sets stay the same.
+        if !has_change {
+            return follow_terminals;
+        }
+    }
+}
+
+// finds all rules of the form `B = vAw`, where `A` is `rule_id`, and runs `action` on `w`
+fn find_terms_containing_rule<'t, Action>(rule_id: &str, term: &'t Term, action: &mut Action)
+where
+    Action: FnMut(std::slice::Iter<'t, Term>),
+{
+    match term {
+        Term::Concatenation(sub_terms) => {
+            let mut sub_term_iter = sub_terms.iter();
+            while let Some(sub_term) = sub_term_iter.next() {
+                if let Term::Identifier(id) = sub_term {
+                    if id.as_ref() == rule_id {
+                        // pass an iterator to the remaining sub_terms of this term
+                        action(sub_term_iter.clone())
+                    }
+                } else {
+                    find_terms_containing_rule(rule_id, sub_term, action)
+                }
+            }
+        }
+        Term::Alternation(terms) => {
+            for t in terms {
+                find_terms_containing_rule(rule_id, t, action)
+            }
+        }
+        Term::Identifier(id) if id.as_ref() == rule_id => {
+            action([].iter());
+        }
+        Term::Identifier(_) | Term::Terminal(_) | Term::Empty => {}
+    }
+}
+
+fn get_first_terminals<'g>(terms: &'g [Term], grammar: &'g Grammar) -> HashSet<Option<Terminal>> {
+    terms
+        .iter()
+        .flat_map(|t| get_first_terminals_of_term(t, grammar))
+        .collect()
+}
+
+fn get_first_terminals_of_term<'g>(term: &Term, grammar: &Grammar) -> HashSet<Option<Terminal>> {
+    match term {
+        Term::Concatenation(terms) => get_first_terminals_of_term(&terms[0], grammar),
+        Term::Alternation(terms) => get_first_terminals(terms, grammar),
+        Term::Identifier(id) => {
+            let rule_patterns = grammar
+                .rules
+                .get(id)
+                .expect("Rule refers to a rule that does not exist");
+            get_first_terminals(rule_patterns, grammar)
+        }
+        Term::Terminal(t) => HashSet::from([Some(t.clone())]),
+        Term::Empty => HashSet::from([None]),
+    }
 }

@@ -92,15 +92,12 @@ impl<'c> Parser {
 
         match interpretation {
             Err(failures) => Err(failures),
-            Ok(parsed_program) => {
-                if !parsed_program.tokens.len() == tokens.len() {
-                    Err(vec![Failure::IncompleteParse {
-                        char_idx: parsed_program.tokens.len(),
-                    }])
-                } else {
-                    Ok(parsed_program)
-                }
+            Ok(parsed_program) if parsed_program.tokens.len() != tokens.len() => {
+                Err(vec![Failure::IncompleteParse {
+                    char_idx: parsed_program.tokens.len(),
+                }])
             }
+            Ok(parsed_program) => Ok(parsed_program),
         }
     }
 
@@ -130,7 +127,6 @@ impl<'c> Parser {
         }
 
         let next_token = &tokens[token_index];
-        let mut all_failures = Vec::new();
 
         let possible_patterns = self.parse_table.get(rule_name, next_token);
 
@@ -148,6 +144,9 @@ impl<'c> Parser {
 
         let mut pattern_nr = 1;
         let max = possible_patterns.len();
+
+        let mut all_sucesses = Vec::new();
+        let mut all_failures = Vec::new();
 
         // this for-loop is for the case where the given grammar is not an LL(1) grammar
         for pattern in possible_patterns {
@@ -169,29 +168,36 @@ impl<'c> Parser {
                         Terminal::Literal(str) => str == next_token.slice,
                         Terminal::Token(class) => *class == next_token.class,
                     };
+                    assert!(has_match, "{:?} != {:?}", terminal, next_token);
 
-                    if has_match {
-                        self.log_consume_token(&tokens[token_index]);
+                    self.log_consume_token(&tokens[token_index]);
 
-                        return Ok(RuleNode {
-                            rule_name,
-                            tokens: &tokens[token_index..=token_index],
-                            sub_rules: Vec::new(),
-                        });
-                    }
+                    all_sucesses.push(RuleNode {
+                        rule_name,
+                        tokens: &tokens[token_index..=token_index],
+                        sub_rules: Vec::new(),
+                    });
                 }
                 ChomskyPattern::NonTerminal(sub_rule_names) => {
                     let result =
                         self.apply_non_terminal(rule_name, token_index, tokens, sub_rule_names);
                     match result {
-                        Ok(n) => return Ok(n),
+                        Ok(n) => all_sucesses.push(n),
                         Err(failures) => all_failures.extend(failures),
                     }
                 }
             };
         }
 
-        return Err(all_failures);
+        if all_sucesses.is_empty() {
+            Err(all_failures)
+        } else {
+            // return the longest successful parse
+            all_sucesses
+                .into_iter()
+                .max_by_key(|n| n.tokens.len())
+                .ok_or(Vec::new())
+        }
     }
 
     fn apply_non_terminal<'prog: 'c>(

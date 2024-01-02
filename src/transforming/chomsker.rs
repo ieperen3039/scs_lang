@@ -5,7 +5,7 @@ use super::{grammar::*, grammar_util, rule_name_generator::RuleNameGenerator};
 
 // True chomsky normal forms has non-terminal rules of at most 2 elements.
 // we support other rule lengths as well
-const TERM_LENGTH: usize = 3;
+const TERM_LENGTH: usize = 2;
 
 #[derive(Debug, Clone)]
 pub enum ChomskyPattern {

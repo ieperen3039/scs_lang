@@ -5,8 +5,7 @@ where
     Transformation: Fn(Term) -> Term,
 {
     match term {
-        Term::Concatenation(terms) => 
-        {
+        Term::Concatenation(terms) => {
             for t in terms {
                 transform_terminals(t, transformation);
             }
@@ -16,9 +15,7 @@ where
                 transform_terminals(t, transformation);
             }
         }
-        _ => {
-            *term = transformation(term.clone())
-        }
+        _ => *term = transformation(term.clone()),
     };
 }
 
@@ -47,7 +44,7 @@ impl Grammar {
     pub fn write(grammar: &Grammar) -> String {
         Grammar::write_rules(&grammar.rules)
     }
-    
+
     pub fn write_rules(rules: &RuleStorage) -> String {
         let mut output_string = String::new();
         for (identifier, terms) in rules {
@@ -61,7 +58,7 @@ impl Grammar {
         }
         output_string
     }
-    
+
     fn to_string(term: &Term, target: &mut String) {
         match term {
             Term::Concatenation(terms) => {
@@ -98,5 +95,4 @@ impl Grammar {
             }
         };
     }
-    
 }
