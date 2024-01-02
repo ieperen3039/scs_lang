@@ -281,6 +281,7 @@ fn construct_parse_table(grammar: Grammar) -> ParseTable {
 
     let follow_sets = get_follow_terminals(&grammar);
 
+    // first calculate all first terminals before moving out of grammar
     let mut first_terminal_map = HashMap::new();
     for (rule_id, rule_patterns) in &grammar.rules {
         first_terminal_map.insert(
@@ -288,7 +289,7 @@ fn construct_parse_table(grammar: Grammar) -> ParseTable {
             rule_patterns
                 .iter()
                 .map(|t| get_first_terminals_of_term(t, &grammar))
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>(),
         );
     }
 
@@ -303,18 +304,17 @@ fn construct_parse_table(grammar: Grammar) -> ParseTable {
             let tokens_row = tokens.entry(rule_id.clone()).or_insert(HashMap::new());
 
             for terminal in first_terminals {
-                match terminal {
-                    None => {
-                        for additional_terminal in follow_set {
-                            add_terminal(
-                                additional_terminal.clone(),
-                                this_idx,
-                                literals_row,
-                                tokens_row,
-                            );
-                        }
+                if let Some(terminal) = terminal {
+                    add_terminal(terminal, this_idx, literals_row, tokens_row)
+                } else {
+                    for additional_terminal in follow_set {
+                        add_terminal(
+                            additional_terminal.clone(),
+                            this_idx,
+                            literals_row,
+                            tokens_row,
+                        );
                     }
-                    Some(terminal) => add_terminal(terminal, this_idx, literals_row, tokens_row),
                 };
             }
         }
