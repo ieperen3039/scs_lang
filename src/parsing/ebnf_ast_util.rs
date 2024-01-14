@@ -57,7 +57,7 @@ fn ebnf_ast_term_to_string(term: &Term, target: &mut String) {
         }
         Term::Token(i) => {
             target.push_str("? ");
-            target.push_str(i.str());
+            target.push_str(i.as_str());
             target.push_str(" ?");
         }
     };

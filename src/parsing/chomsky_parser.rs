@@ -62,7 +62,7 @@ impl<'c> ParseTable {
             .iter()
             .map(|&m| m)
             .flat_map(HashMap::keys)
-            .map(TokenClass::str)
+            .map(TokenClass::as_str)
             .collect();
 
         expected_tokens

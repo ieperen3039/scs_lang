@@ -312,7 +312,7 @@ impl<'bnf> Parser {
         expected: &TokenClass,
     ) -> Result<Interpretation<'prog, 'bnf>, Failure<'bnf>> {
         let first_token = tokens.first().ok_or(Failure::EndOfFile {
-            expected: expected.str(),
+            expected: expected.as_str(),
         })?;
 
         if first_token.class == *expected {
@@ -323,7 +323,7 @@ impl<'bnf> Parser {
         } else {
             Err(Failure::UnexpectedToken {
                 char_idx: first_token.char_idx,
-                expected: expected.str(),
+                expected: expected.as_str(),
             })
         }
     }

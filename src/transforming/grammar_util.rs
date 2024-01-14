@@ -1,3 +1,5 @@
+use crate::parsing::token::Token;
+
 use super::grammar::*;
 
 pub fn transform_terminals<Transformation>(term: &mut Term, transformation: &Transformation)
@@ -87,12 +89,21 @@ impl Grammar {
             }
             Term::Terminal(Terminal::Token(i)) => {
                 target.push_str("? ");
-                target.push_str(i.str());
+                target.push_str(i.as_str());
                 target.push_str(" ?");
             }
             Term::Empty => {
                 target.push_str("? EMPTY ?");
             }
         };
+    }
+}
+
+impl Terminal {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Terminal::Literal(s) => s,
+            Terminal::Token(t) => t.as_str(),
+        }
     }
 }

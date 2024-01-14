@@ -9,7 +9,7 @@ pub enum TokenClass {
 }
 
 impl TokenClass {
-    pub fn str(&self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match self {
             TokenClass::IDENTIFIER => "IDENTIFIER",
             TokenClass::NUMBER => "NUMBER",

@@ -151,7 +151,7 @@ impl Chomsky {
             }
             ChomskyPattern::Terminal(Terminal::Token(i)) => {
                 output_string.push_str("? ");
-                output_string.push_str(i.str());
+                output_string.push_str(i.as_str());
                 output_string.push_str(" ?");
             }
         }
