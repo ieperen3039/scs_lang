@@ -7,9 +7,6 @@ use super::{
     token::Token,
 };
 
-pub type ParseResult<'prog, 'bnf> =
-    Box<dyn Iterator<Item = Result<Interpretation<'prog, 'bnf>, Failure<'bnf>>> + 'bnf>;
-
 pub const MAX_NUM_TOKENS_BACKTRACE_ON_ERROR: i32 = 5;
 pub const MAX_NUM_TOKENS_BACKTRACE_ON_SUCCESS: usize = 100;
 pub const MAX_ERRORS_PER_RULE: usize = 50;
@@ -88,8 +85,30 @@ impl<'prog, 'bnf> std::fmt::Debug for Interpretation<'prog, 'bnf> {
 pub enum ParseNode<'prog, 'bnf> {
     Rule(RuleNode<'prog, 'bnf>),
     EmptyNode,
-    Pair(Box<ParseNode<'prog, 'bnf>>, Box<ParseNode<'prog, 'bnf>>),
+    Vec(Vec<ParseNode<'prog, 'bnf>>),
     Terminal(&'prog Token<'prog>),
+}
+
+impl<'prog, 'bnf> ParseNode<'prog, 'bnf> {
+    pub fn unwrap_to_rulenodes(self) -> Vec<RuleNode<'prog, 'bnf>> {
+        match self {
+            ParseNode::Rule(rule) => vec![rule],
+            ParseNode::Vec(sub_rules) => {
+                sub_rules.into_iter().flat_map(Self::unwrap_to_rulenodes).collect()
+            }
+            ParseNode::Terminal(_) | ParseNode::EmptyNode => Vec::new(),
+        }
+    }
+
+    pub fn num_tokens(&self) -> usize {
+        match self {
+            ParseNode::Rule(rule) => rule.tokens.len(),
+            ParseNode::Vec(sub_rules) => {
+                sub_rules.into_iter().map(Self::num_tokens).sum()
+            }
+            ParseNode::Terminal(_) | ParseNode::EmptyNode => 0,
+        }
+    }
 }
 
 // ok < err, see compare_ok_result and compare_err_result
@@ -127,19 +146,6 @@ pub fn get_err_significance(failure: &Failure<'_>) -> i32 {
         Failure::LexerError { .. } => i32::MAX - 3,
         Failure::Error(_) => i32::MAX - 2,
         Failure::InternalError(_) => i32::MAX - 1,
-    }
-}
-
-pub fn unwrap_to_rulenodes<'prog, 'bnf>(node: ParseNode<'prog, 'bnf>) -> Vec<RuleNode<'prog, 'bnf>> {
-    match node {
-        ParseNode::Rule(rule) => vec![rule],
-        ParseNode::Pair(sub_rule_1, sub_rule_2) => {
-            let mut first_bit = unwrap_to_rulenodes(*sub_rule_1);
-            let mut second_bit = unwrap_to_rulenodes(*sub_rule_2);
-            first_bit.append(&mut second_bit);
-            first_bit
-        }
-        ParseNode::Terminal(_) | ParseNode::EmptyNode => Vec::new(),
     }
 }
 

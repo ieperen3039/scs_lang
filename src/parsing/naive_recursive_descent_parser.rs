@@ -4,7 +4,8 @@ use simple_error::SimpleError;
 
 use super::{ebnf_ast, token::{Token, TokenClass}, parser::*, rule_nodes::RuleNode};
 
-
+pub type ParseResult<'prog, 'bnf> =
+    Box<dyn Iterator<Item = Result<Interpretation<'prog, 'bnf>, Failure<'bnf>>> + 'bnf>;
 
 pub struct Parser {
     grammar: ebnf_ast::EbnfAst,
@@ -136,7 +137,7 @@ impl<'bnf> Parser {
                         val: ParseNode::Rule(RuleNode {
                             rule_name: &rule.identifier,
                             tokens: &tokens[..num_tokens],
-                            sub_rules: unwrap_to_rulenodes(interpretation.val),
+                            sub_rules: interpretation.val.unwrap_to_rulenodes(),
                         }),
                         remaining_tokens: &tokens[num_tokens..],
                     }),
@@ -206,10 +207,7 @@ impl<'bnf> Parser {
             self.apply_concatenation(prev_interp.remaining_tokens, &sub_terms[1..])
                 .map(move |further_result| match further_result {
                     Ok(further_interp) => Ok(Interpretation {
-                        val: ParseNode::Pair(
-                            Box::new(prev_interp.val.clone()),
-                            Box::new(further_interp.val),
-                        ),
+                        val: ParseNode::Vec(vec![prev_interp.val.clone(), further_interp.val]),
                         remaining_tokens: further_interp.remaining_tokens,
                     }),
                     Err(err) => Err(err),
@@ -258,10 +256,7 @@ impl<'bnf> Parser {
                 .map(move |further_result| {
                     if let Ok(further_interp) = further_result {
                         Ok(Interpretation {
-                            val: ParseNode::Pair(
-                                Box::new(prev_interp.val.clone()),
-                                Box::new(further_interp.val),
-                            ),
+                            val: ParseNode::Vec(vec![prev_interp.val.clone(), further_interp.val]),
                             remaining_tokens: further_interp.remaining_tokens,
                         })
                     } else {
