@@ -106,7 +106,8 @@ impl<'prog, 'bnf> ParseNode<'prog, 'bnf> {
             ParseNode::Vec(sub_rules) => {
                 sub_rules.into_iter().map(Self::num_tokens).sum()
             }
-            ParseNode::Terminal(_) | ParseNode::EmptyNode => 0,
+            ParseNode::Terminal(_) => 1,
+            ParseNode::EmptyNode => 0,
         }
     }
 }

@@ -127,15 +127,27 @@ impl<'g> Parser {
         let is_transparent = rule_name.as_bytes()[0] == b'_';
         let pattern = self.parse_table.get(rule_name, &tokens[token_index..]);
 
-        if pattern.is_none() {
-            let expected = self
-                .parse_table
-                .get_expected(rule_name);
+        if pattern.is_some() {
+            let result_of_term = self.apply_term(pattern.unwrap(), tokens, token_index)?;
+
+            if is_transparent {
+                return Ok(result_of_term);
+            }
+
+            let tokens_end = token_index + result_of_term.num_tokens();
+            Ok(ParseNode::Rule(RuleNode {
+                rule_name,
+                tokens: &tokens[token_index..tokens_end],
+                sub_rules: result_of_term.unwrap_to_rulenodes(),
+            }))
+        } else {
+            let expected = self.parse_table.get_expected(rule_name);
 
             if expected.is_empty() {
-                return Err(vec![Failure::InternalError(SimpleError::new(
-                    format!("No parse table tokens for rule {}", rule_name),
-                ))])
+                return Err(vec![Failure::InternalError(SimpleError::new(format!(
+                    "No parse table tokens for rule {}",
+                    rule_name
+                )))]);
             } else {
                 return Err(expected
                     .into_iter()
@@ -146,19 +158,6 @@ impl<'g> Parser {
                     .collect());
             }
         }
-
-        let result_of_term = self.apply_term(pattern.unwrap(), tokens, token_index)?;
-
-        if is_transparent {
-            return Ok(result_of_term);
-        }
-
-        let tokens_end = token_index + result_of_term.num_tokens();
-        Ok(ParseNode::Rule(RuleNode {
-            rule_name,
-            tokens : &tokens[token_index..tokens_end],
-            sub_rules: result_of_term.unwrap_to_rulenodes(),
-        }))
     }
 
     fn apply_term<'prog: 'g>(
@@ -172,7 +171,9 @@ impl<'g> Parser {
             Term::Concatenation(sub_terms) => {
                 self.apply_concatenation(sub_terms, tokens, token_index)
             }
-            Term::Alternation(_) => Err(vec![Failure::InternalError(SimpleError::new("Alterations should have been removed"))]),
+            Term::Alternation(_) => Err(vec![Failure::InternalError(SimpleError::new(
+                "Alterations should have been removed",
+            ))]),
             Term::Identifier(rule_name) => self.apply_rule(token_index, tokens, rule_name),
             Term::Empty => Ok(ParseNode::EmptyNode),
         }
@@ -211,7 +212,7 @@ impl<'g> Parser {
         let mut sub_rule_token_index = token_index;
 
         for term in terms {
-            let applied_rule = self.apply_term(term, tokens, token_index);
+            let applied_rule = self.apply_term(term, tokens, sub_rule_token_index);
 
             match applied_rule {
                 Ok(rule) => {
@@ -281,6 +282,7 @@ fn construct_parse_table(grammar: Grammar) -> ParseTable {
                 .collect::<Vec<_>>(),
         );
     }
+    println!("first_terminal_map = {:?}", first_terminal_map);
 
     for (rule_id, rule_patterns) in grammar.rules {
         let follow_set = follow_sets.get(&rule_id).unwrap();
@@ -449,7 +451,8 @@ fn get_first_n_terminals_of_term<'g>(
 ) -> HashSet<Vec<Terminal>> {
     match term {
         Term::Concatenation(terms) => {
-            let mut prefixes: HashSet<Vec<Terminal>> = HashSet::new();
+            let mut prefixes: HashSet<Vec<Terminal>> = HashSet::from([Vec::new()]);
+
             for term in terms {
                 let new_postfix = get_first_n_terminals_of_term(term, size, grammar);
                 prefixes = limited_carthesian_product(&prefixes, &new_postfix, size);
@@ -488,7 +491,8 @@ fn limited_carthesian_product(
         for postfix in postfixes {
             // add `(prefix ++ postfix)`, limited to a size of `max_size`
             let mut new_prefix = prefix.clone();
-            for i in 0..(max_size - prefix.len()) {
+            let max_elements_from_postfix = std::cmp::min(postfix.len(), max_size - prefix.len());
+            for i in 0..max_elements_from_postfix {
                 new_prefix.push(postfix[i].clone());
             }
             new_prefixes.insert(new_prefix);
@@ -503,7 +507,8 @@ fn remove_alterations(mut grammar: Grammar) -> Grammar {
     for (rule_id, pattern) in grammar.rules {
         let mut new_patterns = Vec::new();
         for term in pattern {
-            let new_term = remove_term_alterations(term, &mut grammar.name_generator, &mut new_rules);
+            let new_term =
+                remove_term_alterations(term, &mut grammar.name_generator, &mut new_rules);
             new_patterns.push(new_term);
         }
         new_rules.insert(rule_id, new_patterns);
