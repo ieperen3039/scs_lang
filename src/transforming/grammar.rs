@@ -28,3 +28,15 @@ pub enum Terminal {
     Literal(String),
     Token(TokenClass)
 }
+
+impl std::hash::Hash for Term {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            Term::Concatenation(t) => t.hash(state),
+            Term::Alternation(t) => t.hash(state),
+            Term::Identifier(s) => s.hash(state),
+            Term::Terminal(t) => core::mem::discriminant(t).hash(state),
+            Term::Empty => core::mem::discriminant(self).hash(state),
+        }
+    }
+}

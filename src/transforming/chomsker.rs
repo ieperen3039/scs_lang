@@ -507,18 +507,6 @@ fn unwrap_top_level_elements(rules: RuleStorage) -> RuleStorage {
     new_rules
 }
 
-impl std::hash::Hash for Term {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        match self {
-            Term::Concatenation(t) => t.hash(state),
-            Term::Alternation(t) => t.hash(state),
-            Term::Identifier(s) => s.hash(state),
-            Term::Terminal(t) => core::mem::discriminant(t).hash(state),
-            Term::Empty => core::mem::discriminant(self).hash(state),
-        }
-    }
-}
-
 fn deduplicate(rules: RuleStorage) -> RuleStorage {
     let mut renames: HashMap<RuleId, RuleId> = HashMap::new();
     let mut inverse_rules: HashMap<&[Term], RuleId> = HashMap::new();
@@ -556,7 +544,7 @@ fn apply_renames(rules: RuleStorage, renames: HashMap<RuleId, RuleId>) -> RuleSt
         }
 
         for term in &mut terms {
-            grammar_util::transform_terminals(term, &|t| rename_or_this(t, &renames))
+            grammar_util::transform_bottom_up(term, &|t| rename_or_this(t, &renames))
         }
 
         assert!(!terms.is_empty());
@@ -566,13 +554,13 @@ fn apply_renames(rules: RuleStorage, renames: HashMap<RuleId, RuleId>) -> RuleSt
     new_rules
 }
 
-fn rename_or_this(original_terminal: Term, renames: &HashMap<RuleId, RuleId>) -> Term {
-    match original_terminal {
-        Term::Identifier(id) if renames.contains_key(&id) => {
-            let new_rule_name = renames.get(&id).unwrap().to_owned();
+fn rename_or_this(terminal: &mut Term, renames: &HashMap<RuleId, RuleId>) {
+    match terminal {
+        Term::Identifier(id) if renames.contains_key(id) => {
+            *id = renames.get(id).unwrap().to_owned();
             // recursively resolve renames, there may be chains of renames in the hashmap
-            rename_or_this(Term::Identifier(new_rule_name), renames)
+            rename_or_this(terminal, renames);
         }
-        _ => original_terminal,
+        _ => {},
     }
 }

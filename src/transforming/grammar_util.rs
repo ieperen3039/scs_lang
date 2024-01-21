@@ -2,44 +2,52 @@ use crate::parsing::token::Token;
 
 use super::grammar::*;
 
-pub fn transform_terminals<Transformation>(term: &mut Term, transformation: &Transformation)
+pub fn transform_top_down<Transformation>(term: &mut Term, transformation: &Transformation)
 where
-    Transformation: Fn(Term) -> Term,
+    Transformation: Fn(&mut Term),
 {
+    transformation(term);
+
     match term {
-        Term::Concatenation(terms) => {
+        Term::Concatenation(terms) | Term::Alternation(terms) => {
             for t in terms {
-                transform_terminals(t, transformation);
+                transform_top_down(t, transformation);
             }
-        }
-        Term::Alternation(terms) => {
-            for t in terms {
-                transform_terminals(t, transformation);
-            }
-        }
-        _ => *term = transformation(term.clone()),
+        },
+        _ => {},
     };
 }
 
-pub fn apply_recursively<TermReader>(term: &Term, function: &TermReader)
+pub fn transform_bottom_up<TermReader>(term: &mut Term, function: &TermReader)
 where
-    TermReader: Fn(&Term),
+    TermReader: Fn(&mut Term),
 {
-    function(term);
-
     match term {
-        Term::Concatenation(terms) => {
+        Term::Concatenation(terms) | Term::Alternation(terms) => {
             for t in terms {
-                apply_recursively(t, function);
+                transform_bottom_up(t, function);
             }
-        }
-        Term::Alternation(terms) => {
-            for t in terms {
-                apply_recursively(t, function);
-            }
-        }
+        },
         _ => {}
     };
+
+    function(term);
+}
+
+pub fn iterate_recursively<TermReader>(term: &Term, function: &mut TermReader)
+where
+    TermReader: FnMut(&Term),
+{
+    match term {
+        Term::Concatenation(terms) | Term::Alternation(terms) => {
+            for t in terms {
+                iterate_recursively(t, function);
+            }
+        },
+        _ => {}
+    };
+
+    function(term);
 }
 
 impl Grammar {
