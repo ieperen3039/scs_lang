@@ -1,88 +1,88 @@
-faux_program            = _, [ version_declaration, _ ], { include_declaration, _ }, { _definition, _ }, [ program_interface, _, function_block ], _;
+faux_program            = [ version_declaration ], { include_declaration }, { _definition }, [ program_interface, function_block ];
 program_interface       = _function_interface;
 
 (* version *)
 version_dialect         = "faux";
-version_declaration     = _keyword_version, _, version_dialect, [ _, version ];
+version_declaration     = _keyword_version, version_dialect, [ version ];
 version                 = version_major, ".", version_minor, ".", version_patch;
 version_major           = ? NUMBER ?;
 version_minor           = ? NUMBER ?;
 version_patch           = ? NUMBER ?;
 
 (* include section *)
-include_declaration     = _keyword_use, _, include_file;
+include_declaration     = _keyword_use, include_file;
 include_file            = ? STRING ?;
 
 (* scopes and definitions *)
 identifier              = ? IDENTIFIER ?;
 _definition             = constant_def | scope | type_definition | enum_definition | variant_definition | implementation | function_definition;
-scope                   = scope_name, _, "{", _, { _definition, _ }, "}";
+scope                   = scope_name, "{", { _definition }, "}";
 scope_name              = ? IDENTIFIER ?;
-type_definition         = _keyword_type, _, base_type_decl, _, "=",  ( derived_type | native_decl );
-field_declaration       = type_ref, _, identifier, _, ";";
+type_definition         = _keyword_type, base_type_decl, "=",  ( derived_type | native_decl );
+field_declaration       = type_ref, identifier, ";";
 (* reference to existing type *)
-type_ref                = ( ( [ _scope_reference, "." ], base_type_ref ) | fn_type | tuple_inst ), { _, buffer_symbol };
+type_ref                = ( ( [ _scope_reference, "." ], base_type_ref ) | fn_type | tuple_inst ), { buffer_symbol };
 _scope_reference        = scope_name, { ".", scope_name };
 (* reference to existing basic type *)
 derived_type            = ( [ _scope_reference, "." ], base_type_ref ) | tuple_inst;
 (* instantiation of a tuple *)
-tuple_inst               = "[", _, _type_list, _, "]";
+tuple_inst               = "[", _type_list, "]";
 (* reference to existing base type, enum or variant. instantiates generic types *)
-base_type_ref           = identifier, [ _, generic_types_inst ];
+base_type_ref           = identifier, [ generic_types_inst ];
 (* declaration of new type name, declares the existence of generic types *)
-base_type_decl          = identifier, [ _, generic_types_decl ];
+base_type_decl          = identifier, [ generic_types_decl ];
 (* declaration of generic types *)
-generic_types_decl      = "<", _, _name_list, _, ">";
+generic_types_decl      = "<", _name_list, ">";
 (* instantion of generic types *)
-generic_types_inst      = "<", _, _type_list, _, ">";
+generic_types_inst      = "<", _type_list, ">";
 (* function does not actually use generics, only syntactically *)
-fn_type                 = _keyword_fn, _, [ "<", _, [ "(", _, unnamed_parameter_list, _, ")", _ ], return_type, _, ">" ];
-enum_definition         = _keyword_enum, _, identifier, _, "[", _, enum_value_decl, _, { ",", _, enum_value_decl, _ }, "]";
+fn_type                 = _keyword_fn, [ "<", [ "(", unnamed_parameter_list, ")" ], return_type, ">" ];
+enum_definition         = _keyword_enum, identifier, "[", enum_value_decl, { ",", enum_value_decl }, "]";
 enum_value_decl         = ? IDENTIFIER ?;
-variant_definition      = _keyword_variant, _, identifier, _, [ generic_types_decl, _ ], "[", _, variant_value_decl, _, { ",", variant_value_decl, _ }, "]";
-variant_value_decl      = identifier, _, "(", _, type_ref, _, ")";
+variant_definition      = _keyword_variant, identifier, [ generic_types_decl ], "[", variant_value_decl, { ",", variant_value_decl }, "]";
+variant_value_decl      = identifier, "(", type_ref, ")";
 (* generics are not instantiated, hence a base_type_decl *)
-implementation          = _keyword_start_implementation, _, base_type_decl, { _, buffer_symbol }, _, "{", _, { function_definition, _ }, "}";
+implementation          = _keyword_start_implementation, base_type_decl, { buffer_symbol }, "{", { function_definition }, "}";
 
-constant_def            = _keyword_const, _, type_ref, _, identifier, _, "=", _, statement;
+constant_def            = _keyword_const, type_ref, identifier, "=", statement;
 
 (* function definitions and parameters *)
-function_definition     = function_signature, _, ( function_block | native_decl );
-function_signature      = _keyword_fn, _, function_name, _, [ generic_types_decl, _ ], _function_interface;
+function_definition     = function_signature, ( function_block | native_decl );
+function_signature      = _keyword_fn, function_name, [ generic_types_decl ], _function_interface;
 function_name           = ? IDENTIFIER ?;
-_function_interface      = "(", _, [ parameter_list, _ ], ")", _, ":", _, return_type;
-parameter_list          = parameter, { _, ",", _, parameter };
-parameter               = type_ref, _, [ expansion_decl, _ ], identifier;
+_function_interface      = "(", [ parameter_list ], ")", ":", return_type;
+parameter_list          = parameter, { ",", parameter };
+parameter               = type_ref, [ expansion_decl ], identifier;
 unnamed_parameter_list  = _type_list;
 untyped_parameter_list  = _name_list;
 return_type             = type_ref;
 
 (* statements *)
-function_block          = "{", _, statement, _, { statement_separator, _, [ statement, _ ] }, "}";
-statement               = _expression, { _, _mutator }; 
+function_block          = "{", statement, { statement_separator, [ statement ] }, "}";
+statement               = _expression, { _mutator }; 
 statement_separator     = ";";
 _expression             = identifier | static_function_call | lambda | array_initialisation | _literal;
 
 (* function call statements *)
 static_function_call    = [ _scope_reference ], _function_call_tail;
 method_call             = [ type_ref, "." ], _function_call_tail;
-_function_call_tail     = function_name, _, [ "(", [ _, _argument_list ], _, ")" ];
-_argument_list          = single_argument | ( named_argument, { _, ",", _, named_argument } );
+_function_call_tail     = function_name, [ "(", [ _argument_list ], ")" ];
+_argument_list          = single_argument | ( named_argument, { ",", named_argument } );
 single_argument         = _expression;
-named_argument          = identifier, _, ":", _, _expression;
-_type_list              = type_ref, { _, ",", _, type_ref };
-_name_list              = identifier, { _, ",", _, identifier };
+named_argument          = identifier, ":", _expression;
+_type_list              = type_ref, { ",", type_ref };
+_name_list              = identifier, { ",", identifier };
 
 (* mutators, selectors and usage indicators *)
 _mutator                = method_call | static_function_call | operator | mutator_cast | mutator_assign;
-operator                = ? SYMBOL ?;
-mutator_cast           = _usage_cast, _, type_ref, _, _cast_end;
-mutator_assign         = _usage_assign, _, ( return_decl | ( [ type_ref ], _, identifier) );
+operator                = ? OPERATOR ?;
+mutator_cast           = _usage_cast, type_ref, _cast_end;
+mutator_assign         = _usage_assign, ( return_decl | ( [ type_ref ], identifier) );
 
 (* other statements *)
-array_initialisation    = "[", [ _, _expression, { _, ",", _, _expression } ], _, "]";
+array_initialisation    = "[", [ _expression, { ",", _expression } ], "]";
 lambda                  = _lamda;
-_lamda                  = [ "(", _, untyped_parameter_list, _, ")", _ ], [ ":", _, return_type ], _, function_block;
+_lamda                  = [ "(", untyped_parameter_list, ")" ], [ ":", return_type ], function_block;
 _literal                = string_literal | integer_literal | float_literal;
 string_literal          = ? STRING ?;
 integer_literal         = ? NUMBER ?;
@@ -112,7 +112,3 @@ _keyword_return = "return";
 (* _keyword_static = "static"; *)
 _keyword_use = "use";
 _keyword_start_implementation = "impl";
-
-
-(* whitespace *)
-_ = [ ? WHITESPACE ? ];

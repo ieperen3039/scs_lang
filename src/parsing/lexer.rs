@@ -1,10 +1,12 @@
 use super::token::{Token, TokenClass};
 
-pub struct Lexer {}
+pub struct Lexer {
+    pub ignore_whitespace : bool,
+}
 
 impl Lexer {
     pub fn read<'prog>(string: &'prog str) -> Result<Vec<Token<'prog>>, usize> {
-        Lexer{}.read_all(string)
+        Lexer{ ignore_whitespace: false }.read_all(string)
     }
 
     pub fn read_all<'prog>(&self, string: &'prog str) -> Result<Vec<Token<'prog>>, usize> {
@@ -17,6 +19,9 @@ impl Lexer {
 
         while cursor < string.len() {
             match self.read_tokens(&string[cursor..]) {
+                Some((TokenClass::WHITESPACE, size)) if self.ignore_whitespace => {
+                    cursor += size;
+                }
                 Some((class, size)) => {
                     let slice = &string[cursor..(cursor + size)];
                     tokens.push(Token {
@@ -61,8 +66,13 @@ impl Lexer {
             return Some((TokenClass::NUMBER, num_chars));
         }
 
+        // all symbols with special meaning (= cannot be operators)
+        if ['(', ')', '[', ']', '{', '}', ';'].contains(&first_char) {
+            return Some((TokenClass::SPECIAL, 1));
+        }
+
         if first_char.is_ascii_punctuation() {
-            return Some((TokenClass::SYMBOL, 1));
+            return Some((TokenClass::OPERATOR, 1));
         }
 
         // identifier: [a-zA-Z_][a-zA-Z0-9_]*

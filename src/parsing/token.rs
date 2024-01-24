@@ -3,8 +3,9 @@ pub enum TokenClass {
     INVALID,
     IDENTIFIER,
     NUMBER,
-    SYMBOL,
+    OPERATOR,
     STRING,
+    SPECIAL,
     WHITESPACE,
 }
 
@@ -15,7 +16,8 @@ impl TokenClass {
             TokenClass::NUMBER => "NUMBER",
             TokenClass::STRING => "STRING",
             TokenClass::WHITESPACE => "WHITESPACE",
-            TokenClass::SYMBOL => "SYMBOL",
+            TokenClass::OPERATOR => "OPERATOR",
+            TokenClass::SPECIAL => "SPECIAL",
             TokenClass::INVALID => "<invalid token>",
         }
     }
@@ -26,7 +28,10 @@ impl TokenClass {
             "NUMBER" => Self::NUMBER,
             "STRING" => Self::STRING,
             "WHITESPACE" => Self::WHITESPACE,
-            "SYMBOL" => Self::SYMBOL,
+            "OPERATOR" => Self::OPERATOR,
+            "SPECIAL" => Self::SPECIAL,
+            // some backwards-compatible strings:
+            "SYMBOL" => Self::OPERATOR,
             _ => Self::INVALID,
         }
     }

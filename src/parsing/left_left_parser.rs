@@ -34,10 +34,19 @@ impl<'c> ParseTable {
     pub fn get(&'c self, parse_stack: &str, look_ahead: &[Token<'_>]) -> Option<&'c Term> {
         let row = self.lookup_table.get(parse_stack)?;
         for (prefix, index) in row {
+            println!("trying {:?}", prefix);
             let mut comparison_iter = prefix.iter().zip(look_ahead);
-            if comparison_iter.all(|(expected, actual)| ParseTable::equal(expected, actual)) {
+            if comparison_iter.all(|(expected, actual)| {
+                let result = ParseTable::equal(expected, actual);
+                if result { println!("{:?} == {:?}", expected, actual); }
+                else { println!("{:?} != {:?}", expected, actual); }
+                result
+            }
+            ) {
+                println!("returning {}", index);
                 return Some(&self.rules[*index]);
             }
+            println!("giving up on {:?}", prefix);
         }
         None
     }
@@ -272,7 +281,7 @@ fn construct_parse_table(grammar: Grammar) -> ParseTable {
     let follow_sets = get_follow_terminals(&grammar, maximum_lookahead);
 
     // first calculate all first terminals before moving out of grammar
-    let mut first_terminal_map = HashMap::new();
+    let mut first_terminal_map: HashMap<RuleId, Vec<HashSet<Vec<Terminal>>>> = HashMap::new();
     for (rule_id, rule_patterns) in &grammar.rules {
         first_terminal_map.insert(
             rule_id.clone(),
@@ -453,22 +462,25 @@ fn get_first_n_terminals_of_term<'g>(
         Term::Concatenation(terms) => {
             let mut prefixes: HashSet<Vec<Terminal>> = HashSet::from([Vec::new()]);
 
-            for term in terms {
-                let new_postfix = get_first_n_terminals_of_term(term, size, grammar);
+            for sub_term in terms {
+                let smallest_prefix = prefixes.iter().map(Vec::len).min().unwrap_or(0);
+                let max_postfix_size = size - smallest_prefix;
+                let new_postfix = get_first_n_terminals_of_term(sub_term, max_postfix_size, grammar);
                 prefixes = limited_carthesian_product(&prefixes, &new_postfix, size);
 
                 if prefixes.iter().all(|p| p.len() >= size) {
                     break;
                 }
+
             }
             return prefixes;
         }
         Term::Alternation(terms) => get_first_n_terminals(terms, size, grammar),
-        Term::Identifier(id) => {
+        Term::Identifier(rule_name) => {
             let rule_patterns = grammar
                 .rules
-                .get(id)
-                .expect("Rule refers to a rule that does not exist");
+                .get(rule_name)
+                .expect("Found rule id of rule that does not exist");
             return get_first_n_terminals(rule_patterns, size, grammar);
         }
         Term::Terminal(t) => HashSet::from([vec![t.clone()]]),

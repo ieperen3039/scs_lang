@@ -25,7 +25,7 @@ fn simple_lexer() {
                 char_idx: 0
             },
             Token {
-                class: TokenClass::SYMBOL,
+                class: TokenClass::OPERATOR,
                 slice: "+",
                 char_idx: 1
             },
@@ -61,7 +61,7 @@ fn simple_parser_with_simple_ignore() {
                 char_idx: 1
             },
             Token {
-                class: TokenClass::SYMBOL,
+                class: TokenClass::OPERATOR,
                 slice: "+",
                 char_idx: 2
             },
@@ -103,7 +103,7 @@ fn simple_parser_with_token_usage() {
                 char_idx: 1
             },
             Token {
-                class: TokenClass::SYMBOL,
+                class: TokenClass::OPERATOR,
                 slice: "+",
                 char_idx: 2
             },
@@ -181,7 +181,7 @@ fn complex_parser_with_complex_ignore() {
             },
             Token {
                 // 8
-                class: TokenClass::SYMBOL,
+                class: TokenClass::OPERATOR,
                 slice: ",",
                 char_idx: 18
             },
@@ -242,7 +242,7 @@ fn complex_parser_with_complex_ignore() {
                 char_idx: 36
             },
             Token {
-                class: TokenClass::SYMBOL,
+                class: TokenClass::OPERATOR,
                 slice: "!",
                 char_idx: 39
             },
@@ -280,7 +280,7 @@ fn shebang_is_ignored() {
                 char_idx: 12
             },
             Token {
-                class: TokenClass::SYMBOL,
+                class: TokenClass::OPERATOR,
                 slice: "+",
                 char_idx: 13
             },
@@ -298,7 +298,7 @@ fn shebang_is_ignored() {
 fn try_parse_example_faux() {
     let program = include_str!("../../doc/example.faux");
 
-    Lexer::read(&program)
+    Lexer{ ignore_whitespace: true }.read_all(&program)
         .map_err(|err| {
             SimpleError::new(Failure::LexerError { char_idx: err }.error_string(program))
         })

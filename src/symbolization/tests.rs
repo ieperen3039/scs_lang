@@ -19,7 +19,7 @@ fn parse_simple_derived_type() {
     let program = r#"
         type FilePath : String
     "#;
-    let tokens = Lexer::read(program).unwrap();
+    let tokens = Lexer{ ignore_whitespace: true }.read_all(program).unwrap();
     let ast = parser.parse_program(&tokens).unwrap();
 
     println!("{:?}", ast);

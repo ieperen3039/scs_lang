@@ -36,7 +36,7 @@ impl FauxCompiler {
             file_cache: HashMap::new(),
             parse_stack: Vec::new(),
             type_collector: TypeCollector::new(),
-            lexer: Lexer {},
+            lexer: Lexer { ignore_whitespace: true },
         })
     }
 

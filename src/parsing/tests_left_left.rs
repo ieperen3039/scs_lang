@@ -1,7 +1,8 @@
 use simple_error::SimpleError;
 
 use crate::{
-    parsing::{left_left_parser, ebnf_parser, lexer::Lexer, parser, rule_nodes::RuleNode},
+    parsing::{ebnf_parser, left_left_parser, lexer::Lexer, parser, rule_nodes::RuleNode},
+    symbolization::ast::Program,
     transforming::grammatificator,
 };
 
@@ -75,7 +76,16 @@ fn simple_parser_with_simple_ignore() {
         .unwrap();
 
     let parser = left_left_parser::Parser::new(grammar, None);
-    let program_ast = parser.parse_program(&tokens).unwrap();
+    println!();
+    let program_ast = match parser.parse_program(&tokens) {
+        Ok(program) => program,
+        Err(v) => panic!(
+            "{}",
+            v.iter()
+                .map(|e| e.error_string(formula))
+                .fold(String::new(), |a, s| a + "\n" + &s)
+        ),
+    };
 
     assert_eq!(
         program_ast,
@@ -180,7 +190,7 @@ fn complex_parser_with_complex_ignore() {
         .map_err(|v| {
             v.iter()
                 .map(|e| e.error_string(formula))
-                .fold(String::new(), |a, s| a + &s)
+                .fold(String::new(), |a, s| a + "\n" + &s)
         })
         .unwrap();
 
@@ -266,7 +276,7 @@ fn try_parse_example_faux() {
 
     let start = std::time::Instant::now();
 
-    let tokens = Lexer::read(&program)
+    let tokens = Lexer{ ignore_whitespace: true }.read_all(&program)
         .map_err(|err| {
             SimpleError::new(parser::Failure::LexerError { char_idx: err }.error_string(definition))
         })
@@ -275,18 +285,16 @@ fn try_parse_example_faux() {
 
     println!("Parsing done (took {:?})", start.elapsed());
 
-    if parse_result.is_err() {
-        print!(
-            "Error parsing program: \n{}",
-            parse_result
-                .as_ref()
-                .unwrap_err()
-                .into_iter()
-                .map(|err| err.error_string(program) + "\n---\n\n")
-                .collect::<String>()
-        );
-        assert!(parse_result.is_ok());
-    }
+    assert!(
+        parse_result.is_ok(),
+        "Error parsing program: \n{}",
+        parse_result
+            .as_ref()
+            .unwrap_err()
+            .into_iter()
+            .map(|err| err.error_string(program) + "\n---\n\n")
+            .collect::<String>()
+    );
 
     let program_ast = parse_result.unwrap();
 
