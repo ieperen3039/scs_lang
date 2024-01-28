@@ -163,7 +163,7 @@ impl<'c> Parser {
             return Box::new(self.parse_table.get_expected(rule_name).into_iter().map(
                 move |expected| {
                     Err(Failure::UnexpectedToken {
-                        char_idx: token_index,
+                        char_idx: char_idx_of(next_token, tokens),
                         expected,
                     })
                 },
@@ -322,6 +322,16 @@ impl<'c> Parser {
                 let _ = writeln!(file, "</{rule_name}>");
             }
         }
+    }
+}
+
+fn char_idx_of(next_token: Option<&Token>, tokens: &[Token]) -> usize {
+    match next_token {
+        Some(t) => t.char_idx,
+        None => {
+            let last_token = tokens.last().unwrap();
+            last_token.char_idx + last_token.slice.len()
+        },
     }
 }
 

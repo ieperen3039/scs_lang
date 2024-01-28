@@ -113,7 +113,7 @@ impl Terminal {
         match self {
             Terminal::Literal(s) => s,
             Terminal::Token(t) => t.as_str(),
-            Terminal::EndOfFile => "EOF"
+            Terminal::EndOfFile => "END_OF_FILE"
         }
     }
 }
