@@ -1,11 +1,13 @@
 use std::{
     collections::{
         hash_map::{DefaultHasher, Keys},
-        HashMap, HashSet,
+        HashMap, HashSet, VecDeque,
     },
     hash::Hash,
     io::Write,
 };
+
+use simple_error::SimpleError;
 
 use crate::transforming::{
     grammar::{Grammar, RuleId, RuleStorage, Term, Terminal},
@@ -17,6 +19,9 @@ use super::{
     rule_nodes::RuleNode,
     token::{Token, TokenClass},
 };
+
+pub type ParseResult<'prog, 'bnf> =
+    Box<dyn Iterator<Item = Result<ParseNode<'prog, 'bnf>, Failure<'bnf>>> + 'bnf>;
 
 pub struct Parser {
     start_rule: RuleId,
@@ -73,30 +78,74 @@ impl<'c> Parser {
         &'c self,
         tokens: &'prog [Token<'prog>],
     ) -> Result<RuleNode<'prog, 'c>, Vec<Failure<'c>>> {
-        let interpretation = self.apply_rule_with_log(0, tokens, &self.start_rule);
+        let interpretations = self.apply_rule(&tokens, 0, &self.start_rule);
 
-        match interpretation {
-            Err(failures) => Err(failures),
-            Ok(parsed_program) => {
-                if !parsed_program.tokens.len() == tokens.len() {
-                    Err(vec![Failure::IncompleteParse {
-                        char_idx: parsed_program.tokens.len(),
-                    }])
-                } else {
-                    Ok(parsed_program)
+        let mut longest_success = ParseNode::EmptyNode;
+        let mut failures = VecDeque::new();
+
+        for result in interpretations {
+            match result {
+                Err(failure) => {
+                    let search_result =
+                        failures.binary_search_by(|other| compare_err_result(other, &failure));
+                    let index = match search_result {
+                        Ok(v) => v,
+                        Err(v) => v,
+                    };
+                    if failures.len() < MAX_ERRORS_PER_RULE {
+                        failures.insert(index, failure);
+                    } else if index > 0 {
+                        failures.insert(index, failure);
+                        failures.pop_front();
+                    }
+                }
+                Ok(interpretation) => {
+                    if interpretation.num_tokens() > longest_success.num_tokens() {
+                        longest_success = interpretation;
+                    }
                 }
             }
+        }
+
+        if let ParseNode::EmptyNode = longest_success {
+            return Err(failures.into());
+        }
+
+        if longest_success.num_tokens() < tokens.len() {
+            let past_the_end_token = &tokens[longest_success.num_tokens()];
+            let mut furthest_failures = vec![Failure::IncompleteParse {
+                char_idx: past_the_end_token.char_idx,
+            }];
+
+            for failure in failures {
+                let minimum = get_err_significance(furthest_failures.last().unwrap())
+                    - MAX_NUM_TOKENS_BACKTRACE_ON_ERROR;
+                if get_err_significance(&failure) > minimum {
+                    furthest_failures.push(failure);
+                    furthest_failures.sort_by(compare_err_result);
+                }
+            }
+
+            return Err(furthest_failures);
+        }
+
+        if let ParseNode::Rule(rule_node) = longest_success {
+            return Ok(rule_node);
+        } else {
+            return Err(vec![Failure::InternalError(SimpleError::new(
+                "Primary rule was no rule",
+            ))]);
         }
     }
 
     fn apply_rule_with_log<'prog: 'c>(
         &'c self,
-        token_index: usize,
         tokens: &'prog [Token<'prog>],
+        token_index: usize,
         rule_name: &'c str,
-    ) -> Result<RuleNode<'prog, 'c>, Vec<Failure<'c>>> {
+    ) -> ParseResult<'prog, 'c> {
         self.log_enter(rule_name);
-        let result = self.apply_rule(token_index, tokens, rule_name);
+        let result = self.apply_rule(tokens, token_index, rule_name);
         self.log_exit(rule_name);
 
         return result;
@@ -104,114 +153,132 @@ impl<'c> Parser {
 
     fn apply_rule<'prog: 'c>(
         &'c self,
-        token_index: usize,
         tokens: &'prog [Token<'prog>],
+        token_index: usize,
         rule_name: &'c str,
-    ) -> Result<RuleNode<'prog, 'c>, Vec<Failure<'c>>> {
+    ) -> ParseResult<'prog, 'c> {
         if token_index == tokens.len() {
-            return Err(vec![Failure::EndOfFile {
+            return Box::new(std::iter::once(Err(Failure::EndOfFile {
                 expected: rule_name,
-            }]);
+            })));
         }
 
         let next_token = &tokens[token_index];
-        let mut all_failures = Vec::new();
 
         let possible_patterns = self.parse_table.get(rule_name, next_token);
 
         if possible_patterns.is_empty() {
-            return Err(self
-                .parse_table
-                .get_expected(rule_name)
-                .into_iter()
-                .map(|expected| Failure::UnexpectedToken {
-                    char_idx: token_index,
-                    expected,
-                })
-                .collect());
+            return Box::new(self.parse_table.get_expected(rule_name).into_iter().map(
+                move |expected| {
+                    Err(Failure::UnexpectedToken {
+                        char_idx: token_index,
+                        expected,
+                    })
+                },
+            ));
         }
 
-        let mut pattern_nr = 1;
-        let max = possible_patterns.len();
+        let result_of_terms = possible_patterns
+            .into_iter()
+            .flat_map(move |term| self.apply_term(tokens, token_index, term));
 
-        // this for-loop is for the case where the given grammar is not an LL(1) grammar
-        for pattern in possible_patterns {
-            if max > 1 {
-                if let Some(mut file) = self.xml_out.as_ref() {
-                    let _ = writeln!(
-                        file,
-                        "{:20} {:>2}/{:<2}: {:?}",
-                        rule_name, pattern_nr, max, pattern
-                    );
-                }
-            }
-
-            pattern_nr += 1;
-
-            match pattern {
-                Term::Terminal(terminal) => {
-                    let has_match = match terminal {
-                        Terminal::Literal(str) => str == next_token.slice,
-                        Terminal::Token(class) => *class == next_token.class,
-                    };
-
-                    if has_match {
-                        self.log_consume_token(&tokens[token_index]);
-
-                        return Ok(RuleNode {
-                            rule_name,
-                            tokens: &tokens[token_index..=token_index],
-                            sub_rules: Vec::new(),
-                        });
-                    }
-                }
-                Term::Concatenation(sub_rule_names) => {
-                    let result = self.apply_non_terminal(rule_name, token_index, tokens, todo!());
-                    match result {
-                        Ok(n) => return Ok(n),
-                        Err(failures) => all_failures.extend(failures),
-                    }
-                }
-                Term::Alternation(_) => todo!(),
-                Term::Identifier(_) => todo!(),
-                Term::Empty => todo!(),
-            };
+        if is_transparent(rule_name) {
+            return Box::new(result_of_terms);
         }
 
-        return Err(all_failures);
+        // not transparent: wrap every ParseNode into a RuleNode
+        Box::new(result_of_terms.map(move |result| match result {
+            Ok(parse_node) => match parse_node.num_tokens() {
+                0 => Ok(ParseNode::EmptyNode),
+                num_tokens => Ok(ParseNode::Rule(RuleNode {
+                    rule_name,
+                    tokens: &tokens[..num_tokens],
+                    sub_rules: parse_node.unwrap_to_rulenodes(),
+                })),
+            },
+            Err(err) => Err(err),
+        }))
     }
 
-    fn apply_non_terminal<'prog: 'c>(
+    fn apply_term<'prog: 'c>(
         &'c self,
-        current_rule_name: &'c str,
-        token_index: usize,
         tokens: &'prog [Token<'prog>],
-        sub_rule_names: &'c [RuleId],
-    ) -> Result<RuleNode<'prog, 'c>, Vec<Failure<'c>>> {
-        let mut sub_rules = Vec::new();
-        let mut sub_rule_token_index = token_index;
-
-        for new_rule_name in sub_rule_names {
-            let applied_rule =
-                self.apply_rule_with_log(sub_rule_token_index, tokens, new_rule_name);
-            match applied_rule {
-                Ok(rule) => {
-                    sub_rule_token_index += rule.tokens.len();
-                    if is_transparent(rule.rule_name) {
-                        sub_rules.extend(rule.sub_rules);
-                    } else {
-                        sub_rules.push(rule);
-                    }
-                }
-                Err(failures) => return Err(failures),
+        token_index: usize,
+        term: &'c Term,
+    ) -> ParseResult<'prog, 'c> {
+        match term {
+            Term::Identifier(rule_name) => self.apply_rule(tokens, token_index, rule_name),
+            Term::Concatenation(sub_terms) => {
+                self.apply_concatenation(tokens, token_index, sub_terms)
             }
+            Term::Alternation(sub_terms) => self.apply_alternation(tokens, token_index, sub_terms),
+            Term::Terminal(terminal) => Box::new(std::iter::once(self.parse_terminal(
+                tokens,
+                token_index,
+                terminal,
+            ))),
+            Term::Empty => Box::new(std::iter::empty()),
         }
+    }
 
-        Ok(RuleNode {
-            rule_name: current_rule_name,
-            tokens: &tokens[token_index..sub_rule_token_index],
-            sub_rules,
-        })
+    fn apply_alternation<'prog: 'c>(
+        &'c self,
+        tokens: &'prog [Token<'prog>],
+        token_index: usize,
+        sub_terms: &'c [Term],
+    ) -> ParseResult<'prog, 'c> {
+        Box::new(
+            sub_terms
+                .into_iter()
+                .flat_map(move |term| self.apply_term(tokens, token_index, term)),
+        )
+    }
+
+    fn apply_concatenation<'prog: 'c>(
+        &'c self,
+        tokens: &'prog [Token<'prog>],
+        token_index: usize,
+        sub_terms: &'c [Term],
+    ) -> ParseResult<'prog, 'c> {
+        let term = sub_terms.first().unwrap();
+
+        let all_results = self.apply_term(tokens, token_index, term);
+
+        if sub_terms.len() > 1 {
+            Box::new(all_results.flat_map(move |term_result| match term_result {
+                Ok(term_interp) => {
+                    let new_token_index = token_index + term_interp.num_tokens();
+                    self.apply_concatenation(tokens, new_token_index, &sub_terms[1..])
+                }
+                Err(failure) => Box::new(std::iter::once(Err(failure))),
+            }))
+        } else {
+            all_results
+        }
+    }
+
+    fn parse_terminal<'prog: 'c>(
+        &'c self,
+        tokens: &'prog [Token<'prog>],
+        token_index: usize,
+        expected: &'c Terminal,
+    ) -> Result<ParseNode<'prog, 'c>, Failure<'c>> {
+        let token = &tokens[token_index];
+
+        let has_match = match expected {
+            Terminal::Literal(str) => str == token.slice,
+            Terminal::Token(class) => *class == token.class,
+        };
+
+        if has_match {
+            self.log_consume_token(token);
+            Ok(ParseNode::Terminal(token))
+        } else {
+            Err(Failure::UnexpectedToken {
+                char_idx: token.char_idx,
+                expected: expected.as_str(),
+            })
+        }
     }
 
     fn log_consume_token(&'c self, token: &Token<'_>) {
