@@ -154,6 +154,7 @@ impl Chomsky {
                 output_string.push_str(i.as_str());
                 output_string.push_str(" ?");
             }
+            ChomskyPattern::Terminal(Terminal::EndOfFile) => output_string.push_str("EOF"),
         }
     }
 

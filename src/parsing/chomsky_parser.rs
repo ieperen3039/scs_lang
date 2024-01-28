@@ -167,6 +167,7 @@ impl<'c> Parser {
                     let has_match = match terminal {
                         Terminal::Literal(str) => str == next_token.slice,
                         Terminal::Token(class) => *class == next_token.class,
+                        Terminal::EndOfFile => false /* case is handled at the start of the function*/,
                     };
                     assert!(has_match, "{:?} != {:?}", terminal, next_token);
 
@@ -289,6 +290,7 @@ fn construct_parse_table(grammar: Chomsky) -> ParseTable {
                         .entry(class)
                         .or_insert(Vec::new())
                         .push(rule.pattern.clone()),
+                    Terminal::EndOfFile => {},
                 };
             }
         }

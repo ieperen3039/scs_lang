@@ -1,4 +1,3 @@
-use core::num;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     io::Write,
@@ -33,7 +32,7 @@ struct ParseTable {
 }
 
 impl<'c> ParseTable {
-    pub fn get(&'c self, parse_stack: &str, look_ahead: &Token<'_>) -> Vec<&'c Term> {
+    pub fn get(&'c self, parse_stack: &str, look_ahead: Option<&Token>) -> Vec<&'c Term> {
         self.lookup_table
             .get(parse_stack)
             .into_iter()
@@ -43,10 +42,12 @@ impl<'c> ParseTable {
             .collect()
     }
 
-    fn equal(expected: &Terminal, actual: &Token) -> bool {
-        match expected {
-            Terminal::Literal(s) => s == actual.slice,
-            Terminal::Token(t) => t == &actual.class,
+    pub fn equal(expected: &Terminal, actual: Option<&Token>) -> bool {
+        match (expected, actual) {
+            (Terminal::Literal(s), Some(token)) => s == token.slice,
+            (Terminal::Token(t), Some(token)) => t == &token.class,
+            (Terminal::EndOfFile, None) => true,
+            _ => false,
         }
     }
 
@@ -154,13 +155,7 @@ impl<'c> Parser {
         token_index: usize,
         rule_name: &'c str,
     ) -> ParseResult<'prog, 'c> {
-        if token_index == tokens.len() {
-            return Box::new(std::iter::once(Err(Failure::EndOfFile {
-                expected: rule_name,
-            })));
-        }
-
-        let next_token = &tokens[token_index];
+        let next_token = tokens.get(token_index);
 
         let possible_patterns = self.parse_table.get(rule_name, next_token);
 
@@ -186,7 +181,6 @@ impl<'c> Parser {
         // not transparent: wrap every ParseNode into a RuleNode
         // replace every empty parse with an EmptyNode
         Box::new(result_of_terms.map(move |result| {
-            println!("parse result of {}: {:?}", rule_name, result);
             result.map(|parse_node| match parse_node.num_tokens() {
                 0 => ParseNode::EmptyNode,
                 num_tokens => ParseNode::Rule(RuleNode {
@@ -215,7 +209,7 @@ impl<'c> Parser {
                 token_index,
                 terminal,
             ))),
-            Term::Empty => Box::new(std::iter::empty()),
+            Term::Empty => Box::new(std::iter::once(Ok(ParseNode::EmptyNode))),
         }
     }
 
@@ -240,7 +234,6 @@ impl<'c> Parser {
     ) -> ParseResult<'prog, 'c> {
         let term = &sub_terms[0];
 
-        todo!("what if apply_term returns empty? (we still want to continue)");
         let all_results = self.apply_term(tokens, token_index, term);
 
         if sub_terms.len() > 1 {
@@ -277,21 +270,27 @@ impl<'c> Parser {
         token_index: usize,
         expected: &'c Terminal,
     ) -> Result<ParseNode<'prog, 'c>, Failure<'c>> {
-        let token = &tokens[token_index];
+        let actual = tokens.get(token_index);
+        let has_match = ParseTable::equal(expected, actual);
 
-        let has_match = match expected {
-            Terminal::Literal(str) => str == token.slice,
-            Terminal::Token(class) => *class == token.class,
-        };
-
-        if has_match {
-            self.log_consume_token(token);
-            Ok(ParseNode::Terminal(token))
+        if let Some(token) = actual {
+            if has_match {
+                self.log_consume_token(token);
+                Ok(ParseNode::Terminal(token))
+            } else {
+                Err(Failure::UnexpectedToken {
+                    char_idx: token.char_idx,
+                    expected: expected.as_str(),
+                })
+            }
         } else {
-            Err(Failure::UnexpectedToken {
-                char_idx: token.char_idx,
-                expected: expected.as_str(),
-            })
+            if has_match {
+                Ok(ParseNode::EmptyNode)
+            } else {
+                Err(Failure::EndOfFile {
+                    expected: expected.as_str(),
+                })
+            }
         }
     }
 
@@ -306,8 +305,6 @@ impl<'c> Parser {
 
             let new_slice = token.slice.replace(char::is_whitespace, " ");
             let _ = writeln!(file, "\"{}\"", &new_slice);
-        } else {
-            println!("token {:?}", token.slice)
         }
     }
 
@@ -338,7 +335,7 @@ fn is_transparent(rule_name: &str) -> bool {
 fn construct_parse_table(grammar: Grammar) -> ParseTable {
     let mut lookup_table: HashMap<RuleId, Vec<(Terminal, usize)>> = HashMap::new();
     let mut patterns: Vec<Term> = Vec::new();
-    
+
     let grammar = remove_alterations(grammar);
 
     let mut converted_out = std::fs::File::create("grammar.ebnf").unwrap();
@@ -402,8 +399,11 @@ fn get_index_or_add(patterns: &mut Vec<Term>, pattern: Term) -> usize {
 
 fn get_follow_terminals(grammar: &Grammar) -> HashMap<RuleId, HashSet<Terminal>> {
     // initialize Fo(S) with { EOF } and every other Fo(A) with the empty set
-    // (we do not initialize Fo(S) however, because our lexer does not append the EOF symbol)
     let mut follow_terminals = HashMap::new();
+    follow_terminals.insert(
+        grammar.start_rule.clone(),
+        HashSet::from([Terminal::EndOfFile]),
+    );
 
     loop {
         let mut has_change = false;
@@ -511,8 +511,7 @@ fn remove_alterations(mut grammar: Grammar) -> Grammar {
     for (rule_id, pattern) in grammar.rules {
         let mut new_patterns: Vec<Term> = Vec::new();
         for term in pattern {
-            let new_term =
-                extract_alterations(term, &mut grammar.name_generator, &mut new_rules);
+            let new_term = extract_alterations(term, &mut grammar.name_generator, &mut new_rules);
             new_patterns.push(new_term);
         }
         new_rules.insert(rule_id, new_patterns);

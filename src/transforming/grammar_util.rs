@@ -100,6 +100,7 @@ impl Grammar {
                 target.push_str(i.as_str());
                 target.push_str(" ?");
             }
+            Term::Terminal(Terminal::EndOfFile) => target.push_str("EOF"),
             Term::Empty => {
                 target.push_str("? EMPTY ?");
             }
@@ -112,6 +113,7 @@ impl Terminal {
         match self {
             Terminal::Literal(s) => s,
             Terminal::Token(t) => t.as_str(),
+            Terminal::EndOfFile => "EOF"
         }
     }
 }

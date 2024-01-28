@@ -75,16 +75,17 @@ fn simple_parser_with_repetition() {
         .unwrap();
 
     let parser = left_left_parser::Parser::new(grammar, None);
-    println!();
-    let program_ast = match parser.parse_program(&tokens) {
-        Ok(program) => program,
-        Err(v) => panic!(
-            "{}",
-            v.iter()
-                .map(|e| e.error_string(formula))
-                .fold(String::new(), |a, s| a + "\n" + &s)
-        ),
-    };
+    let program_ast = parser
+        .parse_program(&tokens)
+        .map_err(|v| {
+            println!(
+                "{}",
+                v.iter()
+                    .map(|e| e.error_string(formula))
+                    .fold(String::new(), |a, s| a + "\n" + &s)
+            );
+        })
+        .unwrap();
 
     assert_eq!(
         program_ast,
@@ -131,7 +132,17 @@ fn simple_parser_with_token_usage() {
         .unwrap();
 
     let parser = left_left_parser::Parser::new(grammar, None);
-    let program_ast = parser.parse_program(&tokens).unwrap();
+    let program_ast = parser
+        .parse_program(&tokens)
+        .map_err(|v| {
+            println!(
+                "{}",
+                v.iter()
+                    .map(|e| e.error_string(formula))
+                    .fold(String::new(), |a, s| a + "\n" + &s)
+            );
+        })
+        .unwrap();
 
     assert_eq!(
         program_ast,
@@ -157,14 +168,14 @@ fn simple_parser_with_token_usage() {
 #[test]
 fn complex_parser_with_complex_ignore() {
     let definition = r#"
-        sentence     = _, demand, _, ["and", _, demand], _;
-        demand       = person, _, ["must", _], action, _, how;
+        sentence     = _, demand, _, [ "and", _, demand ], _;
+        demand       = person, _, [ "must", _ ], action, _, how;
         person       = "you" | "I" | "he";
         action       = _meet_action | _walk_action;
         _walk_action = "stay" | "come" | "go";
         _meet_action = "meet", _, person;
         how          = "here" | "there" | "with", _, person;
-        _            = { " " | "," | "!" | "?" };
+        _            = { ? WHITESPACE ? | "," | "!" | "?" };
     "#;
 
     let formula = r#" you must go there, and I come with you! "#;
@@ -187,9 +198,12 @@ fn complex_parser_with_complex_ignore() {
     let program_ast = parser
         .parse_program(&tokens)
         .map_err(|v| {
-            v.iter()
-                .map(|e| e.error_string(formula))
-                .fold(String::new(), |a, s| a + "\n" + &s)
+            println!(
+                "{}",
+                v.iter()
+                    .map(|e| e.error_string(formula))
+                    .fold(String::new(), |a, s| a + "\n" + &s)
+            );
         })
         .unwrap();
 
@@ -275,11 +289,14 @@ fn try_parse_example_faux() {
 
     let start = std::time::Instant::now();
 
-    let tokens = Lexer{ ignore_whitespace: true }.read_all(&program)
-        .map_err(|err| {
-            SimpleError::new(parser::Failure::LexerError { char_idx: err }.error_string(definition))
-        })
-        .unwrap();
+    let tokens = Lexer {
+        ignore_whitespace: true,
+    }
+    .read_all(&program)
+    .map_err(|err| {
+        SimpleError::new(parser::Failure::LexerError { char_idx: err }.error_string(definition))
+    })
+    .unwrap();
     let parse_result = parser.parse_program(&tokens);
 
     println!("Parsing done (took {:?})", start.elapsed());

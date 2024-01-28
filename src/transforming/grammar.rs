@@ -26,7 +26,8 @@ pub enum Term {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Terminal {
     Literal(String),
-    Token(TokenClass)
+    Token(TokenClass),
+    EndOfFile
 }
 
 impl std::hash::Hash for Term {
