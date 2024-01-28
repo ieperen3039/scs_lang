@@ -1,6 +1,6 @@
 use crate::parsing::ebnf_ast::{self, EbnfAst};
 
-use super::grammar::{self, Grammar, RuleStorage, RuleId};
+use super::grammar::{self, Grammar, RuleId, RuleStorage};
 use super::rule_name_generator::RuleNameGenerator;
 
 pub fn convert_to_grammar(ast: EbnfAst) -> Grammar {
@@ -18,10 +18,13 @@ pub fn convert_to_grammar(ast: EbnfAst) -> Grammar {
     for old_rule in ast.rules {
         let new_term = grammificate(old_rule.pattern, &mut name_generator, &mut rules);
         // make sure we don't end up with top-level alternations
-        if let grammar::Term::Alternation(terms) = new_term {
-            rules.insert(RuleId::from(old_rule.identifier), terms);
-        } else {
-            rules.insert(RuleId::from(old_rule.identifier), vec![new_term]);
+        match new_term {
+            grammar::Term::Alternation(terms) => {
+                rules.insert(RuleId::from(old_rule.identifier), terms);
+            }
+            _ => {
+                rules.insert(RuleId::from(old_rule.identifier), vec![new_term]);
+            }
         }
     }
 
@@ -41,10 +44,7 @@ fn grammificate(
     match term {
         ebnf_ast::Term::Optional(t) => {
             let normalized_sub_term = grammificate(*t, name_generator, other_rules);
-            grammar::Term::Alternation(vec![
-                normalized_sub_term,
-                grammar::Term::Empty,
-            ])
+            grammar::Term::Alternation(vec![normalized_sub_term, grammar::Term::Empty])
         }
         ebnf_ast::Term::Repetition(t) => {
             // normalized_sub_term is guaranteed to be a ebnf_ast::Term::Identifier

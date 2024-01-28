@@ -2,7 +2,6 @@ use simple_error::SimpleError;
 
 use crate::{
     parsing::{ebnf_parser, left_left_parser, lexer::Lexer, parser, rule_nodes::RuleNode},
-    symbolization::ast::Program,
     transforming::grammatificator,
 };
 
@@ -53,13 +52,13 @@ fn simple_lexer_and_parser() {
 }
 
 #[test]
-fn simple_parser_with_simple_ignore() {
+fn simple_parser_with_repetition() {
     let definition = r#"
         addition = number, _, "+", _, number;
         number = "0" | "1" | "2";
-        _ = { " " };
+        _ = { "." };
     "#;
-    let formula = r#"1 + 2"#;
+    let formula = r#"1+..2"#;
 
     let grammar = ebnf_parser::parse_ebnf(definition)
         .map(grammatificator::convert_to_grammar)

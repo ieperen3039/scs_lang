@@ -1,9 +1,6 @@
+use core::num;
 use std::{
-    collections::{
-        hash_map::{DefaultHasher, Keys},
-        HashMap, HashSet, VecDeque,
-    },
-    hash::Hash,
+    collections::{HashMap, HashSet, VecDeque},
     io::Write,
 };
 
@@ -20,8 +17,8 @@ use super::{
     token::{Token, TokenClass},
 };
 
-pub type ParseResult<'prog, 'bnf> =
-    Box<dyn Iterator<Item = Result<ParseNode<'prog, 'bnf>, Failure<'bnf>>> + 'bnf>;
+pub type ParseResult<'prog, 'c> =
+    Box<dyn Iterator<Item = Result<ParseNode<'prog, 'c>, Failure<'c>>> + 'c>;
 
 pub struct Parser {
     start_rule: RuleId,
@@ -187,16 +184,17 @@ impl<'c> Parser {
         }
 
         // not transparent: wrap every ParseNode into a RuleNode
-        Box::new(result_of_terms.map(move |result| match result {
-            Ok(parse_node) => match parse_node.num_tokens() {
-                0 => Ok(ParseNode::EmptyNode),
-                num_tokens => Ok(ParseNode::Rule(RuleNode {
+        // replace every empty parse with an EmptyNode
+        Box::new(result_of_terms.map(move |result| {
+            println!("parse result of {}: {:?}", rule_name, result);
+            result.map(|parse_node| match parse_node.num_tokens() {
+                0 => ParseNode::EmptyNode,
+                num_tokens => ParseNode::Rule(RuleNode {
                     rule_name,
-                    tokens: &tokens[..num_tokens],
+                    tokens: &tokens[token_index..(token_index + num_tokens)],
                     sub_rules: parse_node.unwrap_to_rulenodes(),
-                })),
-            },
-            Err(err) => Err(err),
+                }),
+            })
         }))
     }
 
@@ -240,21 +238,37 @@ impl<'c> Parser {
         token_index: usize,
         sub_terms: &'c [Term],
     ) -> ParseResult<'prog, 'c> {
-        let term = sub_terms.first().unwrap();
+        let term = &sub_terms[0];
 
+        todo!("what if apply_term returns empty? (we still want to continue)");
         let all_results = self.apply_term(tokens, token_index, term);
 
         if sub_terms.len() > 1 {
             Box::new(all_results.flat_map(move |term_result| match term_result {
                 Ok(term_interp) => {
-                    let new_token_index = token_index + term_interp.num_tokens();
-                    self.apply_concatenation(tokens, new_token_index, &sub_terms[1..])
+                    self.continue_concatenation(tokens, token_index, term_interp, &sub_terms[1..])
                 }
                 Err(failure) => Box::new(std::iter::once(Err(failure))),
             }))
         } else {
             all_results
         }
+    }
+
+    fn continue_concatenation<'prog: 'c>(
+        &'c self,
+        tokens: &'prog [Token<'prog>],
+        token_index: usize,
+        term_interp: ParseNode<'prog, 'c>,
+        sub_terms: &'c [Term],
+    ) -> ParseResult<'prog, 'c> {
+        let new_token_index = token_index + term_interp.num_tokens();
+        Box::new(
+            self.apply_concatenation(tokens, new_token_index, sub_terms)
+                .map(move |result| {
+                    result.map(|postfix| ParseNode::Vec(vec![term_interp.clone(), postfix]))
+                }),
+        )
     }
 
     fn parse_terminal<'prog: 'c>(
@@ -292,6 +306,8 @@ impl<'c> Parser {
 
             let new_slice = token.slice.replace(char::is_whitespace, " ");
             let _ = writeln!(file, "\"{}\"", &new_slice);
+        } else {
+            println!("token {:?}", token.slice)
         }
     }
 
@@ -322,8 +338,11 @@ fn is_transparent(rule_name: &str) -> bool {
 fn construct_parse_table(grammar: Grammar) -> ParseTable {
     let mut lookup_table: HashMap<RuleId, Vec<(Terminal, usize)>> = HashMap::new();
     let mut patterns: Vec<Term> = Vec::new();
-
+    
     let grammar = remove_alterations(grammar);
+
+    let mut converted_out = std::fs::File::create("grammar.ebnf").unwrap();
+    write!(converted_out, "{}\n\n", Grammar::write(&grammar)).unwrap();
 
     let follow_sets = get_follow_terminals(&grammar);
 
@@ -359,6 +378,9 @@ fn construct_parse_table(grammar: Grammar) -> ParseTable {
             }
         }
     }
+    println!("");
+    println!("{:?}", lookup_table);
+    println!("");
 
     // note that the original grammar is destroyed
     ParseTable {
@@ -487,10 +509,10 @@ fn get_first_terminals_of_term<'g>(term: &Term, grammar: &Grammar) -> HashSet<Op
 fn remove_alterations(mut grammar: Grammar) -> Grammar {
     let mut new_rules = RuleStorage::new();
     for (rule_id, pattern) in grammar.rules {
-        let mut new_patterns = Vec::new();
+        let mut new_patterns: Vec<Term> = Vec::new();
         for term in pattern {
             let new_term =
-                remove_term_alterations(term, &mut grammar.name_generator, &mut new_rules);
+                extract_alterations(term, &mut grammar.name_generator, &mut new_rules);
             new_patterns.push(new_term);
         }
         new_rules.insert(rule_id, new_patterns);
@@ -499,8 +521,8 @@ fn remove_alterations(mut grammar: Grammar) -> Grammar {
     return grammar;
 }
 
-// extract all alterations to top-level
-fn remove_term_alterations(
+// extract all alterations to new rules
+fn extract_alterations(
     term: Term,
     name_generator: &mut RuleNameGenerator,
     other_rules: &mut RuleStorage,
@@ -509,8 +531,14 @@ fn remove_term_alterations(
         Term::Alternation(sub_terms) => {
             let new_rule_name = name_generator.generate_rule_name();
             other_rules.insert(new_rule_name.clone(), sub_terms);
-            return Term::Identifier(new_rule_name);
+            Term::Identifier(new_rule_name)
         }
-        _ => return term,
-    };
+        Term::Concatenation(sub_terms) => Term::Concatenation(
+            sub_terms
+                .into_iter()
+                .map(|t| extract_alterations(t, name_generator, other_rules))
+                .collect(),
+        ),
+        _ => term,
+    }
 }
