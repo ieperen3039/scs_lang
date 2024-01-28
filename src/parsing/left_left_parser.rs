@@ -1,9 +1,11 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{
+        hash_map::{DefaultHasher, Keys},
+        HashMap, HashSet,
+    },
+    hash::Hash,
     io::Write,
 };
-
-use simple_error::SimpleError;
 
 use crate::transforming::{
     grammar::{Grammar, RuleId, RuleStorage, Term, Terminal},
@@ -16,8 +18,6 @@ use super::{
     token::{Token, TokenClass},
 };
 
-type ParseResult<'prog, 'g> = Result<ParseNode<'prog, 'g>, Vec<Failure<'g>>>;
-
 pub struct Parser {
     start_rule: RuleId,
     parse_table: ParseTable,
@@ -27,28 +27,18 @@ pub struct Parser {
 struct ParseTable {
     rules: Vec<Term>,
     // rows are vectors, to avoid string allocations on `get`
-    lookup_table: HashMap<RuleId, Vec<(Vec<Terminal>, usize)>>,
+    lookup_table: HashMap<RuleId, Vec<(Terminal, usize)>>,
 }
 
 impl<'c> ParseTable {
-    pub fn get(&'c self, parse_stack: &str, look_ahead: &[Token<'_>]) -> Option<&'c Term> {
-        let row = self.lookup_table.get(parse_stack)?;
-        for (prefix, index) in row {
-            println!("trying {:?}", prefix);
-            let mut comparison_iter = prefix.iter().zip(look_ahead);
-            if comparison_iter.all(|(expected, actual)| {
-                let result = ParseTable::equal(expected, actual);
-                if result { println!("{:?} == {:?}", expected, actual); }
-                else { println!("{:?} != {:?}", expected, actual); }
-                result
-            }
-            ) {
-                println!("returning {}", index);
-                return Some(&self.rules[*index]);
-            }
-            println!("giving up on {:?}", prefix);
-        }
-        None
+    pub fn get(&'c self, parse_stack: &str, look_ahead: &Token<'_>) -> Vec<&'c Term> {
+        self.lookup_table
+            .get(parse_stack)
+            .into_iter()
+            .flatten()
+            .filter(|(expected, _)| ParseTable::equal(expected, look_ahead))
+            .map(|(_, index)| &self.rules[*index])
+            .collect()
     }
 
     fn equal(expected: &Terminal, actual: &Token) -> bool {
@@ -59,25 +49,18 @@ impl<'c> ParseTable {
     }
 
     pub fn get_expected(&'c self, parse_stack: &str) -> Vec<&'c str> {
-        let row = &self.lookup_table.get(parse_stack);
-
-        if row.is_none() {
-            return Vec::new();
-        }
-
-        row.unwrap()
-            .iter()
-            .map(|(lh, _)| lh)
+        self.lookup_table
+            .get(parse_stack)
+            .into_iter()
             .flatten()
-            .map(|t| t.as_str())
+            .map(|(expected, _)| expected.as_str())
             .collect()
     }
 }
 
-impl<'g> Parser {
+impl<'c> Parser {
     pub fn new(grammar: Grammar, xml_out: Option<std::fs::File>) -> Parser {
         let start_rule = grammar.start_rule.clone();
-
         let parse_table = construct_parse_table(grammar);
         Parser {
             start_rule,
@@ -86,14 +69,15 @@ impl<'g> Parser {
         }
     }
 
-    pub fn parse_program<'prog: 'g>(
-        &'g self,
+    pub fn parse_program<'prog: 'c>(
+        &'c self,
         tokens: &'prog [Token<'prog>],
-    ) -> Result<RuleNode<'prog, 'g>, Vec<Failure<'g>>> {
-        let interpretation = self.apply_rule_with_log(0, tokens, &self.start_rule)?;
+    ) -> Result<RuleNode<'prog, 'c>, Vec<Failure<'c>>> {
+        let interpretation = self.apply_rule_with_log(0, tokens, &self.start_rule);
 
         match interpretation {
-            ParseNode::Rule(parsed_program) => {
+            Err(failures) => Err(failures),
+            Ok(parsed_program) => {
                 if !parsed_program.tokens.len() == tokens.len() {
                     Err(vec![Failure::IncompleteParse {
                         char_idx: parsed_program.tokens.len(),
@@ -102,18 +86,15 @@ impl<'g> Parser {
                     Ok(parsed_program)
                 }
             }
-            _ => Err(vec![Failure::InternalError(SimpleError::new(
-                "top-level node was not a rule node",
-            ))]),
         }
     }
 
-    fn apply_rule_with_log<'prog: 'g>(
-        &'g self,
+    fn apply_rule_with_log<'prog: 'c>(
+        &'c self,
         token_index: usize,
         tokens: &'prog [Token<'prog>],
-        rule_name: &'g str,
-    ) -> ParseResult<'prog, 'g> {
+        rule_name: &'c str,
+    ) -> Result<RuleNode<'prog, 'c>, Vec<Failure<'c>>> {
         self.log_enter(rule_name);
         let result = self.apply_rule(token_index, tokens, rule_name);
         self.log_exit(rule_name);
@@ -121,121 +102,119 @@ impl<'g> Parser {
         return result;
     }
 
-    fn apply_rule<'prog: 'g>(
-        &'g self,
+    fn apply_rule<'prog: 'c>(
+        &'c self,
         token_index: usize,
         tokens: &'prog [Token<'prog>],
-        rule_name: &'g str,
-    ) -> ParseResult<'prog, 'g> {
+        rule_name: &'c str,
+    ) -> Result<RuleNode<'prog, 'c>, Vec<Failure<'c>>> {
         if token_index == tokens.len() {
             return Err(vec![Failure::EndOfFile {
                 expected: rule_name,
             }]);
         }
 
-        let is_transparent = rule_name.as_bytes()[0] == b'_';
-        let pattern = self.parse_table.get(rule_name, &tokens[token_index..]);
-
-        if pattern.is_some() {
-            let result_of_term = self.apply_term(pattern.unwrap(), tokens, token_index)?;
-
-            if is_transparent {
-                return Ok(result_of_term);
-            }
-
-            let tokens_end = token_index + result_of_term.num_tokens();
-            Ok(ParseNode::Rule(RuleNode {
-                rule_name,
-                tokens: &tokens[token_index..tokens_end],
-                sub_rules: result_of_term.unwrap_to_rulenodes(),
-            }))
-        } else {
-            let expected = self.parse_table.get_expected(rule_name);
-
-            if expected.is_empty() {
-                return Err(vec![Failure::InternalError(SimpleError::new(format!(
-                    "No parse table tokens for rule {}",
-                    rule_name
-                )))]);
-            } else {
-                return Err(expected
-                    .into_iter()
-                    .map(|expected| Failure::UnexpectedToken {
-                        char_idx: token_index,
-                        expected,
-                    })
-                    .collect());
-            }
-        }
-    }
-
-    fn apply_term<'prog: 'g>(
-        &'g self,
-        term: &'g Term,
-        tokens: &'prog [Token<'prog>],
-        token_index: usize,
-    ) -> ParseResult<'prog, 'g> {
-        match term {
-            Term::Terminal(terminal) => self.apply_terminal(terminal, tokens, token_index),
-            Term::Concatenation(sub_terms) => {
-                self.apply_concatenation(sub_terms, tokens, token_index)
-            }
-            Term::Alternation(_) => Err(vec![Failure::InternalError(SimpleError::new(
-                "Alterations should have been removed",
-            ))]),
-            Term::Identifier(rule_name) => self.apply_rule(token_index, tokens, rule_name),
-            Term::Empty => Ok(ParseNode::EmptyNode),
-        }
-    }
-
-    fn apply_terminal<'prog: 'g>(
-        &'g self,
-        terminal: &'g Terminal,
-        tokens: &'prog [Token<'prog>],
-        token_index: usize,
-    ) -> ParseResult<'prog, 'g> {
         let next_token = &tokens[token_index];
-        let has_match = match terminal {
-            Terminal::Literal(str) => str == next_token.slice,
-            Terminal::Token(class) => *class == next_token.class,
-        };
+        let mut all_failures = Vec::new();
 
-        if has_match {
-            self.log_consume_token(next_token);
-            return Ok(ParseNode::Terminal(&tokens[token_index]));
-        } else {
-            return Err(vec![Failure::UnexpectedToken {
-                char_idx: token_index,
-                expected: terminal.as_str(),
-            }]);
+        let possible_patterns = self.parse_table.get(rule_name, next_token);
+
+        if possible_patterns.is_empty() {
+            return Err(self
+                .parse_table
+                .get_expected(rule_name)
+                .into_iter()
+                .map(|expected| Failure::UnexpectedToken {
+                    char_idx: token_index,
+                    expected,
+                })
+                .collect());
         }
+
+        let mut pattern_nr = 1;
+        let max = possible_patterns.len();
+
+        // this for-loop is for the case where the given grammar is not an LL(1) grammar
+        for pattern in possible_patterns {
+            if max > 1 {
+                if let Some(mut file) = self.xml_out.as_ref() {
+                    let _ = writeln!(
+                        file,
+                        "{:20} {:>2}/{:<2}: {:?}",
+                        rule_name, pattern_nr, max, pattern
+                    );
+                }
+            }
+
+            pattern_nr += 1;
+
+            match pattern {
+                Term::Terminal(terminal) => {
+                    let has_match = match terminal {
+                        Terminal::Literal(str) => str == next_token.slice,
+                        Terminal::Token(class) => *class == next_token.class,
+                    };
+
+                    if has_match {
+                        self.log_consume_token(&tokens[token_index]);
+
+                        return Ok(RuleNode {
+                            rule_name,
+                            tokens: &tokens[token_index..=token_index],
+                            sub_rules: Vec::new(),
+                        });
+                    }
+                }
+                Term::Concatenation(sub_rule_names) => {
+                    let result = self.apply_non_terminal(rule_name, token_index, tokens, todo!());
+                    match result {
+                        Ok(n) => return Ok(n),
+                        Err(failures) => all_failures.extend(failures),
+                    }
+                }
+                Term::Alternation(_) => todo!(),
+                Term::Identifier(_) => todo!(),
+                Term::Empty => todo!(),
+            };
+        }
+
+        return Err(all_failures);
     }
 
-    fn apply_concatenation<'prog: 'g>(
-        &'g self,
-        terms: &'g [Term],
-        tokens: &'prog [Token<'prog>],
+    fn apply_non_terminal<'prog: 'c>(
+        &'c self,
+        current_rule_name: &'c str,
         token_index: usize,
-    ) -> ParseResult<'prog, 'g> {
-        let mut new_sub_rules = Vec::new();
+        tokens: &'prog [Token<'prog>],
+        sub_rule_names: &'c [RuleId],
+    ) -> Result<RuleNode<'prog, 'c>, Vec<Failure<'c>>> {
+        let mut sub_rules = Vec::new();
         let mut sub_rule_token_index = token_index;
 
-        for term in terms {
-            let applied_rule = self.apply_term(term, tokens, sub_rule_token_index);
-
+        for new_rule_name in sub_rule_names {
+            let applied_rule =
+                self.apply_rule_with_log(sub_rule_token_index, tokens, new_rule_name);
             match applied_rule {
                 Ok(rule) => {
-                    sub_rule_token_index += rule.num_tokens();
-                    new_sub_rules.push(rule);
+                    sub_rule_token_index += rule.tokens.len();
+                    if is_transparent(rule.rule_name) {
+                        sub_rules.extend(rule.sub_rules);
+                    } else {
+                        sub_rules.push(rule);
+                    }
                 }
                 Err(failures) => return Err(failures),
             }
         }
 
-        Ok(ParseNode::Vec(new_sub_rules))
+        Ok(RuleNode {
+            rule_name: current_rule_name,
+            tokens: &tokens[token_index..sub_rule_token_index],
+            sub_rules,
+        })
     }
 
-    fn log_consume_token(&'g self, token: &Token<'_>) {
+    fn log_consume_token(&'c self, token: &Token<'_>) {
         if let Some(mut file) = self.xml_out.as_ref() {
             if token.class == TokenClass::WHITESPACE {
                 return;
@@ -249,7 +228,7 @@ impl<'g> Parser {
         }
     }
 
-    fn log_enter(&'g self, rule_name: &str) {
+    fn log_enter(&'c self, rule_name: &str) {
         if let Some(mut file) = self.xml_out.as_ref() {
             if !is_transparent(rule_name) {
                 let _ = writeln!(file, "<{rule_name}>");
@@ -257,7 +236,7 @@ impl<'g> Parser {
         }
     }
 
-    fn log_exit(&'g self, rule_name: &str) {
+    fn log_exit(&'c self, rule_name: &str) {
         if let Some(mut file) = self.xml_out.as_ref() {
             if !is_transparent(rule_name) {
                 let _ = writeln!(file, "</{rule_name}>");
@@ -274,24 +253,24 @@ fn is_transparent(rule_name: &str) -> bool {
 /// (`w` may start with an `a`) &&
 /// (`w` may be empty and `A` may be followed by an `a`)
 fn construct_parse_table(grammar: Grammar) -> ParseTable {
-    let mut table: HashMap<RuleId, Vec<(Vec<Terminal>, usize)>> = HashMap::new();
+    let mut lookup_table: HashMap<RuleId, Vec<(Terminal, usize)>> = HashMap::new();
     let mut patterns: Vec<Term> = Vec::new();
 
-    let maximum_lookahead = 2;
-    let follow_sets = get_follow_terminals(&grammar, maximum_lookahead);
+    let grammar = remove_alterations(grammar);
+
+    let follow_sets = get_follow_terminals(&grammar);
 
     // first calculate all first terminals before moving out of grammar
-    let mut first_terminal_map: HashMap<RuleId, Vec<HashSet<Vec<Terminal>>>> = HashMap::new();
+    let mut first_terminal_map = HashMap::new();
     for (rule_id, rule_patterns) in &grammar.rules {
         first_terminal_map.insert(
             rule_id.clone(),
             rule_patterns
                 .iter()
-                .map(|t| get_first_n_terminals_of_term(t, maximum_lookahead, &grammar))
+                .map(|t| get_first_terminals_of_term(t, &grammar))
                 .collect::<Vec<_>>(),
         );
     }
-    println!("first_terminal_map = {:?}", first_terminal_map);
 
     for (rule_id, rule_patterns) in grammar.rules {
         let follow_set = follow_sets.get(&rule_id).unwrap();
@@ -300,37 +279,23 @@ fn construct_parse_table(grammar: Grammar) -> ParseTable {
         for (pattern, first_terminals) in rule_patterns.into_iter().zip(first_terminals_of_rule) {
             let this_idx = get_index_or_add(&mut patterns, pattern);
 
-            let table_row = table.entry(rule_id.clone()).or_insert(Vec::new());
+            let row = lookup_table.entry(rule_id.clone()).or_insert(Vec::new());
 
             for terminal in first_terminals {
-                if terminal.is_empty() {
-                    // there can only be one None, because first_terminals is a HashSet
-                    for additional_terminal in follow_set {
-                        table_row.push((additional_terminal.clone(), this_idx));
-                    }
+                if let Some(terminal) = terminal {
+                    row.push((terminal, this_idx));
                 } else {
-                    table_row.push((terminal, this_idx));
-                }
-            }
-        }
-    }
-
-    for (rule, row) in &table {
-        for (terminal1, follows1) in row {
-            for (terminal2, follows2) in row {
-                if terminal1 == terminal2 && follows1 != follows2 {
-                    println!(
-                        "Rule {} strting with '{:?}' could be both '{:?}' and '{:?}'",
-                        rule, terminal1, patterns[*follows1], patterns[*follows2]
-                    );
-                }
+                    for additional_terminal in follow_set {
+                        row.push((additional_terminal.clone(), this_idx));
+                    }
+                };
             }
         }
     }
 
     // note that the original grammar is destroyed
     ParseTable {
-        lookup_table: table,
+        lookup_table,
         rules: patterns,
     }
 }
@@ -346,23 +311,8 @@ fn get_index_or_add(patterns: &mut Vec<Term>, pattern: Term) -> usize {
     }
 }
 
-fn add_terminal(
-    terminal: Terminal,
-    this_idx: usize,
-    literals_row: &mut HashMap<String, Vec<usize>>,
-    tokens_row: &mut HashMap<TokenClass, Vec<usize>>,
-) {
-    match terminal {
-        Terminal::Literal(str) => literals_row.entry(str).or_insert(Vec::new()).push(this_idx),
-        Terminal::Token(class) => tokens_row.entry(class).or_insert(Vec::new()).push(this_idx),
-    }
-}
-
-fn get_follow_terminals(
-    grammar: &Grammar,
-    maximum_lookahead: usize,
-) -> HashMap<RuleId, HashSet<Vec<Terminal>>> {
-    // "initialize Fo(S) with { EOF } and every other Fo(A) with the empty set"
+fn get_follow_terminals(grammar: &Grammar) -> HashMap<RuleId, HashSet<Terminal>> {
+    // initialize Fo(S) with { EOF } and every other Fo(A) with the empty set
     // (we do not initialize Fo(S) however, because our lexer does not append the EOF symbol)
     let mut follow_terminals = HashMap::new();
 
@@ -370,6 +320,9 @@ fn get_follow_terminals(
         let mut has_change = false;
 
         for (rule_a, _) in &grammar.rules {
+            // let follow_set = follow_terminals
+            //     .entry(rule_a.clone())
+            //     .or_insert(HashSet::new());
             let mut follow_set = follow_terminals.remove(rule_a).unwrap_or(HashSet::new());
             let len = follow_set.len();
 
@@ -378,18 +331,17 @@ fn get_follow_terminals(
                     // if there is a rule of the form `B = vAw`, then
                     find_terms_containing_rule(rule_a, term, &mut |mut w_terms| {
                         if let Some(term) = w_terms.next() {
-                            let first_terminals =
-                                get_first_n_terminals_of_term(term, maximum_lookahead, &grammar);
-                            // if `empty` is in Fi(w), then add Fo(B) to Fo(A)
-                            if first_terminals.contains(&Vec::new()) {
+                            let first_terminals = get_first_terminals_of_term(term, &grammar);
+                            //     if `empty` is in Fi(w), then add Fo(B) to Fo(A)
+                            if first_terminals.contains(&None) {
                                 if let Some(follow_set_of_b) = follow_terminals.get(rule_b) {
                                     follow_set.extend(follow_set_of_b.clone());
                                 }
                             }
-                            // if the terminal a is in Fi(w), then add a to Fo(A)
-                            follow_set.extend(first_terminals);
+                            //     if the terminal a is in Fi(w), then add a to Fo(A)
+                            follow_set.extend(first_terminals.iter().filter_map(Option::to_owned));
                         } else {
-                            // if w has length 0, then add Fo(B) to Fo(A)
+                            //     if w has length 0, then add Fo(B) to Fo(A)
                             if let Some(follow_set_of_b) = follow_terminals.get(rule_b) {
                                 follow_set.extend(follow_set_of_b.clone());
                             }
@@ -442,76 +394,27 @@ where
     }
 }
 
-fn get_first_n_terminals<'g>(
-    terms: &'g [Term],
-    size: usize,
-    grammar: &'g Grammar,
-) -> HashSet<Vec<Terminal>> {
+fn get_first_terminals<'g>(terms: &'g [Term], grammar: &'g Grammar) -> HashSet<Option<Terminal>> {
     terms
         .iter()
-        .flat_map(|t| get_first_n_terminals_of_term(t, size, grammar))
+        .flat_map(|t| get_first_terminals_of_term(t, grammar))
         .collect()
 }
 
-fn get_first_n_terminals_of_term<'g>(
-    term: &Term,
-    size: usize,
-    grammar: &Grammar,
-) -> HashSet<Vec<Terminal>> {
+fn get_first_terminals_of_term<'g>(term: &Term, grammar: &Grammar) -> HashSet<Option<Terminal>> {
     match term {
-        Term::Concatenation(terms) => {
-            let mut prefixes: HashSet<Vec<Terminal>> = HashSet::from([Vec::new()]);
-
-            for sub_term in terms {
-                let smallest_prefix = prefixes.iter().map(Vec::len).min().unwrap_or(0);
-                let max_postfix_size = size - smallest_prefix;
-                let new_postfix = get_first_n_terminals_of_term(sub_term, max_postfix_size, grammar);
-                prefixes = limited_carthesian_product(&prefixes, &new_postfix, size);
-
-                if prefixes.iter().all(|p| p.len() >= size) {
-                    break;
-                }
-
-            }
-            return prefixes;
-        }
-        Term::Alternation(terms) => get_first_n_terminals(terms, size, grammar),
-        Term::Identifier(rule_name) => {
+        Term::Concatenation(terms) => get_first_terminals_of_term(&terms[0], grammar),
+        Term::Alternation(terms) => get_first_terminals(terms, grammar),
+        Term::Identifier(id) => {
             let rule_patterns = grammar
                 .rules
-                .get(rule_name)
-                .expect("Found rule id of rule that does not exist");
-            return get_first_n_terminals(rule_patterns, size, grammar);
+                .get(id)
+                .expect("Rule refers to a rule that does not exist");
+            get_first_terminals(rule_patterns, grammar)
         }
-        Term::Terminal(t) => HashSet::from([vec![t.clone()]]),
-        Term::Empty => HashSet::from([Vec::new()]),
+        Term::Terminal(t) => HashSet::from([Some(t.clone())]),
+        Term::Empty => HashSet::from([None]),
     }
-}
-
-// returns the carthesian product of all prefixes and postfixes, limited to a size of `max_size`
-fn limited_carthesian_product(
-    prefixes: &HashSet<Vec<Terminal>>,
-    postfixes: &HashSet<Vec<Terminal>>,
-    max_size: usize,
-) -> HashSet<Vec<Terminal>> {
-    let mut new_prefixes = HashSet::new();
-    for prefix in prefixes {
-        if prefix.len() == max_size {
-            continue;
-        }
-
-        for postfix in postfixes {
-            // add `(prefix ++ postfix)`, limited to a size of `max_size`
-            let mut new_prefix = prefix.clone();
-            let max_elements_from_postfix = std::cmp::min(postfix.len(), max_size - prefix.len());
-            for i in 0..max_elements_from_postfix {
-                new_prefix.push(postfix[i].clone());
-            }
-            new_prefixes.insert(new_prefix);
-        }
-    }
-
-    return new_prefixes;
 }
 
 fn remove_alterations(mut grammar: Grammar) -> Grammar {
