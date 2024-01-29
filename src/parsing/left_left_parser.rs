@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, HashSet, VecDeque},
+    convert::identity,
     io::Write,
 };
 
@@ -97,43 +98,43 @@ impl<'c> Parser {
                         failures.pop_front();
                     }
                 }
-                Ok(interpretation) => {
-                    if interpretation.num_tokens() > longest_success.num_tokens() {
-                        longest_success = interpretation;
+                Ok(interpretation) if interpretation.num_tokens() == tokens.len() => {
+                    if let ParseNode::Rule(rule_node) = interpretation {
+                        // SUCCESS
+                        return Ok(rule_node);
+                    } else {
+                        return Err(vec![Failure::InternalError(SimpleError::new(
+                            "Primary rule was no rule",
+                        ))]);
                     }
+                }
+                Ok(interpretation) => {
+                    longest_success = interpretation;
                 }
             }
         }
+
+        assert_ne!(longest_success.num_tokens(), tokens.len());
 
         if let ParseNode::EmptyNode = longest_success {
             return Err(failures.into());
         }
 
-        if longest_success.num_tokens() < tokens.len() {
-            let past_the_end_token = &tokens[longest_success.num_tokens()];
-            let mut furthest_failures = vec![Failure::IncompleteParse {
-                char_idx: past_the_end_token.char_idx,
-            }];
+        let past_the_end_token = &tokens[longest_success.num_tokens()];
+        let mut furthest_failures = vec![Failure::IncompleteParse {
+            char_idx: past_the_end_token.char_idx,
+        }];
 
-            for failure in failures {
-                let minimum = get_err_significance(furthest_failures.last().unwrap())
-                    - MAX_NUM_TOKENS_BACKTRACE_ON_ERROR;
-                if get_err_significance(&failure) > minimum {
-                    furthest_failures.push(failure);
-                    furthest_failures.sort_by(compare_err_result);
-                }
+        for failure in failures {
+            let minimum = get_err_significance(furthest_failures.last().unwrap())
+                - MAX_NUM_TOKENS_BACKTRACE_ON_ERROR;
+            if get_err_significance(&failure) > minimum {
+                furthest_failures.push(failure);
+                furthest_failures.sort_by(compare_err_result);
             }
-
-            return Err(furthest_failures);
         }
 
-        if let ParseNode::Rule(rule_node) = longest_success {
-            return Ok(rule_node);
-        } else {
-            return Err(vec![Failure::InternalError(SimpleError::new(
-                "Primary rule was no rule",
-            ))]);
-        }
+        return Err(furthest_failures);
     }
 
     fn apply_rule_with_log<'prog: 'c>(
@@ -331,7 +332,7 @@ fn char_idx_of(next_token: Option<&Token>, tokens: &[Token]) -> usize {
         None => {
             let last_token = tokens.last().unwrap();
             last_token.char_idx + last_token.slice.len()
-        },
+        }
     }
 }
 
@@ -365,6 +366,8 @@ fn construct_parse_table(grammar: Grammar) -> ParseTable {
         );
     }
 
+    let first_terminal_map_copy = first_terminal_map.clone();
+
     for (rule_id, rule_patterns) in grammar.rules {
         let follow_set = follow_sets.get(&rule_id).unwrap();
         let first_terminals_of_rule = first_terminal_map.remove(&rule_id).unwrap();
@@ -386,7 +389,11 @@ fn construct_parse_table(grammar: Grammar) -> ParseTable {
         }
     }
     println!("");
-    println!("{:?}", lookup_table);
+    println!("first_sets = {:?}", first_terminal_map_copy);
+    println!("");
+    println!("follow_sets = {:?}", follow_sets);
+    println!("");
+    println!("lookup_table = {:?}", lookup_table);
     println!("");
 
     // note that the original grammar is destroyed
@@ -428,23 +435,16 @@ fn get_follow_terminals(grammar: &Grammar) -> HashMap<RuleId, HashSet<Terminal>>
             for (rule_b, pattern) in &grammar.rules {
                 for term in pattern {
                     // if there is a rule of the form `B = vAw`, then
-                    find_terms_containing_rule(rule_a, term, &mut |mut w_terms| {
-                        if let Some(term) = w_terms.next() {
-                            let first_terminals = get_first_terminals_of_term(term, &grammar);
-                            //     if `empty` is in Fi(w), then add Fo(B) to Fo(A)
-                            if first_terminals.contains(&None) {
-                                if let Some(follow_set_of_b) = follow_terminals.get(rule_b) {
-                                    follow_set.extend(follow_set_of_b.clone());
-                                }
-                            }
-                            //     if the terminal a is in Fi(w), then add a to Fo(A)
-                            follow_set.extend(first_terminals.iter().filter_map(Option::to_owned));
-                        } else {
-                            //     if w has length 0, then add Fo(B) to Fo(A)
+                    find_terms_containing_rule(rule_a, term, &mut |w_terms| {
+                        let first_terminals = get_first_terminals_of_concatenation(w_terms, &grammar);
+                        // if `empty` is in Fi(w), then add Fo(B) to Fo(A)
+                        if first_terminals.contains(&None) {
                             if let Some(follow_set_of_b) = follow_terminals.get(rule_b) {
                                 follow_set.extend(follow_set_of_b.clone());
                             }
                         }
+                        // if the terminal a is in Fi(w), then add a to Fo(A)
+                        follow_set.extend(first_terminals.into_iter().filter_map(identity));
                     })
                 }
             }
@@ -465,7 +465,7 @@ fn get_follow_terminals(grammar: &Grammar) -> HashMap<RuleId, HashSet<Terminal>>
 // finds all rules of the form `B = vAw`, where `A` is `rule_id`, and runs `action` on `w`
 fn find_terms_containing_rule<'t, Action>(rule_id: &str, term: &'t Term, action: &mut Action)
 where
-    Action: FnMut(std::slice::Iter<'t, Term>),
+    Action: FnMut(&[Term]),
 {
     match term {
         Term::Concatenation(sub_terms) => {
@@ -473,8 +473,8 @@ where
             while let Some(sub_term) = sub_term_iter.next() {
                 if let Term::Identifier(id) = sub_term {
                     if id.as_ref() == rule_id {
-                        // pass an iterator to the remaining sub_terms of this term
-                        action(sub_term_iter.clone())
+                        // converting a slice iterator to a slice creates no copy
+                        action(sub_term_iter.as_slice())
                     }
                 } else {
                     find_terms_containing_rule(rule_id, sub_term, action)
@@ -487,33 +487,52 @@ where
             }
         }
         Term::Identifier(id) if id.as_ref() == rule_id => {
-            action([].iter());
+            action(&[]);
         }
         Term::Identifier(_) | Term::Terminal(_) | Term::Empty => {}
     }
 }
 
-fn get_first_terminals<'g>(terms: &'g [Term], grammar: &'g Grammar) -> HashSet<Option<Terminal>> {
+fn get_first_terminals_of_alternation(
+    terms: &[Term],
+    grammar: &Grammar,
+) -> HashSet<Option<Terminal>> {
     terms
         .iter()
         .flat_map(|t| get_first_terminals_of_term(t, grammar))
         .collect()
 }
 
-fn get_first_terminals_of_term<'g>(term: &Term, grammar: &Grammar) -> HashSet<Option<Terminal>> {
+fn get_first_terminals_of_term(term: &Term, grammar: &Grammar) -> HashSet<Option<Terminal>> {
     match term {
-        Term::Concatenation(terms) => get_first_terminals_of_term(&terms[0], grammar),
-        Term::Alternation(terms) => get_first_terminals(terms, grammar),
+        Term::Concatenation(terms) => get_first_terminals_of_concatenation(terms, grammar),
+        Term::Alternation(terms) => get_first_terminals_of_alternation(terms, grammar),
         Term::Identifier(id) => {
             let rule_patterns = grammar
                 .rules
                 .get(id)
                 .expect("Rule refers to a rule that does not exist");
-            get_first_terminals(rule_patterns, grammar)
+            get_first_terminals_of_alternation(rule_patterns, grammar)
         }
         Term::Terminal(t) => HashSet::from([Some(t.clone())]),
         Term::Empty => HashSet::from([None]),
     }
+}
+
+fn get_first_terminals_of_concatenation(
+    terms: &[Term],
+    grammar: &Grammar,
+) -> HashSet<Option<Terminal>> {
+    if terms.is_empty() {
+        return HashSet::from([None]);
+    }
+
+    let mut first_terminals = get_first_terminals_of_term(&terms[0], grammar);
+    let did_have_none = first_terminals.remove(&None);
+    if did_have_none {
+        first_terminals.extend(get_first_terminals_of_concatenation(&terms[1..], grammar))
+    }
+    first_terminals
 }
 
 fn remove_alterations(mut grammar: Grammar) -> Grammar {

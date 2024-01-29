@@ -1,5 +1,10 @@
 use super::token::{Token, TokenClass};
 
+// dot is illegal, because it makes them indistinguishable from method calls and scope references
+// slash is illegal, because operators may be chained to produce a start-of-comment
+// assignment is illegal, because the assignment operation is handled specially in the language
+const SPECIAL_SYMBOLS: &[char] = &['(', ')', '[', ']', '{', '}', ';', '.', '=', '/'];
+
 pub struct Lexer {
     pub ignore_whitespace : bool,
 }
@@ -66,19 +71,19 @@ impl Lexer {
             return Some((TokenClass::NUMBER, num_chars));
         }
 
-        // all symbols with special meaning (= cannot be operators)
-        if ['(', ')', '[', ']', '{', '}', ';'].contains(&first_char) {
+        // identifier: [a-zA-Z_][a-zA-Z0-9_]*
+        if first_char == '_' || first_char.is_alphabetic() {
+            let num_chars = Lexer::count(chars, |c| c == '_' || c.is_alphanumeric());
+            return Some((TokenClass::IDENTIFIER, num_chars));
+        }
+
+        // all symbols with special meaning (= not part of any group)
+        if SPECIAL_SYMBOLS.contains(&first_char) {
             return Some((TokenClass::SPECIAL, 1));
         }
 
         if first_char.is_ascii_punctuation() {
             return Some((TokenClass::OPERATOR, 1));
-        }
-
-        // identifier: [a-zA-Z_][a-zA-Z0-9_]*
-        if first_char == '_' || first_char.is_alphabetic() {
-            let num_chars = Lexer::count(chars, |c| c == '_' || c.is_alphanumeric());
-            return Some((TokenClass::IDENTIFIER, num_chars));
         }
 
         if first_char.is_control() {
