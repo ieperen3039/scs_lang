@@ -23,15 +23,16 @@ Casting down (to a specialisation) must happen explicitly, and results in an opt
 
 ## Results and booleans
 `Result`s are a built-in variant of a generic positive value and a generic negative value.
-`Optional`s are a Result where the negative value is of the `void` type.
-`boolean`s are a Result where both the positive and the negative value are of void type.
-The implication of this is that the result of a comparison can be mapped to an `Optional`, or even a `Result`, in a natural way.
-On the other side, a `Result` cannot be cast to a `boolean`, 
+`Maybe`s are a `Result<void>`.
+`boolean`s are a `Result<void, void>` (but not a `Maybe<void>`).
+The implication of this is that the result of a comparison can be mapped to a `Result` in a natural way.
+On the other side, a `Result` and a `Maybe` cannot be cast to a `boolean`, but conversion functions exist (`is_some` and `is_pos`).
 
 ## Statements
 Statements are ordered such that functions are generally executed in the order of appearance.
-This means that every statement ends with a post-fix assignment, and that operator precedence _does not exist_.
+This also means that every statement ends with a _post-fix_ assignment, and that operator precedence _does not exist_.
 Arithmetic on numbers must be executed by means of explicitly calling functions.
+Again, this language is not meant for algorithms.
 
 Assignment can also be used where a function is expected a monadic operation, in which case the assignment is said to be 'conditional'.
 Assigning to `return` implies returning from the function, conditionally assigning `return` is a conditional return from the function.
@@ -39,7 +40,8 @@ Conditionally assigned variables are implicit monadic types: if the variable is 
 
 ## Operators and Symbols
 Faux heavily relies on symbols for its conciceness.
-
+The Lexer implementation defines which symbols are not eligible for use as operators.
+As of writing, this is: `'(', ')', '[', ']', '{', '}', ';', '.', '=', '/'`, but also excludes symbols that indicates or kinds of tokens: quotes `"` and underscores `_`
 
 ## Buffers
 Buffers are abstract collections of some type `T`.
@@ -57,9 +59,12 @@ A function may be overloaded with different parameters, but also different retur
 a closing bracket ends a function. If the last statement does not end in an assignment, then the result of that statement is the return of the function.
 
 ## Function objects (lamdas)
-A `fn<(A a)R>` is a lamda function that accepts argument `a` of type `A` and return value `R`. 
-The argument name is optional.
-A (A a){...} block evaluates to a `fn<(A)R>` for some implied R, possibly void.
+A `fn<(A a)R>` is a lamda function that accepts one argument `a` of type `A` and return value `R`. 
+Multiple parameters are allowed: `fn<(A, B, C)R>` is valid for some types `A`, `B`, `C` and `R`.
+The argument names are optional in the type definition.
+A `(A a):R{...}` block evaluates to a `fn<(A)R>`.
+A `(A a){...}` block evaluates to a `fn<(A)R>` for some implied `R`.
+A `{...}` block evaluates to a `fn<(A)R>` for some implied `A` and `R`, if the first expression of the block evaluates to some function accepting `A`
 The type `fn<T>` is equal to `fn<()T>`.
 A lamda may implicitly capture any variable in its scope
 Captures are _always_ effectively copied, and `fn` is state-less and immutable.
@@ -67,3 +72,10 @@ Whenever a `fn<T>` is assigned to a variable of `T`, it is evaluated. A `fn<T>` 
 A `fn<T>` has no member functions, but you can call any member of `T`, causing the `fn` to be evaluated.
 A variable of type `T` may also be assigned to a variable of `fn<T>`, resulting in a function that just returns the value. This allows for lazy arguments without much syntactic overhead.
 Nothing extends `fn<(A)R>` for any `A` and `R`,
+
+## The no-return type or BANG type
+The `!` type is used to indicate the end of control flow.
+Only the assignment expression returns the `!` type, but lamdas can be made from assignments of type `fn<(T)!>` for any `T`.
+These lamdas cannot be assigned to variables, but can be passed to functions.
+Executing such lamda forces the function to return. 
+Notice that executing an assignment normally only forces a return when the assignement assigns to `return`.

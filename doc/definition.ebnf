@@ -35,8 +35,8 @@ base_type_decl          = identifier, [ generic_types_decl ];
 generic_types_decl      = "<", _name_list, ">";
 (* instantion of generic types *)
 generic_types_inst      = "<", _type_list, ">";
-(* function does not actually use generics, only syntactically *)
-fn_type                 = _keyword_fn, [ "<", [ "(", unnamed_parameter_list, ")" ], return_type, ">" ];
+(* function does not actually use a generic_types_decl, only syntactically *)
+fn_type                 = _keyword_fn, "<", [ "(", unnamed_parameter_list, ")" ], return_type, ">";
 enum_definition         = _keyword_enum, identifier, "[", enum_value_decl, { ",", enum_value_decl }, "]";
 enum_value_decl         = ? IDENTIFIER ?;
 variant_definition      = _keyword_variant, identifier, [ generic_types_decl ], "[", variant_value_decl, { ",", variant_value_decl }, "]";
@@ -55,18 +55,20 @@ parameter_list          = parameter, { ",", parameter };
 parameter               = type_ref, [ expansion_decl ], identifier;
 unnamed_parameter_list  = _type_list;
 untyped_parameter_list  = _name_list;
-return_type             = type_ref;
+return_type             = type_ref | "!";
 
 (* statements *)
-function_block          = "{", statement, { statement_separator, [ statement ] }, "}";
-statement               = _expression, { _mutator }; 
+function_block          = "{", statement, { statement_separator, statement }, [ statement_separator ], "}";
+statement               = _value_expression, { _mutator }; 
+variable_name           = ? IDENTIFIER ?;
+_value_expression       = variable_name | static_function_call | buffer_construction | tuple_construction | _literal; 
 statement_separator     = ";";
-_expression             = identifier | static_function_call | lambda | array_initialisation | _literal;
+_expression             = _value_expression | lambda | method_reference;
 
 (* function call statements *)
-static_function_call    = [ _scope_reference ], _function_call_tail;
-method_call             = [ type_ref, "." ], _function_call_tail;
-_function_call_tail     = function_name, [ "(", [ _argument_list ], ")" ];
+static_function_call    = [ _scope_reference, "." ], function_name, "(", [ _argument_list ], ")";
+method_call             = function_name, [ "(", [ _argument_list ], ")" ];
+method_reference        = type_ref, ".", method_call;
 _argument_list          = single_argument | ( named_argument, { ",", named_argument } );
 single_argument         = _expression;
 named_argument          = identifier, ":", _expression;
@@ -76,13 +78,15 @@ _name_list              = identifier, { ",", identifier };
 (* mutators, selectors and usage indicators *)
 _mutator                = method_call | static_function_call | operator | mutator_cast | mutator_assign;
 operator                = ? OPERATOR ?;
-mutator_cast           = _usage_cast, type_ref, _cast_end;
-mutator_assign         = _usage_assign, ( return_decl | ( [ type_ref ], identifier) );
+mutator_cast            = _usage_cast, type_ref;
+mutator_assign          = _usage_assign, ( return_decl | ( [ type_ref ], variable_name) );
 
 (* other statements *)
-array_initialisation    = "[", [ _expression, { ",", _expression } ], "]";
-lambda                  = _lamda;
-_lamda                  = [ "(", untyped_parameter_list, ")" ], [ ":", return_type ], function_block;
+(* buffer_construction     = "[", [ _expression, { ",", _expression } ], "]"; *)
+tuple_construction      = "[", [ _expression, { ",", _expression } ], "]";
+(* implicit parameter lamdas are potentially indistinguishable from zero-parameter lamdas *)
+(* However the first statement of a implicit parameter lamdas may be a mutator *)
+lambda                  = [ "(", untyped_parameter_list, ")", [ ":", return_type ] ], function_block;
 _literal                = string_literal | integer_literal | float_literal;
 string_literal          = ? STRING ?;
 integer_literal         = ? NUMBER ?;
@@ -94,8 +98,7 @@ native_decl             = _keyword_extern;
 
 (* symbol definitions *)
 _usage_assign = "=";
-_usage_cast = ":<";
-_cast_end = ">";
+_usage_cast = "as";
 buffer_symbol = "[]";
 expansion_decl = "...";
 
