@@ -6,3 +6,4 @@ greibach_ebnf.ebnf
 lexer_out.txt
 test_try_parse_example_faux_output.xml
 test_parse_simple_derived_type.xml
+/doc/.antlr
