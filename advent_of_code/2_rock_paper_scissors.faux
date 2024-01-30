@@ -1,37 +1,36 @@
 version faux 0.0.0
 
 (String input_string) : int {
-    input_string // String
-        split_on("\n") // String[]
-        split_on(" ") // String[][2]
-        = elements
+    input_string, // String
+        split_on("\n"), // String[]
+        split_on(" "), // String[][2]
+        = elements;
     
-    elements // String[][2]
+    elements, // String[][2]
         > (str) { // String[2]
-            str
-                first // String?
-                unwrap_pos_or("") // String
+            str,
+                first, // String?
+                unwrap_pos_or(""), // String
                 = your_shape;
 
-            str
-                last // String?
-                unwrap_pos_or("") // String
+            str,
+                last, // String?
+                unwrap_pos_or(""), // String
                 = oppo_shape;
 
             [your_shape, oppo_shape] // construct tuple (SCP_5)
-                switch { // SCP_6
-                    ["A",  "X"] : 3; // 1 - 1 + 3
-                    ["A",  "Y"] : -1; // 1 - 2 + 0
-                    ["A",  "Z"] : 4; // 1 - 3 + 6
-                    ["B",  "X"] : 1; // 2 - 1 + 0
-                    ["B",  "Y"] : 3; // 2 - 2 + 3
-                    ["B",  "Z"] : 5; // 2 - 3 + 6
-                    ["C",  "X"] : 10; // 3 - 1 + 6
-                    ["C",  "Y"] : 1; // 3 - 2 + 0
-                    ["C",  "Z"] : 3; // 3 - 3 + 3
-                    default : 0;
-                } // int
-        } // int[]
+                switch( // SCP_6
+                    ["A",  "X"] : 3, // 1 - 1 + 3
+                    ["A",  "Y"] : -1, // 1 - 2 + 0
+                    ["A",  "Z"] : 4, // 1 - 3 + 6
+                    ["B",  "X"] : 1, // 2 - 1 + 0
+                    ["B",  "Y"] : 3, // 2 - 2 + 3
+                    ["B",  "Z"] : 5, // 2 - 3 + 6
+                    ["C",  "X"] : 10, // 3 - 1 + 6
+                    ["C",  "Y"] : 1, // 3 - 2 + 0
+                    ["C",  "Z"] : 3, // 3 - 3 + 3
+                    default : 0
+                ) // int
+        }, // int[]
         reduce(int.add)
-        
 }

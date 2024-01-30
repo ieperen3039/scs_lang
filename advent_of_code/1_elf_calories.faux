@@ -1,10 +1,10 @@
 version faux 0.0.0
 
 (String input_string) : int {
-    input_string // String
-        split_on("\n\n") // String[]
-        split_on("\n") // String[][]
-        parse_int // int[][]
-        reduce(int.add) // int[]
+    input_string, // String
+        split_on("\n\n"), // String[]
+        split_on("\n"), // String[][]
+        parse_int, // int[][]
+        reduce(int.add), // int[]
         reduce(math.max) // int
 }
