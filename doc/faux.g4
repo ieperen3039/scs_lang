@@ -54,7 +54,7 @@ value_expression_       : variable_name | static_function_call | tuple_construct
 statement_separator     : ';';
 expression_             : value_expression_ | lambda | method_reference;
 static_function_call    : (scope_name '.')* function_name '(' argument_list_? ')';
-method_call             : function_name ('(' (argument_list_)? ')')?;
+method_call             : function_name '(' (argument_list_)? ')';
 method_reference        : type_ref '.' method_call;
 argument_list_          : single_argument | (named_argument (',' named_argument)*);
 single_argument         : expression_;

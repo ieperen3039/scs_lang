@@ -48,7 +48,7 @@ constant_def            = _keyword_const, type_ref, identifier, "=", statement;
 function_definition     = function_signature, ( function_block | native_decl );
 function_signature      = _keyword_fn, function_name, [ generic_types_decl ], _function_interface;
 function_name           = ? IDENTIFIER ?;
-_function_interface      = "(", [ parameter_list ], ")", ":", return_type;
+_function_interface     = "(", [ parameter_list ], ")", ":", return_type;
 parameter_list          = parameter, { ",", parameter };
 parameter               = type_ref, [ expansion_decl ], identifier;
 unnamed_parameter_list  = _type_list;
@@ -65,7 +65,7 @@ _expression             = _value_expression | lambda | method_reference;
 
 (* function call statements *)
 static_function_call    = { scope_name, "." }, function_name, "(", [ _argument_list ], ")";
-method_call             = function_name, [ "(", [ _argument_list ], ")" ];
+method_call             = function_name, "(", [ _argument_list ], ")";
 method_reference        = type_ref, ".", method_call;
 _argument_list          = single_argument | ( named_argument, { ",", named_argument } );
 single_argument         = _expression;
