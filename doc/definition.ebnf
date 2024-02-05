@@ -61,7 +61,7 @@ statement               = _value_expression, { { operator }, _mutator };
 variable_name           = ? IDENTIFIER ?;
 _value_expression       = variable_name | static_function_call | tuple_construction | _literal; 
 statement_separator     = ";";
-_expression             = _value_expression | lambda | method_reference;
+_expression             = static_function_call | implicit_par_lambda | explicit_par_lambda | method_reference;
 
 (* function call statements *)
 static_function_call    = { scope_name, "." }, function_name, "(", [ _argument_list ], ")";
@@ -82,9 +82,10 @@ mutator_assign          = _usage_assign, ( return_decl | ( [ type_ref ], variabl
 (* other statements *)
 (* buffer_construction     = "[", [ _expression, { ",", _expression } ], "]"; *)
 tuple_construction      = "[", _expression, { ",", _expression }, "]";
-(* implicit parameter lamdas are potentially indistinguishable from zero-parameter lamdas *)
-(* However the first statement of a implicit parameter lamdas may be a mutator *)
-lambda                  = [ "(", untyped_parameter_list, ")", [ ":", return_type ] ], function_block;
+(* the first statement of a implicit parameter lamdas may be a mutator *)
+implicit_par_lambda     = function_block;
+(* a lamda with zero parameters must have parenthesis, otherwise it is indistinguishable from implicit parameter lamdas *)
+explicit_par_lambda     = "(", untyped_parameter_list, ")", [ ":", return_type ], function_block;
 _literal                = string_literal | integer_literal | float_literal;
 string_literal          = ? STRING ?;
 integer_literal         = ? NUMBER ?;
