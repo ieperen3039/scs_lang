@@ -22,11 +22,11 @@ scope_name              = ? IDENTIFIER ?;
 type_definition         = _keyword_type, base_type_decl, "=",  ( type_ref | native_decl );
 field_declaration       = type_ref, identifier, ";";
 (* reference to existing type *)
-type_ref                = ( ( { scope_name, "." }, base_type_ref ) | tuple_inst | fn_type ), { buffer_symbol };
+type_ref                = ( base_type_ref | tuple_inst | fn_type ), { buffer_symbol };
 (* instantiation of a tuple *)
 tuple_inst               = "[", _type_list, "]";
 (* reference to existing base type, enum or variant. instantiates generic types *)
-base_type_ref           = identifier, [ generic_types_inst ];
+base_type_ref           = { scope_name, "." }, identifier, [ generic_types_inst ];
 (* declaration of new type name, declares the existence of generic types *)
 base_type_decl          = identifier, [ generic_types_decl ];
 (* declaration of generic types *)
@@ -42,7 +42,7 @@ variant_value_decl      = identifier, "(", type_ref, ")";
 (* generics are not instantiated, hence a base_type_decl *)
 implementation          = _keyword_start_implementation, base_type_decl, { buffer_symbol }, "{", { function_definition }, "}";
 
-constant_def            = _keyword_const, type_ref, identifier, "=", statement;
+constant_def            = _keyword_const, type_ref, identifier, "=", _expression;
 
 (* function definitions and parameters *)
 function_definition     = function_signature, ( function_block | native_decl );
@@ -57,16 +57,16 @@ return_type             = type_ref | "!";
 
 (* statements *)
 function_block          = "{", statement, { statement_separator, statement }, [ statement_separator ], "}";
-statement               = _value_expression, { { operator }, _mutator }; 
-variable_name           = ? IDENTIFIER ?;
-_value_expression       = variable_name | static_function_call | tuple_construction | _literal; 
+statement               = _value_expression, { { operator }, _function_expression }; 
+_expression             = _value_expression | _function_expression;
+_value_expression       = variable_name | tuple_construction | _literal; 
+_function_expression    = implicit_par_lambda | explicit_par_lambda | method_reference | method_call | mutator_cast | mutator_assign;
 statement_separator     = ";";
-_expression             = static_function_call | implicit_par_lambda | explicit_par_lambda | method_reference;
+variable_name           = ? IDENTIFIER ?;
 
 (* function call statements *)
-static_function_call    = { scope_name, "." }, function_name, "(", [ _argument_list ], ")";
 method_call             = function_name, "(", [ _argument_list ], ")";
-method_reference        = type_ref, ".", method_call;
+method_reference        = base_type_ref, ".", method_call;
 _argument_list          = single_argument | ( named_argument, { ",", named_argument } );
 single_argument         = _expression;
 named_argument          = identifier, ":", _expression;
@@ -74,7 +74,6 @@ _type_list              = type_ref, { ",", type_ref };
 _name_list              = identifier, { ",", identifier };
 
 (* mutators, selectors and usage indicators *)
-_mutator                = method_call | static_function_call | mutator_cast | mutator_assign;
 operator                = ? OPERATOR ?;
 mutator_cast            = _usage_cast, type_ref;
 mutator_assign          = _usage_assign, ( return_decl | ( [ type_ref ], variable_name) );
