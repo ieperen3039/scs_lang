@@ -1,21 +1,21 @@
 version faux 0.0.0
 
 (String input_string) : int {
-    input_string, // String
-        split_on("\n"), // String[]
-        split_on(" "), // String[][2]
+    input_string // String
+        split_on("\n") // String[]
+        split_on(" ") // String[][2]
         = elements;
     
-    elements, // String[][2]
+    elements // String[][2]
         > (str) { // String[2]
-            str,
-                first, // String?
-                unwrap_pos_or(""), // String
+            str
+                first() // String?
+                unwrap_pos_or("") // String
                 = your_shape;
 
-            str,
-                last, // String?
-                unwrap_pos_or(""), // String
+            str
+                last() // String?
+                unwrap_pos_or("") // String
                 = oppo_shape;
 
             [your_shape, oppo_shape] // construct tuple (SCP_5)
@@ -31,6 +31,6 @@ version faux 0.0.0
                     ["C",  "Z"] : 3, // 3 - 3 + 3
                     default : 0
                 ) // int
-        }, // int[]
+        } // int[]
         reduce(int.add)
 }

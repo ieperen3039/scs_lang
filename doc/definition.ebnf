@@ -57,7 +57,7 @@ return_type             = type_ref | "!";
 
 (* statements *)
 function_block          = "{", statement, { statement_separator, statement }, [ statement_separator ], "}";
-statement               = _value_expression, { ',', { operator }, _mutator }; 
+statement               = _value_expression, { { operator }, _mutator }; 
 variable_name           = ? IDENTIFIER ?;
 _value_expression       = variable_name | static_function_call | tuple_construction | _literal; 
 statement_separator     = ";";

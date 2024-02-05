@@ -48,7 +48,7 @@ unnamed_parameter_list  : type_list_;
 untyped_parameter_list  : name_list_;
 return_type             : type_ref | '!';
 function_block          : '{' statement (statement_separator statement)* statement_separator? '}';
-statement               : value_expression_ (',' operator* mutator_)*; 
+statement               : value_expression_ (operator* mutator_)*; 
 variable_name           : IDENTIFIER;
 value_expression_       : variable_name | static_function_call | tuple_construction | literal_; 
 statement_separator     : ';';
