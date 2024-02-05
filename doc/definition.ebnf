@@ -81,7 +81,7 @@ mutator_assign          = _usage_assign, ( return_decl | ( [ type_ref ], variabl
 
 (* other statements *)
 (* buffer_construction     = "[", [ _expression, { ",", _expression } ], "]"; *)
-tuple_construction      = "[", [ _expression, { ",", _expression } ], "]";
+tuple_construction      = "[", _expression, { ",", _expression }, "]";
 (* implicit parameter lamdas are potentially indistinguishable from zero-parameter lamdas *)
 (* However the first statement of a implicit parameter lamdas may be a mutator *)
 lambda                  = [ "(", untyped_parameter_list, ")", [ ":", return_type ] ], function_block;

@@ -9,7 +9,7 @@ NUMBER : [0-9]+ ;
 STRING : '"' ~'"'* '"' ;
 OPERATOR : [?!#$%&*+\-/|~\\^`@:<>] ;
 
-faux_program            : version_declaration? include_declaration* definition_* program_interface function_block? EOF;
+faux_program            : version_declaration? include_declaration* definition_* (program_interface function_block)? EOF;
 program_interface       : function_interface_;
 version_dialect         : 'faux';
 version_declaration     : keyword_version_ version_dialect version?;
@@ -25,7 +25,7 @@ scope                   : scope_name '{' definition_* '}';
 scope_name              : IDENTIFIER;
 type_definition         : keyword_type_ base_type_decl ':'  (type_ref | native_decl);
 field_declaration       : type_ref identifier ';';
-type_ref                : ((scope_name '.')* base_type_ref) | tuple_inst | fn_type buffer_symbol*;
+type_ref                : (((scope_name '.')* base_type_ref) | tuple_inst | fn_type) buffer_symbol*;
 tuple_inst              : '[' type_list_ ']';
 base_type_ref           : identifier generic_types_inst?;
 base_type_decl          : identifier generic_types_decl?;
@@ -65,7 +65,7 @@ mutator_                : method_call | static_function_call | mutator_cast | mu
 operator                : OPERATOR;
 mutator_cast            : usage_cast_ type_ref;
 mutator_assign          : usage_assign_ (return_decl | (type_ref? variable_name));
-tuple_construction      : '[' (expression_ (',' expression_)*)? ']';
+tuple_construction      : '[' expression_ (',' expression_)* ']';
 lambda                  : ('(' untyped_parameter_list ')' (':' return_type)?)? function_block;
 literal_                : string_literal | integer_literal | float_literal;
 string_literal          : STRING;
