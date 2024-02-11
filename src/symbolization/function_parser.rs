@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc, fmt::format};
 
-use simple_error::SimpleError;
+use simple_error::{SimpleError, SimpleResult};
 
 use crate::parsing::rule_nodes::RuleNode;
 
@@ -21,7 +21,7 @@ impl FunctionParser<'_, '_> {
         node: &RuleNode<'_, '_>,
         this_scope: &Scope,
         mut variables: VarStorage,
-    ) -> Result<FunctionBody, SimpleError> {
+    ) -> SimpleResult<FunctionBody> {
         let mut statements = Vec::new();
 
         for ele in node.sub_rules.chunks(2) {
@@ -68,7 +68,7 @@ impl FunctionParser<'_, '_> {
         this_scope: &Scope,
         parameters: &HashMap<Identifier, TypeRef>,
         return_var: Rc<VariableDeclaration>,
-    ) -> Result<FunctionBody, SimpleError> {
+    ) -> SimpleResult<FunctionBody> {
         debug_assert_eq!(node.rule_name, "function_block");
         let mut variables: VarStorage = HashMap::new();
 
@@ -95,7 +95,7 @@ impl FunctionParser<'_, '_> {
         node: &RuleNode<'_, '_>,
         this_scope: &Scope,
         variables: &mut VarStorage,
-    ) -> Result<Statement, SimpleError> {
+    ) -> SimpleResult<Statement> {
         debug_assert_eq!(node.rule_name, "statement");
 
         let expression_node = node
@@ -127,7 +127,7 @@ impl FunctionParser<'_, '_> {
         expression_node: &RuleNode<'_, '_>,
         this_scope: &Scope,
         variables: &mut VarStorage,
-    ) -> Result<Expression, SimpleError> {
+    ) -> SimpleResult<Expression> {
         match expression_node.rule_name {
             "identifier" => {
                 let variable = expect_variable(variables, &expression_node.tokens_as_string())?;
@@ -179,7 +179,7 @@ impl FunctionParser<'_, '_> {
         expression_type: &TypeRef,
         this_scope: &Scope,
         variables: &mut VarStorage,
-    ) -> Result<Mutator, SimpleError> {
+    ) -> SimpleResult<Mutator> {
         match mutator_node.rule_name {
             "method_call" => Ok(Mutator::FunctionCall(self.read_method_call(
                 expression_type,
@@ -211,7 +211,7 @@ impl FunctionParser<'_, '_> {
         node: &RuleNode<'_, '_>,
         this_scope: &Scope,
         variables: &mut VarStorage,
-    ) -> Result<FunctionCall, SimpleError> {
+    ) -> SimpleResult<FunctionCall> {
         assert_eq!(node.rule_name, "static_function_call");
         let scope: Vec<Identifier> = node
             .find_nodes("scope_name")
@@ -245,7 +245,7 @@ impl FunctionParser<'_, '_> {
         node: &RuleNode<'_, '_>,
         this_scope: &Scope,
         variables: &mut HashMap<Rc<str>, Rc<VariableDeclaration>>,
-    ) -> Result<HashMap<Rc<str>, Expression>, SimpleError> {
+    ) -> SimpleResult<HashMap<Rc<str>, Expression>> {
         let mut arguments = HashMap::new();
         if let Some(single_argument) = node.find_node("single_argument") {
             let arg_value = self.read_expression(single_argument, this_scope, variables)?;
@@ -275,7 +275,7 @@ impl FunctionParser<'_, '_> {
         node: &RuleNode<'_, '_>,
         this_scope: &Scope,
         variables: &mut VarStorage,
-    ) -> Result<FunctionCall, SimpleError> {
+    ) -> SimpleResult<FunctionCall> {
 
         let obj_type = if let Some(type_ref_node) = node.find_node("type_ref") {
             self.type_collector.read_type_ref(type_ref_node)?
@@ -296,7 +296,7 @@ impl FunctionParser<'_, '_> {
         &self,
         node: &RuleNode<'_, '_>,
         variables: &mut VarStorage,
-    ) -> Result<ArrayInitialisation, SimpleError> {
+    ) -> SimpleResult<ArrayInitialisation> {
         todo!()
     }
 }
@@ -310,7 +310,7 @@ fn extract_string(expression_node: &RuleNode<'_, '_>) -> Rc<str> {
 fn expect_variable(
     variables: &VarStorage,
     identifier: &str,
-) -> Result<Rc<VariableDeclaration>, SimpleError> {
+) -> SimpleResult<Rc<VariableDeclaration>> {
     variables
         .get(identifier)
         .map(Rc::clone)

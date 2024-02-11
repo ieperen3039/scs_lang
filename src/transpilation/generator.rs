@@ -1,4 +1,4 @@
-use simple_error::SimpleError;
+use simple_error::{SimpleError, SimpleResult};
 use std::collections::HashMap;
 
 use crate::symbolization::ast::{self, Program};
@@ -17,7 +17,7 @@ macro_rules! simple_write {
 }
 
 impl GeneratorC {
-    pub fn write<Writer: std::io::Write>(out: &mut Writer, program : Program) -> Result<(), SimpleError> {
+    pub fn write<Writer: std::io::Write>(out: &mut Writer, program : Program) -> SimpleResult<()> {
         let generator = GeneratorC { type_definitions: program.type_definitions, function_definitions: program.function_definitions, member_function_definitions: program.member_function_definitions };
         
         for (_, definition) in &generator.type_definitions {
@@ -29,7 +29,7 @@ impl GeneratorC {
         Ok(())
     }
 
-    fn write_type_definition<Writer: std::io::Write>(&self, out: &mut Writer, definition: &ast::TypeDefinition) -> Result<(), SimpleError> {
+    fn write_type_definition<Writer: std::io::Write>(&self, out: &mut Writer, definition: &ast::TypeDefinition) -> SimpleResult<()> {
         let this_name = self.get_full_type_name(&definition)?;
 
         match &definition.type_class {
@@ -75,7 +75,7 @@ impl GeneratorC {
         }
     }
     
-    fn get_full_type_name(&self, real_type: &ast::TypeDefinition) -> Result<String, SimpleError> {
+    fn get_full_type_name(&self, real_type: &ast::TypeDefinition) -> SimpleResult<String> {
         let mut full_name = String::from("struct ");
         for ele in &real_type.full_scope {
             full_name += ele;
@@ -85,7 +85,7 @@ impl GeneratorC {
         Ok(full_name)
     }
 
-    fn get_type_ref(&self, definition: &ast::TypeRef) -> Result<String, SimpleError> {
+    fn get_type_ref(&self, definition: &ast::TypeRef) -> SimpleResult<String> {
         match definition {
             ast::TypeRef::Defined(defined_ref) => {
                 let real_type = &self.type_definitions[&defined_ref.id];

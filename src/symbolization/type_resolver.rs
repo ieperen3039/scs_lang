@@ -1,6 +1,6 @@
 use std::{borrow::BorrowMut, rc::Rc};
 
-use simple_error::SimpleError;
+use simple_error::{SimpleError, SimpleResult};
 
 use super::ast::*;
 
@@ -13,7 +13,7 @@ pub fn resolve_type_definitions(
     types_to_resolve: Vec<TypeDefinition>,
     external_scope: &Scope,
     internal_scope: &Scope,
-) -> Result<Vec<TypeDefinition>, SimpleError> {
+) -> SimpleResult<Vec<TypeDefinition>> {
     let resolver = TypeResolver {
         external_scope,
         root_scope: internal_scope,
@@ -26,7 +26,7 @@ pub fn resolve_type_name(
     type_to_resolve: &UnresolvedName,
     root_scope: &Scope,
     local_scope: &Scope,
-) -> Result<NumericTypeIdentifier, SimpleError> {
+) -> SimpleResult<NumericTypeIdentifier> {
     let resolver = TypeResolver {
         external_scope : root_scope,
         root_scope,
@@ -51,7 +51,7 @@ pub fn resolve_function_name<'s>(
     scope: &[Identifier],
     root_scope: &Scope,
     local_scope: &'s Scope,
-) -> Result<NumericFunctionIdentifier, SimpleError> {
+) -> SimpleResult<NumericFunctionIdentifier> {
     let resolver = TypeResolver {
         external_scope : root_scope,
         root_scope,
@@ -72,7 +72,7 @@ pub fn resolve_function_name<'s>(
 }
 
 impl<'ext, 'int> TypeResolver<'ext, 'int> {
-    fn resolve_types(&self, types_to_resolve: Vec<TypeDefinition>) -> Result<Vec<TypeDefinition>, SimpleError> {
+    fn resolve_types(&self, types_to_resolve: Vec<TypeDefinition>) -> SimpleResult<Vec<TypeDefinition>> {
         let mut new_types = Vec::new();
 
         for mut type_def in types_to_resolve {
@@ -88,7 +88,7 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
         &'a self,
         scope_to_resolve: &[Identifier],
         current: &'a Scope,
-    ) -> Result<&'a Scope, SimpleError> {
+    ) -> SimpleResult<&'a Scope> {
         match scope_to_resolve.first() {
             None => Ok(current),
             Some(first) => {
@@ -129,7 +129,7 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
         &'a self,
         scope: &[Identifier],
         current: &'a Scope,
-    ) -> Result<&'a Scope, SimpleError> {
+    ) -> SimpleResult<&'a Scope> {
         match scope.first() {
             None => Ok(current),
             Some(first) => {
@@ -149,7 +149,7 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
         &self,
         type_to_resolve: &mut TypeDefinition,
         local_scope: &Scope,
-    ) -> Result<(), SimpleError> {
+    ) -> SimpleResult<()> {
         match &mut type_to_resolve.type_class {
             TypeClass::Base { derived: None } => {}
             TypeClass::Enum { .. } => {}
@@ -186,7 +186,7 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
         type_to_resolve: &mut TypeRef,
         generics: &[Rc<GenericParameter>],
         local_scope: &Scope,
-    ) -> Result<(), SimpleError> {
+    ) -> SimpleResult<()> {
         match type_to_resolve {
             TypeRef::UnresolvedName(name_to_resolve) => {
                 let defined_type_ref =
@@ -203,7 +203,7 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
         type_to_resolve: &UnresolvedName,
         generics: &[Rc<GenericParameter>],
         local_scope: &Scope,
-    ) -> Result<DefinedRef, SimpleError> {
+    ) -> SimpleResult<DefinedRef> {
         let mut generic_parameters = Vec::new();
         for ele in &type_to_resolve.generic_parameters {
             let mut ele_ref = ele.clone();

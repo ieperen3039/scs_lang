@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use simple_error::SimpleError;
+use simple_error::{SimpleError, SimpleResult};
 
 use crate::{
     parsing::rule_nodes::RuleNode,
@@ -37,7 +37,7 @@ impl<'a> FunctionCollector<'a> {
         &mut self,
         node: &RuleNode<'_, '_>,
         this_scope: &Scope,
-    ) -> Result<Vec<FunctionDeclaration>, SimpleError> {
+    ) -> SimpleResult<Vec<FunctionDeclaration>> {
         match node.rule_name {
             "scope" => {
                 self.read_scope_functions(node, this_scope)
@@ -64,7 +64,7 @@ impl<'a> FunctionCollector<'a> {
     pub fn read_function_declaration(
         &mut self,
         node: &RuleNode<'_, '_>,
-    ) -> Result<FunctionDeclaration, SimpleError> {
+    ) -> SimpleResult<FunctionDeclaration> {
         debug_assert_eq!(node.rule_name, "function_definition");
         let signature_node = node.expect_node("function_signature")?;
 
@@ -117,7 +117,7 @@ impl<'a> FunctionCollector<'a> {
     fn read_parameter_list(
         &self,
         node: &RuleNode,
-    ) -> Result<HashMap<Identifier, TypeRef>, SimpleError> {
+    ) -> SimpleResult<HashMap<Identifier, TypeRef>> {
         debug_assert_eq!(node.rule_name, "parameter_list");
         let parameter_nodes = node.find_nodes("parameter");
 
@@ -138,7 +138,7 @@ impl<'a> FunctionCollector<'a> {
         &mut self,
         node: &RuleNode,
         super_scope: &Scope,
-    ) -> Result<Vec<FunctionDeclaration>, SimpleError> {
+    ) -> SimpleResult<Vec<FunctionDeclaration>> {
         debug_assert_eq!(node.rule_name, "scope");
 
         let this_scope_name = node
@@ -163,7 +163,7 @@ impl<'a> FunctionCollector<'a> {
         &mut self,
         node: &RuleNode<'_, '_>,
         scope: &Scope,
-    ) -> Result<(ImplType, Vec<FunctionDeclaration>), SimpleError> {
+    ) -> SimpleResult<(ImplType, Vec<FunctionDeclaration>)> {
         debug_assert_eq!(node.rule_name, "implementation");
         let impl_type = self.read_impl_type_decl(node, scope)?;
 
@@ -181,7 +181,7 @@ impl<'a> FunctionCollector<'a> {
         &self,
         node: &RuleNode<'_, '_>,
         scope: &Scope,
-    ) -> Result<ImplType, SimpleError> {
+    ) -> SimpleResult<ImplType> {
         debug_assert_eq!(node.rule_name, "base_type_decl");
 
         let base_type_name = node

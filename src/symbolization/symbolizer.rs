@@ -1,6 +1,6 @@
 use std::{rc::Rc, collections::HashMap};
 
-use simple_error::SimpleError;
+use simple_error::{SimpleError, SimpleResult};
 
 use crate::{
     parsing::rule_nodes::RuleNode,
@@ -14,7 +14,7 @@ pub fn parse_symbols(
     tree: RuleNode,
     external_scope: &Scope,
     type_collector: &mut TypeCollector,
-) -> Result<ast::Program, SimpleError> {
+) -> SimpleResult<ast::Program> {
     debug_assert_eq!(tree.rule_name, "faux_program");
     // faux_program = [ version_declaration ], { include_declaration }, { _definition }, [ program_interface, function_block ];
     // _definition = constant_def | scope | type_definition | enum_definition | variant_definition | implementation | function_definition;

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-use simple_error::SimpleError;
+use simple_error::{SimpleError, SimpleResult};
 
 use crate::symbolization::{ast, type_collector::TypeCollector, meta_program, symbolizer, built_in_types};
 use crate::parsing::{lexer::{Lexer, self}, ebnf_parser, parser, chomsky_parser};
@@ -40,7 +40,7 @@ impl FauxCompiler {
         })
     }
 
-    pub fn compile(&mut self, source_file: &Path) -> Result<ast::Program, SimpleError> {
+    pub fn compile(&mut self, source_file: &Path) -> SimpleResult<ast::Program> {
         if self.parse_stack.iter().any(|file| file.as_ref() == source_file) {
             return Err(SimpleError::new(format!("Recursive include : {:?}", self.parse_stack)));
         }

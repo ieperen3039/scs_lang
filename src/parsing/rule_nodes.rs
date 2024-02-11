@@ -1,6 +1,6 @@
 use std::hash::Hash;
 
-use simple_error::SimpleError;
+use simple_error::{SimpleError, SimpleResult};
 
 use crate::symbolization::ast::Identifier;
 
@@ -105,7 +105,7 @@ impl<'prog, 'bnf> RuleNode<'prog, 'bnf> {
         true
     }
 
-    pub fn expect_node<'r>(&'r self, expected: &str) -> Result<&'r RuleNode, SimpleError> {
+    pub fn expect_node<'r>(&'r self, expected: &str) -> SimpleResult<&'r RuleNode> {
         self.find_node(expected)
             .ok_or_else(|| SimpleError::new(format!("Expected node {expected}")))
     }
