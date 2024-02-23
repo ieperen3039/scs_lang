@@ -1,6 +1,3 @@
-#! /bin/faux_parser
-// if the first line starts with a shebang, we ignore that line
-
 // definitely start with the language version
 version faux 0.0.0
 
@@ -10,7 +7,7 @@ use "filesystem"
 // file-parameters are directly translated to command-line parameters
 // not sure how to do documentation though (special 'active' comment maybe)
 // this function parses a csv input file
-(FileName input_file)[String data]
+(FileName input_file) : String
 {
     input_file
         File.open()

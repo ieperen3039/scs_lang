@@ -48,12 +48,12 @@ constant_def            = _keyword_const, type_ref, identifier, "=", _expression
 function_definition     = function_signature, ( function_block | native_decl );
 function_signature      = _keyword_fn, function_name, [ generic_types_decl ], _function_interface;
 function_name           = ? IDENTIFIER ?;
-_function_interface     = "(", [ parameter_list ], ")", return_type;
+_function_interface     = "(", [ parameter_list ], ")", ":", return_type;
 parameter_list          = parameter, { ",", parameter };
 parameter               = type_ref, identifier;
 unnamed_parameter_list  = type_ref, { ",", type_ref };
 untyped_parameter_list  = identifier, { ",", identifier };
-return_type             = "[", ( type_ref | no_return_decl | parameter_list ), "]";
+return_type             = type_ref | no_return_decl;
 
 (* statements *)
 function_block          = "{", statement, { statement_separator, statement }, [ statement_separator ], "}";
