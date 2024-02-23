@@ -44,11 +44,10 @@ impl<'a> FunctionCollector<'a> {
             }
             "implementation" => {
                 let (impl_type, functions) = self.read_implementation(node, this_scope)?;
-                self.type_definitions
-                    .get_mut(&impl_type.id)
-                    .ok_or_else(|| SimpleError::new("Unknown type of impl block"))?
-                    .member_functions
-                    .extend(functions.clone());
+                // self.type_definitions
+                //     .get_mut(&impl_type.id)
+                //     .ok_or_else(|| SimpleError::new("Unknown type of impl block"))?
+                //     .extend(functions.clone());
                 Ok(functions)
             }
             "function_definition" => {

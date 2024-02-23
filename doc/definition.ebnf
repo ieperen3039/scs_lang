@@ -22,17 +22,17 @@ scope_name              = ? IDENTIFIER ?;
 type_definition         = _keyword_type, base_type_decl, "=",  ( type_ref | native_decl );
 field_declaration       = type_ref, identifier, ";";
 (* reference to existing type *)
-type_ref                = ( base_type_ref | tuple_inst | fn_type ), { buffer_symbol };
+type_ref                = ( base_type_ref | tuple_ref | fn_type ), { buffer_symbol };
 (* instantiation of a tuple *)
-tuple_inst               = "[", _type_list, "]";
+tuple_ref               = "[", type_ref, { ",", type_ref }, "]";
 (* reference to existing base type, enum or variant. instantiates generic types *)
 base_type_ref           = { scope_name, "." }, identifier, [ generic_types_inst ];
 (* declaration of new type name, declares the existence of generic types *)
 base_type_decl          = identifier, [ generic_types_decl ];
 (* declaration of generic types *)
-generic_types_decl      = "<", _name_list, ">";
+generic_types_decl      = "<", identifier, { ",", identifier }, ">";
 (* instantion of generic types *)
-generic_types_inst      = "<", _type_list, ">";
+generic_types_inst      = "<", type_ref, { ",", type_ref }, ">";
 (* function does not actually use a generic_types_decl, only syntactically *)
 fn_type                 = _keyword_fn, "<", [ "(", unnamed_parameter_list, ")" ], return_type, ">";
 enum_definition         = _keyword_enum, identifier, "[", enum_value_decl, { ",", enum_value_decl }, "]";
@@ -48,57 +48,55 @@ constant_def            = _keyword_const, type_ref, identifier, "=", _expression
 function_definition     = function_signature, ( function_block | native_decl );
 function_signature      = _keyword_fn, function_name, [ generic_types_decl ], _function_interface;
 function_name           = ? IDENTIFIER ?;
-_function_interface     = "(", [ parameter_list ], ")", ":", return_type;
+_function_interface     = "(", [ parameter_list ], ")", return_type;
 parameter_list          = parameter, { ",", parameter };
-parameter               = type_ref, [ expansion_decl ], identifier;
-unnamed_parameter_list  = _type_list;
-untyped_parameter_list  = _name_list;
-return_type             = type_ref | "!";
+parameter               = type_ref, identifier;
+unnamed_parameter_list  = type_ref, { ",", type_ref };
+untyped_parameter_list  = identifier, { ",", identifier };
+return_type             = "[", ( type_ref | no_return_decl | parameter_list ), "]";
 
 (* statements *)
 function_block          = "{", statement, { statement_separator, statement }, [ statement_separator ], "}";
 statement               = _value_expression, { { operator }, _function_expression }; 
 _expression             = _value_expression | _function_expression;
 _value_expression       = variable_name | tuple_construction | _literal; 
-_function_expression    = implicit_par_lambda | explicit_par_lambda | method_reference | method_call | mutator_cast | mutator_assign;
+_function_expression    = implicit_par_lambda | explicit_par_lambda | function_call | method_call | mutator_cast | mutator_assign;
 statement_separator     = ";";
 variable_name           = ? IDENTIFIER ?;
 
 (* function call statements *)
 method_call             = function_name, "(", [ _argument_list ], ")";
-method_reference        = base_type_ref, ".", method_call;
+function_call           = base_type_ref, ".", method_call;
 _argument_list          = single_argument | ( named_argument, { ",", named_argument } );
 single_argument         = _expression;
 named_argument          = identifier, ":", _expression;
-_type_list              = type_ref, { ",", type_ref };
-_name_list              = identifier, { ",", identifier };
 
 (* mutators, selectors and usage indicators *)
 operator                = ? OPERATOR ?;
 mutator_cast            = _usage_cast, type_ref;
-mutator_assign          = _usage_assign, ( return_decl | ( [ type_ref ], variable_name) );
+mutator_assign          = _usage_assign, ( [ type_ref ], variable_name);
+
+(* lamdas *)
+(* the first statement of a implicit parameter lamdas starts with a function expression *)
+implicit_par_lambda     = "{", { { operator }, _function_expression }, { statement_separator, statement }, [ statement_separator ], "}";
+(* a lamda with zero parameters must have parenthesis, otherwise it is near-indistinguishable from implicit parameter lamdas *)
+explicit_par_lambda     = "(", [ untyped_parameter_list ], ")", [ ":", return_type ], function_block;
 
 (* other statements *)
-(* buffer_construction     = "[", [ _expression, { ",", _expression } ], "]"; *)
-tuple_construction      = "[", _expression, { ",", _expression }, "]";
-(* the first statement of a implicit parameter lamdas may be a mutator *)
-implicit_par_lambda     = function_block;
-(* a lamda with zero parameters must have parenthesis, otherwise it is indistinguishable from implicit parameter lamdas *)
-explicit_par_lambda     = "(", untyped_parameter_list, ")", [ ":", return_type ], function_block;
+tuple_construction      = "[", _value_expression, { ",", _value_expression }, "]";
 _literal                = string_literal | integer_literal | float_literal;
 string_literal          = ? STRING ?;
 integer_literal         = ? NUMBER ?;
 float_literal           = ? NUMBER ?, ".", ? NUMBER ?;
 
 (* wrappers *)
-return_decl             = _keyword_return;
 native_decl             = _keyword_extern;
 
 (* symbol definitions *)
 _usage_assign = "=";
+no_return_decl = "!";
 _usage_cast = "as";
 buffer_symbol = "[]";
-expansion_decl = "...";
 
 (* keywords *)
 _keyword_version = "version";
@@ -109,7 +107,5 @@ _keyword_variant = "variant";
 _keyword_extern = "extern";
 _keyword_const = "const";
 _keyword_this = "this";
-_keyword_return = "return";
-(* _keyword_static = "static"; *)
 _keyword_use = "use";
 _keyword_start_implementation = "impl";

@@ -10,31 +10,30 @@ use "filesystem"
 // file-parameters are directly translated to command-line parameters
 // not sure how to do documentation though (special 'active' comment maybe)
 // this function parses a csv input file
-(FileName input_file) : Result<String, String>
+(FileName input_file)[String data]
 {
     input_file
-        File.open
+        File.open()
         // if it fails (File.open returns a negative value) assign it to file_open_error and stop this statement
         != file_open_error
         // the above assignment leaves us with the positive value
-        read_to_string
+        read_to_string()
         // split_on turns the string into a string[]
         split("\n")
         // apply `trim_white_space` to each element
-        * trim_white_space
+        * trim_white_space()
         // `String.empty` is a function that accepts a string and returns a boolean.
-        // `String.empty` has type `fn<(string)boolean>` and `filter` accepts a `fn<(T)boolean>` where T is the type of the array (string)
+        // `String.empty` has type `fn<(string)boolean>` and `filter` accepts a `fn<(T)boolean>` where T is the type of the buffer
         filter(String.empty)
         // we now create a lambda, and map each element using the lamda
-        * (line) {
-            line
+        * {
             // map each string to a string[]
             split(",")
             // map every element `s` to a Result, that is true iff `s equalTo("NA") invert`
             // partition((s) { s equalTo("NA") invert }) 
             partition((s) { s not(equalTo("NA")) } ) 
             // parse each positive element
-            *? parse_int
+            *? parse_int()
             // unwrap the result value to an int, replacing all negative values with 0
             * unwrap_pos_or(0)
         } 
@@ -45,7 +44,7 @@ use "filesystem"
     // file_open_error was assigned conditionally. 
     // Any statement starting with such variable is not executed if the variable is not assigned.
     // hence, if the file opened successfully, this entire section (up to the next semicolon) is skipped.
-    // The compiler checks whether all variables referenced in a function are guaranteed to exist, otherwise it will not compile
+    // The compiler checks whether all variables referenced from within a statement exist, otherwise it will not compile
     file_open_error
         // io.format_1 accepts two parameters: a format, and the format argument
         // if we fill in one parameter, then this results in a function accepting the remaining element (fn<(err)string>)

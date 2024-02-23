@@ -50,7 +50,6 @@ fn parse_simple_derived_type() {
             })))
         }
     );
-    assert!(found_type.member_functions.is_empty());
 }
 
 fn parse_implicit() {

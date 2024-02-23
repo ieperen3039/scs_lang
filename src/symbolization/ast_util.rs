@@ -19,30 +19,26 @@ impl TypeRef {
     });
 }
 
-impl Mutator {
+impl FunctionExpression {
     pub fn get_type(&self, functions: &HashMap<NumericFunctionIdentifier, FunctionDeclaration>) -> TypeRef {
         match &self {
-            Mutator::FunctionCall(fc) => functions
+            FunctionExpression::FunctionCall(fc) => functions
                 .get(&fc.id)
                 .map(|f| f.return_type.clone())
                 .unwrap_or(TypeRef::Void), // TODO: unknown function: is this an error?
-            Mutator::Assignment(_) => TypeRef::Void,
+            FunctionExpression::Assignment(_) => TypeRef::Void,
         }
     }
 }
 
-impl Expression {
+impl ValueExpression {
     pub fn get_type(&self, functions: &HashMap<NumericFunctionIdentifier, FunctionDeclaration>) -> TypeRef {
         match &self {
-            Expression::StaticFunctionCall(fun) => functions
-                .get(&fun.id)
-                .map(|f| f.return_type.clone())
-                .unwrap_or(TypeRef::Void), // TODO: unknown function: is this an error?
-            Expression::FunctionBody(block) => block.return_var.var_type.clone(),
-            Expression::Buffer(buffer_init) => buffer_init.element_type.clone(),
-            Expression::Literal(Literal::String(_)) => TypeRef::STRING.clone(),
-            Expression::Literal(Literal::Number(_)) => TypeRef::NUMBER.clone(),
-            Expression::Variable(var) => var.var_type.clone(),
+            ValueExpression::FunctionBody(block) => block.return_var.var_type.clone(),
+            ValueExpression::Tuple(buffer_init) => buffer_init.element_type.clone(),
+            ValueExpression::Literal(Literal::String(_)) => TypeRef::STRING.clone(),
+            ValueExpression::Literal(Literal::Number(_)) => TypeRef::NUMBER.clone(),
+            ValueExpression::Variable(var) => var.var_type.clone(),
         }
     }
 }

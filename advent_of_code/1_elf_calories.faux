@@ -1,6 +1,6 @@
 version faux 0.0.0
 
-(String input_string) : int {
+(String input_string) {
     input_string // String
         split_on("\n\n") // String[]
         split_on("\n") // String[][]

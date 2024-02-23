@@ -1,5 +1,6 @@
 grammar faux;
 
+// lexical rules
 WS : [ \r\n\t\p{White_Space}] -> skip;
 LINE_COMMENT : '//' ~[\r\n]* '\r'? '\n' -> skip ;
 BLOCK_COMMENT : '/*' ~[*/]* '*/' -> skip ;
@@ -9,6 +10,7 @@ NUMBER : [0-9]+ ;
 STRING : '"' ~'"'* '"' ;
 OPERATOR : [?!#$%&*+\-/|~\\^`@:<>] ;
 
+// parser rules
 faux_program            : version_declaration? include_declaration* definition_* (program_interface function_block)? EOF;
 program_interface       : function_interface_;
 version_dialect         : 'faux';
@@ -41,14 +43,14 @@ constant_def            : keyword_const_ type_ref identifier ':' expression_;
 function_definition     : function_signature ( function_block | native_decl );
 function_signature      : keyword_fn_ function_name generic_types_decl? function_interface_;
 function_name           : IDENTIFIER;
-function_interface_     : '(' parameter_list? ')' ':' return_type;
+function_interface_     : '(' parameter_list? ')' return_type;
 parameter_list          : parameter (',' parameter)*;
 parameter               : type_ref expansion_decl? identifier;
 unnamed_parameter_list  : type_list_;
 untyped_parameter_list  : name_list_;
-return_type             : type_ref | '!';
-function_block          : '{' statement (statement_separator statement)* statement_separator? '}';
-statement               : value_expression_ (operator* function_expression_)*; 
+return_type             : '[' ( type_ref | no_return_decl | parameter_list ) ']';
+function_block          : '{' statement ( statement_separator statement )* statement_separator? '}';
+statement               : value_expression_ ( operator* function_expression_ )*; 
 expression_             : value_expression_ | function_expression_;
 value_expression_       : variable_name | tuple_construction | literal_; 
 function_expression_    : implicit_par_lambda | explicit_par_lambda | method_reference | method_call | mutator_cast | mutator_assign;
@@ -73,6 +75,7 @@ integer_literal         : NUMBER;
 float_literal           : NUMBER '.' NUMBER;
 return_decl             : keyword_return_;
 native_decl             : keyword_extern_;
+no_return_decl          : '!';
 usage_assign_           : '=';
 usage_cast_             : 'as';
 buffer_symbol           : '[]';

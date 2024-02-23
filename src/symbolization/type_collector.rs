@@ -117,7 +117,6 @@ impl TypeCollector {
             type_class: TypeClass::Base {
                 derived: derived_from,
             },
-            member_functions: Vec::new(),
             full_scope: scope.full_name.clone(),
         })
     }
@@ -195,7 +194,6 @@ impl TypeCollector {
             type_class: TypeClass::Enum {
                 values: value_names,
             },
-            member_functions: Vec::new(),
             full_scope: scope.full_name.clone(),
         })
     }
@@ -228,7 +226,6 @@ impl TypeCollector {
             type_class: TypeClass::Variant {
                 variants: variant_values,
             },
-            member_functions: Vec::new(),
             full_scope: scope.full_name.clone(),
         })
     }

@@ -32,7 +32,7 @@ impl FunctionParser<'_, '_> {
                 ele[1].expect_node("statement_separator")?;
             } else if let Some(last_mutation) = statement.mutations.last() {
                 // this is an implicit return
-                if let Mutator::Assignment(_) = last_mutation {
+                if let FunctionExpression::Assignment(_) = last_mutation {
                     return Err(SimpleError::new(
                         "Function ended with an assignment, but no semicolon. This implied that we should return the result of the assignment, but that is always void",
                     ));
@@ -50,7 +50,7 @@ impl FunctionParser<'_, '_> {
                     }
                 };
 
-                statement.mutations.push(Mutator::Assignment(return_var))
+                statement.mutations.push(FunctionExpression::Assignment(return_var))
             }
 
             statements.push(statement);
@@ -127,38 +127,33 @@ impl FunctionParser<'_, '_> {
         expression_node: &RuleNode<'_, '_>,
         this_scope: &Scope,
         variables: &mut VarStorage,
-    ) -> SimpleResult<Expression> {
+    ) -> SimpleResult<ValueExpression> {
         match expression_node.rule_name {
             "identifier" => {
                 let variable = expect_variable(variables, &expression_node.tokens_as_string())?;
-                Ok(Expression::Variable(variable))
-            }
-            "static_function_call" => {
-                let function_call =
-                    self.read_static_function_call(expression_node, this_scope, variables)?;
-                Ok(Expression::StaticFunctionCall(function_call))
+                Ok(ValueExpression::Variable(variable))
             }
             "lambda" => {
                 let scope_variables = variables.clone();
                 // TODO add parameters to scope_variables
                 let function_block =
                     self.read_function_block(expression_node, this_scope, scope_variables)?;
-                Ok(Expression::FunctionBody(function_block))
+                Ok(ValueExpression::FunctionBody(function_block))
             }
-            "array_initialisation" => {
-                let array = self.read_array_initialisation(expression_node, variables)?;
-                Ok(Expression::Buffer(array))
+            "tuple_initialisation" => {
+                let tuple = self.read_tuple_initialisation(expression_node, variables)?;
+                Ok(ValueExpression::Tuple(tuple))
             }
             "string_literal" => {
                 let string_value = extract_string(expression_node);
-                Ok(Expression::Literal(Literal::String(string_value)))
+                Ok(ValueExpression::Literal(Literal::String(string_value)))
             }
             "integer_literal" => {
                 let as_string = expression_node.tokens_as_string();
                 let parse_result = as_string.parse::<i32>();
 
                 match parse_result {
-                    Ok(integer_value) => Ok(Expression::Literal(Literal::Number(integer_value))),
+                    Ok(integer_value) => Ok(ValueExpression::Literal(Literal::Number(integer_value))),
                     Err(err) => Err(SimpleError::new(format!(
                         "Could not parse integer literal \"{as_string}\": {err}"
                     ))),
@@ -179,15 +174,15 @@ impl FunctionParser<'_, '_> {
         expression_type: &TypeRef,
         this_scope: &Scope,
         variables: &mut VarStorage,
-    ) -> SimpleResult<Mutator> {
+    ) -> SimpleResult<FunctionExpression> {
         match mutator_node.rule_name {
-            "method_call" => Ok(Mutator::FunctionCall(self.read_method_call(
+            "method_call" => Ok(FunctionExpression::FunctionCall(self.read_method_call(
                 expression_type,
                 mutator_node,
                 this_scope,
                 variables,
             )?)),
-            "static_function_call" => Ok(Mutator::FunctionCall(self.read_static_function_call(
+            "static_function_call" => Ok(FunctionExpression::FunctionCall(self.read_static_function_call(
                 mutator_node,
                 this_scope,
                 variables,
@@ -245,7 +240,7 @@ impl FunctionParser<'_, '_> {
         node: &RuleNode<'_, '_>,
         this_scope: &Scope,
         variables: &mut HashMap<Rc<str>, Rc<VariableDeclaration>>,
-    ) -> SimpleResult<HashMap<Rc<str>, Expression>> {
+    ) -> SimpleResult<HashMap<Rc<str>, ValueExpression>> {
         let mut arguments = HashMap::new();
         if let Some(single_argument) = node.find_node("single_argument") {
             let arg_value = self.read_expression(single_argument, this_scope, variables)?;
@@ -292,11 +287,11 @@ impl FunctionParser<'_, '_> {
         Ok(FunctionCall { id: *function_id, generic_arguments: HashMap::new(), arguments })
     }
 
-    fn read_array_initialisation(
+    fn read_tuple_initialisation(
         &self,
         node: &RuleNode<'_, '_>,
         variables: &mut VarStorage,
-    ) -> SimpleResult<ArrayInitialisation> {
+    ) -> SimpleResult<TupleInitialisation> {
         todo!()
     }
 }

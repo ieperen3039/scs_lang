@@ -66,7 +66,7 @@ pub struct FunctionType {
 
 // -- defined types --
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct TypeDefinition {
     pub id: NumericTypeIdentifier,
     pub name: Identifier,
@@ -74,8 +74,6 @@ pub struct TypeDefinition {
     // there are generic declarations; brand new identifiers
     pub generic_parameters: Vec<Rc<GenericParameter>>,
     pub type_class: TypeClass,
-    // may be unnecessary (already in Program::function_definitions)
-    pub member_functions: Vec<FunctionDeclaration>,
 }
 
 #[derive(Debug, Hash, Eq, PartialEq)]
@@ -124,21 +122,19 @@ pub struct FunctionBody {
 }
 
 // an expression, followed by mutations on the expression
-// this could be considered an expression by itself
 // this is represented in Expression::FunctionBlock (which is a vec of statements)
 #[derive(Clone)]
 pub struct Statement {
-    pub base_element: Expression,
-    pub mutations: Vec<Mutator>,
+    pub base_element: ValueExpression,
+    pub mutations: Vec<FunctionExpression>,
 }
 
 #[derive(Clone)]
-pub enum Expression {
-    StaticFunctionCall(FunctionCall),
+pub enum ValueExpression {
     FunctionBody(FunctionBody),
-    Buffer(ArrayInitialisation),
+    Tuple(TupleInitialisation),
     Literal(Literal),
-    // a _reference_ to a variable is an expression, not a declaration.
+    // a _reference_ to a variable is an expression
     Variable(Rc<VariableDeclaration>),
 }
 
@@ -150,7 +146,7 @@ pub enum Literal {
 
 // mutations of expressions
 #[derive(Clone)]
-pub enum Mutator {
+pub enum FunctionExpression {
     FunctionCall(FunctionCall),
     Assignment(Rc<VariableDeclaration>),
 }
@@ -161,25 +157,13 @@ pub struct FunctionCall {
     // implementation / our selection of types to use as generic parameters
     pub generic_arguments: HashMap<Identifier, TypeRef>,
     // map of parameter names to expressions. Missing variables indicate that this 'function call' constructs a closure
-    pub arguments: HashMap<Identifier, Expression>,
+    pub arguments: HashMap<Identifier, ValueExpression>,
 }
 
 #[derive(Clone)]
-pub struct ArrayInitialisation {
+pub struct TupleInitialisation {
     pub element_type: TypeRef,
-    pub elements: Vec<Expression>,
-}
-
-impl std::fmt::Debug for TypeDefinition {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("TypeDefinition")
-            .field("name", &self.name)
-            .field("id", &self.id)
-            .field("generic_parameters", &self.generic_parameters)
-            .field("sub_type", &self.type_class)
-            .field("member_functions.len()", &self.member_functions.len())
-            .finish()
-    }
+    pub elements: Vec<ValueExpression>,
 }
 
 impl PartialEq for TypeDefinition {

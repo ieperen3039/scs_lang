@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use crate::{compiler::FauxCompiler, transpilation::generator::GeneratorC};
+use crate::{compiler::FauxCompiler, transpilation::generator_c::GeneratorC};
 use super::test_util::create_file_from_text;
 
 #[test]
@@ -8,17 +8,18 @@ fn simple_type() {
     let definition = include_str!("../../doc/definition.ebnf");
 
     let program_path = create_file_from_text(r#"
-        version faux 0.0.0
-        type FilePath : String
-        type AbsoluteFilePath : FilePath
-        type RelativeFilePath : FilePath
+        type FilePath = String
+        type AbsoluteFilePath = FilePath
+        type RelativeFilePath = FilePath
     "#);
 
     let mut compiler = FauxCompiler::build(definition, None).unwrap();
 
     let program = compiler.compile(program_path).unwrap();
 
-    let mut writer = std::io::stdout();
+    let write_file = std::fs::File::create("/tmp/output").unwrap();
+    let mut writer = std::io::BufWriter::new(&write_file);
+
     GeneratorC::write(&mut writer, program).unwrap()
 }
 
@@ -27,13 +28,11 @@ fn namespace_type() {
     let definition = include_str!("../../doc/definition.ebnf");
 
     let program_path = create_file_from_text(r#"
-        version faux 0.0.0
-
         fs {
-            type FilePath : String
+            type FilePath = String
             core {
-                type AbsoluteFilePath : FilePath
-                type RelativeFilePath : FilePath
+                type AbsoluteFilePath = FilePath
+                type RelativeFilePath = FilePath
             }
         }
     "#);
