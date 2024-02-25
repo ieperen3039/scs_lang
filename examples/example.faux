@@ -21,7 +21,7 @@ use "filesystem"
         * trim_white_space()
         // `String.empty` is a function that accepts a string and returns a boolean.
         // `String.empty` has type `fn<(string)boolean>` and `filter` accepts a `fn<(T)boolean>` where T is the type of the buffer
-        filter(String.empty)
+        filter(String.empty())
         // we now create a lambda, and map each element using the lamda
         * {
             // map each string to a string[]
