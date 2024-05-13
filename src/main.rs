@@ -9,8 +9,8 @@ mod symbolization;
 
 #[cfg(test)]
 mod tests;
-pub mod transpilation;
 pub mod transforming;
+pub mod transpilation;
 
 use clap::Parser;
 
@@ -19,43 +19,68 @@ use clap::Parser;
 #[command(author, version, about, long_about = None)]
 struct CommandlineArguments {
     /// Path to the ebnf definition file to use when parsing
-    #[arg(short, long, value_name = ".ebnf file")]
-    definition: PathBuf,
+    #[arg(long, value_name = ".ebnf file")]
+    definition: Option<PathBuf>,
     /// Path to the file to compile
     #[arg(short, long, value_name = ".faux file")]
-    program: PathBuf,
+    file: Option<PathBuf>,
     /// Optional path to a debug xml output
     #[arg(long)]
-    xml: Option<PathBuf>,
+    debug_out: Option<PathBuf>,
 }
 
 fn main() {
     let args = CommandlineArguments::parse();
 
-    let definition = {
-        let file_contents = std::fs::read_to_string(&args.definition);
-        if file_contents.is_err() {
-            panic!("File {} can not be opened", args.definition.display())
-        } else {
-            file_contents.unwrap()
+    let is_interactive = args.file.is_some();
+
+    let definition = args
+        .definition
+        .map(|definition| {
+            std::fs::read_to_string(definition).expect("Could not read definition input file")
+        })
+        .unwrap_or_else(|| {
+            if is_interactive {
+                String::from(include_str!("../doc/faux_script.ebnf"))
+            } else {
+                String::from(include_str!("../doc/definition.ebnf"))
+            }
+        });
+
+    let xml_output_file = args.debug_out.map(|debug_out| {
+        std::fs::File::create(debug_out).expect("Could not create debug output file")
+    });
+
+    let mut compiler =
+        FauxCompiler::build(&definition, xml_output_file).expect("Could not build compiler");
+
+    if let Some(script_file) = args.file {
+        println!("Parsing {} in script mode", script_file.display());
+
+        let base_directory =
+            std::env::current_dir().expect("Could not get this program's current directory");
+
+        let compile_result = compiler.compile(&base_directory.join(script_file));
+
+        match compile_result {
+            Ok(program) => {
+                let mut out = std::io::stdout();
+                let write = transpilation::generator_c::GeneratorC::write(&mut out, program);
+                write.unwrap();
+            }
+            Err(simple_error) => print!("{}", simple_error),
         }
-    };
+    } else {
+        println!(
+            "Faux version {} interactive mode (try `help()` for more information)",
+            env!("CARGO_PKG_VERSION")
+        );
 
-    let base_directory = std::env::current_dir().expect("Could not get this program's current directory");
-    let program_file = base_directory.join(args.program);
+        let mut buffer = String::new();
+        std::io::stdin()
+            .read_line(&mut buffer)
+            .expect("Error reading input");
 
-    let xml_output_file = args.xml.map(std::fs::File::create).map(Result::ok).flatten();
-
-    let mut compiler = FauxCompiler::build(&definition, xml_output_file).unwrap();
-    let compile_result = compiler.compile(&program_file);
-
-    match compile_result {
-        Ok(program) => {
-            let mut out = std::io::stdout();
-            let write = transpilation::generator_c::GeneratorC::write(&mut out, program);
-            write.unwrap();
-        },
-        Err(simple_error) => print!("{}", simple_error),
+        println!("{buffer}");
     }
-
 }

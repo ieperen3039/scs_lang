@@ -296,7 +296,7 @@ fn shebang_is_ignored() {
 
 #[test]
 fn try_parse_example_faux() {
-    let program = include_str!("../../doc/example.faux");
+    let program = include_str!("../../examples/example.faux");
 
     Lexer{ ignore_whitespace: true }.read_all(&program)
         .map_err(|err| {

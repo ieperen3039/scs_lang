@@ -244,7 +244,7 @@ fn complex_parser_with_complex_ignore() {
 #[test]
 fn try_parse_example_faux() {
     let definition = include_str!("../../doc/definition.ebnf");
-    let program = include_str!("../../doc/example.faux");
+    let program = include_str!("../../examples/example.faux");
 
     let start = std::time::Instant::now();
 

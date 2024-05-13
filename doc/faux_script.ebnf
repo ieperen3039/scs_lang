@@ -1,0 +1,77 @@
+faux_script             = statement, { statement_separator, statement }, end_symbol;
+
+(* scopes and definitions *)
+identifier              = ? IDENTIFIER ?;
+(* reference to existing type *)
+type_ref                = ( base_type_ref | tuple_ref | fn_type ), { buffer_symbol };
+(* instantiation of a tuple *)
+tuple_ref               = "[", type_ref, { ",", type_ref }, "]";
+(* reference to existing base type, enum or variant. instantiates generic types *)
+base_type_ref           = identifier;
+(* function does not actually use a generic_types_decl, only syntactically *)
+fn_type                 = _keyword_fn, "<", [ "(", unnamed_parameter_list, ")" ], return_type, ">";
+
+(* function definitions and parameters *)
+function_name           = ? IDENTIFIER ?;
+unnamed_parameter_list  = type_ref, { ",", type_ref };
+untyped_parameter_list  = identifier, { ",", identifier };
+return_type             = type_ref | no_return_decl;
+
+(* statements *)
+function_block          = "{", statement, { statement_separator, statement }, [ statement_separator ], "}";
+statement               = _value_expression, { { operator }, _function_expression }; 
+_expression             = _value_expression | _function_expression;
+_value_expression       = variable_name | tuple_construction | _literal; 
+_function_expression    = implicit_par_lambda | explicit_par_lambda | function_call | mutator_cast | mutator_assign;
+statement_separator     = ";";
+variable_name           = ? IDENTIFIER ?;
+
+(* function call statements *)
+function_call           = function_name, "(", [ _argument_list ], ")";
+_argument_list          = single_argument | ( named_argument, { ",", named_argument } );
+single_argument         = _expression;
+named_argument          = identifier, ":", _expression;
+
+(* mutators, selectors and usage indicators *)
+operator                = ? OPERATOR ?;
+mutator_cast            = _usage_cast, type_ref;
+mutator_assign          = _usage_assign, ( [ type_ref ], variable_name);
+
+(* lamdas *)
+(* the first statement of a implicit parameter lamdas starts with a function expression *)
+implicit_par_lambda     = "{", { { operator }, _function_expression }, { statement_separator, statement }, [ statement_separator ], "}";
+(* a lamda with zero parameters must have parenthesis, otherwise it is near-indistinguishable from implicit parameter lamdas *)
+explicit_par_lambda     = "(", [ untyped_parameter_list ], ")", [ ":", return_type ], function_block;
+
+(* other statements *)
+tuple_construction      = "[", _value_expression, { ",", _value_expression }, "]";
+_literal                = string_literal | integer_literal | dollar_string_literal | raw_string_literal;
+(* any character following a '\' is escaped *)
+string_literal          = ? STRING ?;
+(* in addition to '\' escapes, every `${foo}` is replaced with the value of variable `foo` *)
+dollar_string_literal   = "$", ? STRING ?;
+(* slashes are not considered escape characters *)
+raw_string_literal      = "r#", ? STRING ?, "#";
+integer_literal         = ? NUMBER ?;
+
+(* wrappers *)
+native_decl             = _keyword_extern;
+
+(* symbol definitions *)
+end_symbol = ":";
+_usage_assign = "=";
+no_return_decl = "!";
+_usage_cast = "as";
+buffer_symbol = "[]";
+
+(* keywords *)
+_keyword_version = "version";
+_keyword_type = "type";
+_keyword_fn = "fn";
+_keyword_enum = "enum";
+_keyword_variant = "variant";
+_keyword_extern = "extern";
+_keyword_const = "const";
+_keyword_this = "this";
+_keyword_use = "use";
+_keyword_start_implementation = "impl";
