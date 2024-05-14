@@ -1,12 +1,13 @@
 use std::path::PathBuf;
 
-use crate::compiler::FauxCompiler;
+use crate::{compiler::FauxCompiler, interpreter::Interpreter};
 
 pub mod compiler;
 
 mod parsing;
 mod symbolization;
 
+pub mod interpreter;
 #[cfg(test)]
 mod tests;
 pub mod transforming;
@@ -51,11 +52,11 @@ fn main() {
         std::fs::File::create(debug_out).expect("Could not create debug output file")
     });
 
-    let mut compiler =
-        FauxCompiler::build(&definition, xml_output_file).expect("Could not build compiler");
-
     if let Some(script_file) = args.file {
         println!("Parsing {} in script mode", script_file.display());
+
+        let mut compiler =
+            FauxCompiler::build(&definition, xml_output_file).expect("Could not build compiler");
 
         let base_directory =
             std::env::current_dir().expect("Could not get this program's current directory");
@@ -71,16 +72,21 @@ fn main() {
             Err(simple_error) => print!("{}", simple_error),
         }
     } else {
+        let mut engine = Interpreter::build(&definition).expect("Could not build Interpreter");
+
         println!(
             "Faux version {} interactive mode (try `help()` for more information)",
             env!("CARGO_PKG_VERSION")
         );
 
-        let mut buffer = String::new();
-        std::io::stdin()
-            .read_line(&mut buffer)
-            .expect("Error reading input");
+        while !engine.is_eof() {
+            let result = engine.parse_line();
 
-        println!("{buffer}");
+            if let Err(err) = result {
+                println!("{err}");
+            }
+
+            // println!("{buffer}");
+        }
     }
 }

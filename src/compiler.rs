@@ -5,11 +5,11 @@ use std::rc::Rc;
 use simple_error::{SimpleError, SimpleResult};
 
 use crate::symbolization::{ast, type_collector::TypeCollector, meta_program, symbolizer, built_in_types};
-use crate::parsing::{lexer::{Lexer, self}, ebnf_parser, parser, chomsky_parser};
+use crate::parsing::{lexer::{Lexer, self}, ebnf_parser, parser, left_left_parser};
 use crate::transforming::grammatificator;
 
 pub struct FauxCompiler {
-    parser: Rc<chomsky_parser::Parser>,
+    parser: Rc<left_left_parser::Parser>,
     lexer: lexer::Lexer,
     parse_stack: Vec<Box<Path>>,
     file_cache: HashMap<Box<Path>, Rc<ast::Program>>,
@@ -29,7 +29,7 @@ impl FauxCompiler {
             }
         };
 
-        let parser = chomsky_parser::Parser::new(grammar, xml_out);
+        let parser = left_left_parser::Parser::new(grammar, xml_out);
 
         Some(FauxCompiler {
             parser: Rc::from(parser),

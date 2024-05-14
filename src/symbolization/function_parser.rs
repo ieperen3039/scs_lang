@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc, fmt::format};
+use std::{collections::HashMap, rc::Rc};
 
 use simple_error::{SimpleError, SimpleResult};
 

@@ -6,12 +6,15 @@ use super::token::{Token, TokenClass};
 const SPECIAL_SYMBOLS: &[char] = &['(', ')', '[', ']', '{', '}', ';', '.', '=', '/'];
 
 pub struct Lexer {
-    pub ignore_whitespace : bool,
+    pub ignore_whitespace: bool,
 }
 
 impl Lexer {
     pub fn read<'prog>(string: &'prog str) -> Result<Vec<Token<'prog>>, usize> {
-        Lexer{ ignore_whitespace: false }.read_all(string)
+        Lexer {
+            ignore_whitespace: false,
+        }
+        .read_all(string)
     }
 
     pub fn read_all<'prog>(&self, string: &'prog str) -> Result<Vec<Token<'prog>>, usize> {
@@ -157,9 +160,52 @@ impl Lexer {
                 chars.next();
                 num_chars += 1;
             }
-    
+
             num_chars += 1;
         }
         num_chars
+    }
+}
+
+pub struct StreamLexer {
+    base: Lexer,
+    buffer: String,
+    cursor: usize,
+}
+
+impl StreamLexer {
+    pub fn new(ignore_whitespace : bool) -> StreamLexer {
+        StreamLexer { base: Lexer { ignore_whitespace }, buffer: String::new(), cursor: 0 }
+    }
+
+    pub fn next_token<'lexer>(&'lexer mut self) -> Result<Token<'lexer>, (usize, &'lexer str)> {
+        loop {
+            if self.cursor >= self.buffer.len() {
+                self.buffer.clear();
+                std::io::stdin().read_line(&mut self.buffer);
+
+                if self.buffer.is_empty() { return Err((0, &self.buffer)); }
+            }
+
+            let char_idx = self.cursor;
+
+            match self.base.read_tokens(&self.buffer[char_idx..]) {
+                Some((TokenClass::WHITESPACE, size)) if self.base.ignore_whitespace => {
+                    self.cursor += size;
+                }
+                Some((class, size)) => {
+                    let slice = &self.buffer[char_idx..(char_idx + size)];
+                    self.cursor += size;
+                    return Ok(Token {
+                        class,
+                        slice,
+                        char_idx
+                    })
+                }
+                None => return Err((char_idx, &self.buffer)),
+            }
+        }
+
+        // Err(self.cursor)
     }
 }
