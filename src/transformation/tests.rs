@@ -1,7 +1,7 @@
 
 use std::io::Write;
 
-use crate::{parsing::ebnf_parser, transforming::{chomsker::Chomsky, grammatificator, grammar::Grammar}};
+use crate::{parsing::ebnf_parser, transformation::{chomsker::Chomsky, grammatificator, grammar::Grammar}};
 
 #[test]
 fn write_conversion_outputs() {

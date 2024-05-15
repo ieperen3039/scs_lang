@@ -3,7 +3,7 @@ use std::{
     io::Write,
 };
 
-use crate::transforming::{
+use crate::transformation::{
     chomsker::{Chomsky, ChomskyPattern, ChomskyRule},
     grammar::{Grammar, RuleId, Terminal},
 };

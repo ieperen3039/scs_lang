@@ -6,7 +6,7 @@ use crate::{
         symbolizer,
         type_collector::TypeCollector,
     },
-    transforming::grammatificator,
+    transformation::grammatificator,
 };
 
 #[test]

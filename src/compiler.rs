@@ -6,7 +6,7 @@ use simple_error::{SimpleError, SimpleResult};
 
 use crate::symbolization::{ast, type_collector::TypeCollector, meta_program, symbolizer, built_in_types};
 use crate::parsing::{lexer::{Lexer, self}, ebnf_parser, parser, left_left_parser};
-use crate::transforming::grammatificator;
+use crate::transformation::grammatificator;
 
 pub struct FauxCompiler {
     parser: Rc<left_left_parser::Parser>,

@@ -33,7 +33,7 @@ pub enum TypeRef {
     UnresolvedName(UnresolvedName),
     Defined(DefinedRef),
     UnamedTuple(Vec<TypeRef>),
-    Buffer(Box<TypeRef>),
+    Stream(Box<TypeRef>),
     Function(FunctionType),
     Void,
 }
@@ -87,10 +87,8 @@ pub struct VariantValue {
 pub struct FunctionDeclaration {
     pub id: NumericFunctionIdentifier,
     pub name: Identifier,
-    // parameter expansion must be resolved before the ast is constructed
     pub parameters: HashMap<Identifier, TypeRef>,
     pub return_type: TypeRef,
-    pub is_static: bool,
     pub is_external: bool,
 }
 

@@ -9,7 +9,7 @@ mod symbolization;
 
 #[cfg(test)]
 mod tests;
-pub mod transforming;
+pub mod transformation;
 pub mod transpilation;
 
 use clap::Parser;
@@ -60,16 +60,9 @@ fn main() {
         let base_directory =
             std::env::current_dir().expect("Could not get this program's current directory");
 
-        let compile_result = compiler.compile(&base_directory.join(script_file));
+        let compile_result = compiler.compile(&base_directory.join(script_file)).expect("compilation failed");
 
-        match compile_result {
-            Ok(program) => {
-                let mut out = std::io::stdout();
-                let write = transpilation::generator_c::GeneratorC::write(&mut out, program);
-                write.unwrap();
-            }
-            Err(simple_error) => print!("{}", simple_error),
-        }
+        // Interpreter::new()
     } else {
         println!(
             "Faux version {} interactive mode (try `help()` for more information)",

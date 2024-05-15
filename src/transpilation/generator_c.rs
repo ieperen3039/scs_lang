@@ -130,7 +130,7 @@ impl GeneratorC {
                 }
                 Ok(())
             }
-            ast::TypeRef::Buffer(array_type) => {
+            ast::TypeRef::Stream(array_type) => {
                 self.write_type_ref(out, array_type)?;
                 write_str!(out, "*")
             }

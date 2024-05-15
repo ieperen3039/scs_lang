@@ -6,7 +6,7 @@ use std::{
 
 use simple_error::SimpleError;
 
-use crate::transforming::{
+use crate::transformation::{
     grammar::{Grammar, RuleId, RuleStorage, Term, Terminal},
     rule_name_generator::RuleNameGenerator,
 };

@@ -37,14 +37,15 @@ This also means that every statement ends with a _post-fix_ assignment, and that
 Arithmetic on numbers must be executed by means of explicitly calling functions.
 Again, this language is not meant for algorithms.
 
-Assignment can also be used where a function is expecting a monadic operation, in which case the assignment is said to be 'conditional'.
+Assignment can also be conditionally executed, by passing an assignement as a lamda (more about htat later)
 Assigning to `return` implies returning from the function, conditionally assigning `return` is a conditional return from the function.
 Conditionally assigned variables are implicit monadic types: if the variable is not assigned at runtime, then any function call on the variable is not executed.
 
 ## Operators and Symbols
 Faux heavily relies on symbols for its conciceness.
+Many common operations have a shorthand symbol associated with them.
 The Lexer implementation defines which symbols are not eligible for use as operators.
-As of writing, this is: `'(', ')', '[', ']', '{', '}', ';', '.', '=', '/'`, but also excludes symbols that indicates or kinds of tokens: quotes `"` and underscores `_`
+As of writing, this is: `'(', ')', '[', ']', '{', '}', ';', '.', '=', '/', '"', '_'`
 
 ## Streams
 Streams are abstract collections of some type `T`.

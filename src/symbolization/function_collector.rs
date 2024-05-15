@@ -93,7 +93,6 @@ impl<'a> FunctionCollector<'a> {
             id: self.new_id(),
             name: name_node.as_identifier(),
             parameters,
-            is_static: true,
             // technically, only when the "native_decl" node is found
             is_external: function_block_node.is_none(),
             return_type,

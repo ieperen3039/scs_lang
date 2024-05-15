@@ -2,7 +2,7 @@ use simple_error::SimpleError;
 
 use crate::{
     parsing::{chomsky_parser, ebnf_parser, lexer::Lexer, parser, rule_nodes::RuleNode},
-    transforming::grammatificator,
+    transformation::grammatificator,
 };
 
 #[test]
