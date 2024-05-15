@@ -230,7 +230,6 @@ impl FunctionParser<'_, '_> {
         // TODO: explicit generic arguments
         Ok(FunctionCall {
             id: function_id,
-            generic_arguments: HashMap::new(),
             arguments,
         })
     }
@@ -284,7 +283,7 @@ impl FunctionParser<'_, '_> {
 
         let arguments = self.read_arguments(node, this_scope, variables)?;
         
-        Ok(FunctionCall { id: *function_id, generic_arguments: HashMap::new(), arguments })
+        Ok(FunctionCall { id: *function_id, arguments })
     }
 
     fn read_tuple_initialisation(

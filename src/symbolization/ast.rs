@@ -15,8 +15,6 @@ pub struct Program {
 pub struct ImplType {
     pub id: NumericTypeIdentifier,
     pub array_depth: u8,
-    // implementation / our selection of types to use as generic parameters
-    pub generic_parameters: Vec<TypeRef>,
 }
 
 #[derive(Clone)]
@@ -37,7 +35,6 @@ pub enum TypeRef {
     UnamedTuple(Vec<TypeRef>),
     Buffer(Box<TypeRef>),
     Function(FunctionType),
-    Generic(Rc<GenericParameter>),
     Void,
 }
 
@@ -45,16 +42,12 @@ pub enum TypeRef {
 // could be a base type, but also an enum variant or a named tuple
 pub struct DefinedRef {
     pub id: NumericTypeIdentifier,
-    // implementation / our selection of types to use as generic parameters
-    pub generic_parameters: Vec<TypeRef>,
 }
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct UnresolvedName {
     pub name: Identifier,
     pub scope: Vec<Identifier>,
-    // implementation / our selection of types to use as generic parameters
-    pub generic_parameters: Vec<TypeRef>,
 }
 
 // an unspecific `fn<>` declaration
@@ -71,14 +64,7 @@ pub struct TypeDefinition {
     pub id: NumericTypeIdentifier,
     pub name: Identifier,
     pub full_scope: Vec<Identifier>,
-    // there are generic declarations; brand new identifiers
-    pub generic_parameters: Vec<Rc<GenericParameter>>,
     pub type_class: TypeClass,
-}
-
-#[derive(Debug, Hash, Eq, PartialEq)]
-pub struct GenericParameter {
-    pub name: Identifier,
 }
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
@@ -101,8 +87,6 @@ pub struct VariantValue {
 pub struct FunctionDeclaration {
     pub id: NumericFunctionIdentifier,
     pub name: Identifier,
-    // there are generic declarations; brand new identifiers
-    pub generic_parameters: Vec<Rc<GenericParameter>>,
     // parameter expansion must be resolved before the ast is constructed
     pub parameters: HashMap<Identifier, TypeRef>,
     pub return_type: TypeRef,
@@ -154,8 +138,6 @@ pub enum FunctionExpression {
 #[derive(Clone)]
 pub struct FunctionCall {
     pub id: NumericFunctionIdentifier,
-    // implementation / our selection of types to use as generic parameters
-    pub generic_arguments: HashMap<Identifier, TypeRef>,
     // map of parameter names to expressions. Missing variables indicate that this 'function call' constructs a closure
     pub arguments: HashMap<Identifier, ValueExpression>,
 }

@@ -143,7 +143,6 @@ impl GeneratorC {
                 }
                 write_str!(out, ")")
             }
-            ast::TypeRef::Generic(generic) => write_str!(out, &generic.name),
             ast::TypeRef::Void => write_str!(out, "void"),
             ast::TypeRef::UnresolvedName(unresolved) => Err(SimpleError::new(format!(
                 "Unresolved type \"{}\" in generation stage",

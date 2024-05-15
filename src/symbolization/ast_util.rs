@@ -9,13 +9,11 @@ impl TypeDefinition {}
 
 impl TypeRef {
     pub const STRING: TypeRef = TypeRef::Defined(DefinedRef {
-        id: TYPE_ID_STRING,
-        generic_parameters: Vec::new(),
+        id: TYPE_ID_STRING
     });
 
     pub const NUMBER: TypeRef = TypeRef::Defined(DefinedRef {
-        id: TYPE_ID_INT,
-        generic_parameters: Vec::new(),
+        id: TYPE_ID_INT
     });
 }
 

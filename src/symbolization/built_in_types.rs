@@ -21,7 +21,6 @@ fn build_native(name: &str, id: u32) -> TypeDefinition {
     TypeDefinition {
         name: Identifier::from(name),
         id,
-        generic_parameters: Vec::new(),
         type_class: TypeClass::Base { derived: None },
         full_scope: Vec::new(), // root scope
     }

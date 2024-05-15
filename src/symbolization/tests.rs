@@ -40,13 +40,11 @@ fn parse_simple_derived_type() {
     let found_type = found_type.unwrap();
     assert_eq!(found_type.name, Identifier::from("FilePath"));
     assert_eq!(found_type.full_scope, vec![]);
-    assert_eq!(found_type.generic_parameters, vec![]);
     assert_eq!(
         found_type.type_class,
         TypeClass::Base {
             derived: Some(Box::from(TypeRef::Defined(DefinedRef {
-                id: TYPE_ID_STRING,
-                generic_parameters: vec![]
+                id: TYPE_ID_STRING
             })))
         }
     );

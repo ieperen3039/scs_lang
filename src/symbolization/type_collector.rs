@@ -84,17 +84,8 @@ impl TypeCollector {
     pub fn read_type_definition(&mut self, node: &RuleNode, scope: &Scope) -> SimpleResult<TypeDefinition> {
         debug_assert_eq!(node.rule_name, "type_definition");
 
-        // base_type = identifier, [ generic_types_decl ];
+        // base_type = identifier;
         let base_type_node = node.expect_node("base_type_decl")?;
-
-        let generic_types = {
-            let generic_types_node = base_type_node.find_node("generic_types_decl");
-            if let Some(generic_types_node) = generic_types_node {
-                self.read_generic_types_decl(generic_types_node)?
-            } else {
-                Vec::new()
-            }
-        };
 
         let base_type_name = base_type_node
             .expect_node("identifier")
@@ -113,7 +104,6 @@ impl TypeCollector {
         Ok(TypeDefinition {
             name: base_type_name,
             id: self.new_id(),
-            generic_parameters: generic_types,
             type_class: TypeClass::Base {
                 derived: derived_from,
             },
@@ -159,18 +149,8 @@ impl TypeCollector {
 
         let name_node = base_type_node.expect_node("identifier")?;
 
-        let generic_parameters = {
-            let generic_types_node = base_type_node.find_node("generic_types_inst");
-            if let Some(generic_types_node) = generic_types_node {
-                self.read_generic_types_inst(generic_types_node)?
-            } else {
-                Vec::new()
-            }
-        };
-
         Ok(UnresolvedName {
             name: name_node.as_identifier(),
-            generic_parameters,
             scope,
         })
     }
@@ -190,7 +170,6 @@ impl TypeCollector {
         Ok(TypeDefinition {
             name: name_node.as_identifier(),
             id: self.new_id(),
-            generic_parameters: Vec::new(),
             type_class: TypeClass::Enum {
                 values: value_names,
             },
@@ -198,20 +177,11 @@ impl TypeCollector {
         })
     }
 
-    // variant_definition = identifier, [ generic_types_decl ], variant_value_decl, { variant_value_decl };
+    // variant_definition = identifier, variant_value_decl, { variant_value_decl };
     pub fn read_variant(&mut self, node: &RuleNode, scope: &Scope) -> SimpleResult<TypeDefinition> {
         debug_assert_eq!(node.rule_name, "variant_definition");
 
         let name_node = node.expect_node("identifier")?;
-
-        let generic_types = {
-            let generic_types_node = node.find_node("generic_types_decl");
-            if let Some(generic_types_node) = generic_types_node {
-                self.read_generic_types_decl(generic_types_node)?
-            } else {
-                Vec::new()
-            }
-        };
 
         let mut variant_values = Vec::new();
         for node in node.find_nodes("variant_value_decl") {
@@ -222,7 +192,6 @@ impl TypeCollector {
         Ok(TypeDefinition {
             name: name_node.as_identifier(),
             id: self.new_id(),
-            generic_parameters: generic_types,
             type_class: TypeClass::Variant {
                 variants: variant_values,
             },
@@ -280,42 +249,5 @@ impl TypeCollector {
             parameters,
             return_type: Box::from(return_type),
         })
-    }
-
-    // generic_types = identifier, { identifier };
-    pub fn read_generic_types_decl(
-        &self,
-        node: &RuleNode,
-    ) -> SimpleResult<Vec<Rc<GenericParameter>>> {
-        debug_assert_eq!(node.rule_name, "generic_types_decl");
-        let mut generic_types = Vec::new();
-
-        for generic_type_node in &node.sub_rules {
-            if generic_type_node.rule_name != "identifier" {
-                return Err(SimpleError::new("expected identifier"));
-            }
-
-            generic_types.push(Rc::from(GenericParameter {
-                name: generic_type_node.as_identifier(),
-            }));
-        }
-
-        Ok(generic_types)
-    }
-
-    // generic_types_inst = type_name, { type_name };
-    pub fn read_generic_types_inst(
-        &self,
-        node: &RuleNode,
-    ) -> SimpleResult<Vec<TypeRef>> {
-        debug_assert_eq!(node.rule_name, "generic_types_inst");
-        let mut generic_types = Vec::new();
-
-        for generic_type_node in &node.sub_rules {
-            let type_ref = self.read_type_ref(&generic_type_node)?;
-            generic_types.push(type_ref);
-        }
-
-        Ok(generic_types)
     }
 }

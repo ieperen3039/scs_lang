@@ -158,7 +158,6 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
             } => {
                 self.resolve_type_ref(
                     to_resolve.borrow_mut(),
-                    &type_to_resolve.generic_parameters,
                     local_scope,
                 )?;
             }
@@ -166,14 +165,13 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
                 for variant in variants {
                     self.resolve_type_ref(
                         &mut variant.value_type,
-                        &type_to_resolve.generic_parameters,
                         local_scope,
                     )?;
                 }
             }
             TypeClass::Tuple { elements } => {
                 for elt in elements {
-                    self.resolve_type_ref(elt, &type_to_resolve.generic_parameters, local_scope)?;
+                    self.resolve_type_ref(elt, local_scope)?;
                 }
             }
         }
@@ -184,13 +182,12 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
     fn resolve_type_ref(
         &self,
         type_to_resolve: &mut TypeRef,
-        generics: &[Rc<GenericParameter>],
         local_scope: &Scope,
     ) -> SimpleResult<()> {
         match type_to_resolve {
             TypeRef::UnresolvedName(name_to_resolve) => {
                 let defined_type_ref =
-                    self.resolve_defined_name(name_to_resolve, generics, local_scope)?;
+                    self.resolve_defined_name(name_to_resolve, local_scope)?;
                 *type_to_resolve = TypeRef::Defined(defined_type_ref);
             }
             _ => {}
@@ -201,16 +198,8 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
     fn resolve_defined_name(
         &self,
         type_to_resolve: &UnresolvedName,
-        generics: &[Rc<GenericParameter>],
         local_scope: &Scope,
     ) -> SimpleResult<DefinedRef> {
-        let mut generic_parameters = Vec::new();
-        for ele in &type_to_resolve.generic_parameters {
-            let mut ele_ref = ele.clone();
-            self.resolve_type_ref(&mut ele_ref, generics, local_scope)?;
-            generic_parameters.push(ele_ref);
-        }
-
         let resolved_scope = self.resolve_scope_reference(&type_to_resolve.scope, local_scope)?;
         let &resolved_type = resolved_scope
             .types
@@ -224,7 +213,6 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
 
         Ok(DefinedRef {
             id: resolved_type,
-            generic_parameters,
         })
     }
 }

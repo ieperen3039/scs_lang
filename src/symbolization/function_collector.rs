@@ -59,7 +59,7 @@ impl<'a> FunctionCollector<'a> {
 
     // we only read the declaration part of the definition
     // function_definition     = function_signature, ( function_block | native_decl );
-    // function_signature      = function_name, [ generic_types_decl ], [ parameter_list ], return_type;
+    // function_signature      = function_name, [ parameter_list ], return_type;
     pub fn read_function_declaration(
         &mut self,
         node: &RuleNode<'_, '_>,
@@ -68,16 +68,6 @@ impl<'a> FunctionCollector<'a> {
         let signature_node = node.expect_node("function_signature")?;
 
         let name_node = signature_node.expect_node("function_name")?;
-
-        let generic_parameters = {
-            let generic_types_node = signature_node.find_node("generic_types_decl");
-            if let Some(generic_types_node) = generic_types_node {
-                self.type_collector
-                    .read_generic_types_decl(generic_types_node)?
-            } else {
-                Vec::new()
-            }
-        };
 
         let parameters: HashMap<Identifier, TypeRef> = {
             let parameter_node = signature_node.find_node("parameter_list");
@@ -102,7 +92,6 @@ impl<'a> FunctionCollector<'a> {
         Ok(FunctionDeclaration {
             id: self.new_id(),
             name: name_node.as_identifier(),
-            generic_parameters,
             parameters,
             is_static: true,
             // technically, only when the "native_decl" node is found
@@ -174,8 +163,7 @@ impl<'a> FunctionCollector<'a> {
         Ok((impl_type, function_definitions))
     }
 
-    // base_type_decl          = identifier, [ generic_types_decl ];
-    // generic_types_decl      = identifier, { identifier };
+    // base_type_decl          = identifier
     fn read_impl_type_decl(
         &self,
         node: &RuleNode<'_, '_>,
@@ -194,20 +182,9 @@ impl<'a> FunctionCollector<'a> {
             ))
         })?;
 
-        let generic_types = {
-            let generic_types_node = node.find_node("generic_types_inst");
-            if let Some(generic_types_node) = generic_types_node {
-                self.type_collector
-                    .read_generic_types_inst(generic_types_node)?
-            } else {
-                Vec::new()
-            }
-        };
-
         Ok(ImplType {
             id: type_id.clone(),
-            array_depth: 0,
-            generic_parameters: generic_types,
+            array_depth: 0
         })
     }
 }

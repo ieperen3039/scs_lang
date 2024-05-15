@@ -1,13 +1,12 @@
 use std::path::PathBuf;
 
-use crate::{compiler::FauxCompiler, interpreter::Interpreter};
+use crate::{compiler::FauxCompiler};
 
 pub mod compiler;
 
 mod parsing;
 mod symbolization;
 
-pub mod interpreter;
 #[cfg(test)]
 mod tests;
 pub mod transforming;
@@ -72,21 +71,11 @@ fn main() {
             Err(simple_error) => print!("{}", simple_error),
         }
     } else {
-        let mut engine = Interpreter::build(&definition).expect("Could not build Interpreter");
-
         println!(
             "Faux version {} interactive mode (try `help()` for more information)",
             env!("CARGO_PKG_VERSION")
         );
 
-        while !engine.is_eof() {
-            let result = engine.parse_line();
-
-            if let Err(err) = result {
-                println!("{err}");
-            }
-
-            // println!("{buffer}");
-        }
+        unimplemented!();
     }
 }
