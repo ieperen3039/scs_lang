@@ -55,7 +55,7 @@ impl GeneratorC {
                 derived: Some(derived),
             } => {
                 write_str!(out, "typedef ")?;
-                self.write_type_ref(out, &derived);
+                self.write_type_ref(out, &derived)?;
                 write_fmt!(out, " {this_name}")
             }
             ast::TypeClass::Enum { values } => {

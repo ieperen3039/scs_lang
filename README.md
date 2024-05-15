@@ -1,14 +1,14 @@
-# Faux 'programming'  language
-a prototype script / programming language.
-The aim for this language is to be concice, with a focus on explicit movement of data, high safety, and intended to be used in combination with C.
+# Faux scripting  language
+a prototype scripting language.
+The aim for this language is to be concice, with a focus on explicit movement of data, high type safety, and intended to be used in scripts.
 It is a static-typed, functional-like language based on method chaining, with pure functions and a lack of if- and for- statements.
-It provides operations on collections using 'buffers' which are effectively implemented as streams, with should be versatile enough to replace for-loops.
+It provides operations on collections using 'streams' which are effectively implemented as streams, with should be versatile enough to replace for-loops.
 It provides minimal syntax for currying, creating lamda functions, monadic operations, and error handling.
 It is not suited for implementing algorithms.
 
 ## Variables
 A variable is immutable, and _always_ effectively copied.
-The compiler manages the memory implicitly in a way similar to Rust's borrow checker.
+Memory is managed by the language
 
 ## Types and casting
 There are 4 types.
@@ -21,12 +21,15 @@ External types can be passed around, but not be read from or written to.
 Every value can be assigned to both a generalisation of its type or a specialisation of its type.
 Casting down (to a specialisation) must happen explicitly, and results in an optional of the specialisation.
 
-## Results and booleans
-`Result`s are a built-in variant of a generic positive value and a generic negative value.
-`Maybe`s are a `Result<void>`.
-`boolean`s are a `Result<void, void>` (but not a `Maybe<void>`).
-The implication of this is that the result of a comparison can be mapped to a `Result` in a natural way.
-On the other side, a `Result` and a `Maybe` cannot be cast to a `boolean`, but conversion functions exist (`is_some` and `is_pos`).
+## Results, Optionals and booleans
+Results are a built-in variant of one positive value and one negative value.
+A results of types `P` and `N` is written as `P!N`, and implements a number of built-in functions
+Optionals are results where the negative value is of type `void`. Put differently, it defines that some value may not exist.
+An optional of type `T` is written as `T?` and implements some additional functions over results.
+`boolean`s are of type `void!void`.
+The implication of this is that the result of a comparison can be mapped to a Result in a natural way.
+On the other side, a Result and a Optional cannot be cast to a `boolean`, but conversion functions exist (`is_some` and `is_pos`).
+The two literals `true` and `false` map to a positive and negative `boolean` respectively.
 
 ## Statements
 Statements are ordered such that functions are generally executed in the order of appearance.
@@ -34,7 +37,7 @@ This also means that every statement ends with a _post-fix_ assignment, and that
 Arithmetic on numbers must be executed by means of explicitly calling functions.
 Again, this language is not meant for algorithms.
 
-Assignment can also be used where a function is expected a monadic operation, in which case the assignment is said to be 'conditional'.
+Assignment can also be used where a function is expecting a monadic operation, in which case the assignment is said to be 'conditional'.
 Assigning to `return` implies returning from the function, conditionally assigning `return` is a conditional return from the function.
 Conditionally assigned variables are implicit monadic types: if the variable is not assigned at runtime, then any function call on the variable is not executed.
 
@@ -43,18 +46,18 @@ Faux heavily relies on symbols for its conciceness.
 The Lexer implementation defines which symbols are not eligible for use as operators.
 As of writing, this is: `'(', ')', '[', ']', '{', '}', ';', '.', '=', '/'`, but also excludes symbols that indicates or kinds of tokens: quotes `"` and underscores `_`
 
-## Buffers
-Buffers are abstract collections of some type `T`.
-Buffers implement the `map` function to transform all element in the buffer to new elements.
-Buffers implement the `filter` function that maps all elements to a `Result` of the original element; this does not change the buffer's size.
-Buffers implement the `reduce` function to combine all elements.
-Buffers, and all functions on them, shall be implemented in a way that the full collection never has to materialize.
-As a result, infinite buffers are possible.
+## Streams
+Streams are abstract collections of some type `T`.
+Streams implement the `map` function to transform all element in the stream to new elements.
+Streams implement the `filter` function that maps all elements to a Result of the original element; this does not change the stream's size.
+Streams implement the `reduce` function to combine all elements.
+Streams, and all functions on them, shall be implemented in a way that the full collection never has to materialize.
+As a result, infinite streams are possible.
 
 ## Functions
 An `extern` function describes a c (cdecl) function.
 When extending a struct, member functions with return type `This` will gain the return type of the extending struct.
-A function may be overloaded with different parameters, but also different return values.
+A function may be overloaded with different parameters, but not different return values.
 `extern` functions, however may not be overloaded, and must have a unique name.
 a closing bracket ends a function. If the last statement does not end in an assignment, then the result of that statement is the return of the function.
 
@@ -68,14 +71,14 @@ A `{...}` block evaluates to a `fn<(A)R>` for some implied `A` and `R`, if the f
 The type `fn<T>` is equal to `fn<()T>`.
 A lamda may implicitly capture any variable in its scope
 Captures are _always_ effectively copied, and `fn` is state-less and immutable.
-Whenever a `fn<T>` is assigned to a variable of `T`, it is evaluated. A `fn<T>` is never evaluated twice.
+Whenever a `fn<T>` is assigned to a variable of `T`, it is evaluated.
 A `fn<T>` has no member functions, but you can call any member of `T`, causing the `fn` to be evaluated.
 A variable of type `T` may also be assigned to a variable of `fn<T>`, resulting in a function that just returns the value. This allows for lazy arguments without much syntactic overhead.
 Nothing extends `fn<(A)R>` for any `A` and `R`,
 
 ## The no-return type or BANG type
 The `!` type is used to indicate the end of control flow.
-Only the assignment expression returns the `!` type, but lamdas can be made from assignments of type `fn<(T)!>` for any `T`.
+Only the assignment expression returns the `!` type, but lamdas of type `fn<(T)!>` can be made from assignments for any `T`.
 These lamdas cannot be assigned to variables, but can be passed to functions.
 Executing such lamda forces the function to return. 
 Notice that executing an assignment normally only forces a return when the assignement assigns to `return`.
