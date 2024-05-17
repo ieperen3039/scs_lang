@@ -3,19 +3,20 @@ faux_script             = statement, { statement_separator, statement }, end_sym
 (* scopes and definitions *)
 identifier              = ? IDENTIFIER ?;
 (* reference to existing type *)
-type_ref                = ( base_type_ref | tuple_ref | fn_type ), { buffer_symbol };
-(* instantiation of a tuple *)
-tuple_ref               = "[", type_ref, { ",", type_ref }, "]";
-(* reference to existing base type, enum or variant. instantiates generic types *)
+type_ref                = ( base_type_ref | result_type_ref | optional_type_ref | tuple_type_ref | fn_type ), { stream_symbol };
+(* reference to existing base type, enum or variant. *)
 base_type_ref           = identifier;
-(* function does not actually use a generic_types_decl, only syntactically *)
+result_type_ref         = type_ref, "!", type_ref;
+optional_type_ref       = type_ref, "?";
+tuple_type_ref               = "[", type_ref, { ",", type_ref }, "]";
 fn_type                 = _keyword_fn, "<", [ "(", unnamed_parameter_list, ")" ], return_type, ">";
 
 (* function definitions and parameters *)
 function_name           = ? IDENTIFIER ?;
 unnamed_parameter_list  = type_ref, { ",", type_ref };
 untyped_parameter_list  = identifier, { ",", identifier };
-return_type             = type_ref | no_return_decl;
+return_type             = type_ref | no_return_type_ref;
+no_return_type_ref = "!";
 
 (* statements *)
 function_block          = "{", statement, { statement_separator, statement }, [ statement_separator ], "}";
@@ -28,9 +29,11 @@ variable_name           = ? IDENTIFIER ?;
 
 (* function call statements *)
 function_call           = function_name, "(", [ _argument_list ], ")";
-_argument_list          = single_argument | ( named_argument, { ",", named_argument } );
-single_argument         = _expression;
-named_argument          = identifier, ":", _expression;
+_argument_list          = argument, { ",", argument };
+argument                = named_argument | single_argument | flag_argument;
+single_argument         = _value_expression;
+flag_argument           = ? IDENTIFIER ?;
+named_argument          = identifier, "=", _expression;
 
 (* mutators, selectors and usage indicators *)
 operator                = ? OPERATOR ?;
@@ -58,11 +61,10 @@ integer_literal         = ? NUMBER ?;
 native_decl             = _keyword_extern;
 
 (* symbol definitions *)
-end_symbol = ":";
+end_symbol = ";";
 _usage_assign = "=";
-no_return_decl = "!";
 _usage_cast = "as";
-buffer_symbol = "[]";
+stream_symbol = "[]";
 
 (* keywords *)
 _keyword_version = "version";
