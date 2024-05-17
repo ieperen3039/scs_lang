@@ -6,7 +6,7 @@ use crate::symbolization::ast::{self, Program};
 pub struct GeneratorC {
     pub type_definitions: HashMap<ast::NumericTypeIdentifier, ast::TypeDefinition>,
     pub function_definitions: HashMap<ast::NumericFunctionIdentifier, ast::FunctionBody>,
-    pub member_function_definitions: HashMap<ast::ImplType, ast::FunctionDeclaration>,
+    pub member_function_definitions: HashMap<ast::ImplType, Vec<ast::NumericFunctionIdentifier>>,
 }
 
 // call `write!`, and wrap the error into a SimpleError
@@ -42,7 +42,6 @@ impl GeneratorC {
         out: &mut Writer,
         definition: &ast::TypeDefinition,
     ) -> SimpleResult<()> {
-        
         let mut this_name_buffer: Vec<u8> = Vec::new();
         self.write_full_type_name(&mut this_name_buffer, &definition)?;
         let this_name = unsafe { std::str::from_utf8_unchecked(this_name_buffer.as_slice()) };
@@ -143,7 +142,7 @@ impl GeneratorC {
                 }
                 write_str!(out, ")")
             }
-            ast::TypeRef::Void => write_str!(out, "void"),
+            ast::TypeRef::Void | ast::TypeRef::NoReturn => write_str!(out, "void"),
             ast::TypeRef::UnresolvedName(unresolved) => Err(SimpleError::new(format!(
                 "Unresolved type \"{}\" in generation stage",
                 unresolved.name

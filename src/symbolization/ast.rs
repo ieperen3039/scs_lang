@@ -8,8 +8,7 @@ pub struct Program {
     pub namespaces: Scope,
     pub type_definitions: HashMap<NumericTypeIdentifier, TypeDefinition>,
     pub function_definitions: HashMap<NumericFunctionIdentifier, FunctionBody>,
-    pub member_function_definitions: HashMap<ImplType, FunctionDeclaration>,
-    pub main: Option<Rc<FunctionBody>>,
+    pub member_function_definitions: HashMap<ImplType, Vec<NumericFunctionIdentifier>>
 }
 
 pub struct ImplType {
@@ -36,6 +35,7 @@ pub enum TypeRef {
     Stream(Box<TypeRef>),
     Function(FunctionType),
     Void,
+    NoReturn,
 }
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]

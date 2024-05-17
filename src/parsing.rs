@@ -9,6 +9,8 @@ pub mod naive_recursive_descent_parser;
 pub mod chomsky_parser;
 pub mod left_left_parser;
 
+pub const FIRST_CUSTOM_TYPE_ID: u32 = 4;
+
 #[cfg(test)]
 mod tests_ebnf;
 
@@ -20,4 +22,6 @@ mod tests_naive;
 
 #[cfg(test)]
 mod tests_chomsky;
+
+#[cfg(test)]
 mod tests_left_left;

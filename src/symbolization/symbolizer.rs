@@ -103,7 +103,6 @@ pub fn parse_symbols(
 
 
     Ok(ast::Program {
-        main: None,
         namespaces: root_scope,
         type_definitions,
         member_function_definitions,

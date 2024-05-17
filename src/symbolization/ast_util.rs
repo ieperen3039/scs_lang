@@ -1,24 +1,27 @@
 use std::{collections::HashMap, rc::Rc};
 
-use super::{
-    ast::*,
-    built_in_types::{TYPE_ID_INT, TYPE_ID_STRING},
-};
+use crate::interpretation::built_in::primitives::*;
+
+use super::ast::*;
 
 impl TypeDefinition {}
 
 impl TypeRef {
-    pub const STRING: TypeRef = TypeRef::Defined(DefinedRef {
-        id: TYPE_ID_STRING
-    });
+    pub const STRING: TypeRef = Self::from(TYPE_ID_STRING);
+    pub const NUMBER: TypeRef = Self::from(TYPE_ID_INT);
+    pub const FLOAT: TypeRef = Self::from(TYPE_ID_FLOAT);
+    pub const BOOLEAN: TypeRef = Self::from(TYPE_ID_BOOLEAN);
 
-    pub const NUMBER: TypeRef = TypeRef::Defined(DefinedRef {
-        id: TYPE_ID_INT
-    });
+    pub const fn from(id: NumericTypeIdentifier) -> TypeRef {
+        TypeRef::Defined(DefinedRef { id })
+    }
 }
 
 impl FunctionExpression {
-    pub fn get_type(&self, functions: &HashMap<NumericFunctionIdentifier, FunctionDeclaration>) -> TypeRef {
+    pub fn get_type(
+        &self,
+        functions: &HashMap<NumericFunctionIdentifier, FunctionDeclaration>,
+    ) -> TypeRef {
         match &self {
             FunctionExpression::FunctionCall(fc) => functions
                 .get(&fc.id)
@@ -30,7 +33,10 @@ impl FunctionExpression {
 }
 
 impl ValueExpression {
-    pub fn get_type(&self, functions: &HashMap<NumericFunctionIdentifier, FunctionDeclaration>) -> TypeRef {
+    pub fn get_type(
+        &self,
+        functions: &HashMap<NumericFunctionIdentifier, FunctionDeclaration>,
+    ) -> TypeRef {
         match &self {
             ValueExpression::FunctionBody(block) => block.return_var.var_type.clone(),
             ValueExpression::Tuple(buffer_init) => buffer_init.element_type.clone(),

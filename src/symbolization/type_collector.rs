@@ -2,9 +2,9 @@ use std::rc::Rc;
 
 use simple_error::{SimpleError, SimpleResult};
 
-use crate::parsing::rule_nodes::RuleNode;
+use crate::parsing::{rule_nodes::RuleNode, FIRST_CUSTOM_TYPE_ID};
 
-use super::{ast::*, built_in_types::FIRST_CUSTOM_TYPE_ID};
+use super::ast::*;
 
 pub struct TypeCollector {
     next_id: u32,

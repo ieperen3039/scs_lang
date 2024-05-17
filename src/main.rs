@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::{compiler::FauxCompiler};
+use crate::{compiler::FauxCompiler, interpretation::interpreter::Interpreter};
 
 pub mod compiler;
 
@@ -11,6 +11,7 @@ mod symbolization;
 mod tests;
 pub mod transformation;
 pub mod transpilation;
+pub mod interpretation;
 
 use clap::Parser;
 
@@ -62,7 +63,7 @@ fn main() {
 
         let compile_result = compiler.compile(&base_directory.join(script_file)).expect("compilation failed");
 
-        // Interpreter::new()
+        Interpreter::new(compile_result).execute("main");
     } else {
         println!(
             "Faux version {} interactive mode (try `help()` for more information)",

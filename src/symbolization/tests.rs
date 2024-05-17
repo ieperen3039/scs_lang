@@ -1,12 +1,9 @@
 use crate::{
-    parsing::{chomsky_parser, ebnf_parser, lexer::Lexer},
-    symbolization::{
+    interpretation::built_in::primitives::TYPE_ID_STRING, parsing::{chomsky_parser, ebnf_parser, lexer::Lexer}, symbolization::{
         ast::{DefinedRef, Identifier, Scope, TypeClass, TypeRef},
-        built_in_types::TYPE_ID_STRING,
         symbolizer,
         type_collector::TypeCollector,
-    },
-    transformation::grammatificator,
+    }, transformation::grammatificator
 };
 
 #[test]
