@@ -1,22 +1,28 @@
-faux_script             = statement, { statement_separator, statement }, end_symbol;
+faux_script             = { function_definition }, statement, { statement_separator, statement }, end_symbol;
 
 (* scopes and definitions *)
 identifier              = ? IDENTIFIER ?;
 (* reference to existing type *)
-type_ref                = ( base_type_ref | result_type_ref | optional_type_ref | tuple_type_ref | fn_type ), { stream_symbol };
+type_ref                = ( base_type_ref | result_type_ref | optional_type_ref | flag_type_ref | tuple_type_ref | fn_type ), { stream_symbol };
 (* reference to existing base type, enum or variant. *)
 base_type_ref           = identifier;
 result_type_ref         = type_ref, "!", type_ref;
 optional_type_ref       = type_ref, "?";
-tuple_type_ref               = "[", type_ref, { ",", type_ref }, "]";
+flag_type_ref           = "flag";
+tuple_type_ref          = "[", type_ref, { ",", type_ref }, "]";
 fn_type                 = _keyword_fn, "<", [ "(", unnamed_parameter_list, ")" ], return_type, ">";
 
 (* function definitions and parameters *)
+function_definition     = _keyword_fn, function_name, _function_interface, function_block;
 function_name           = ? IDENTIFIER ?;
+_function_interface     = "(", [ parameter_list ], ")", ":", return_type;
+parameter_list          = parameter, { ",", parameter };
+parameter               = type_ref, identifier;
+
 unnamed_parameter_list  = type_ref, { ",", type_ref };
 untyped_parameter_list  = identifier, { ",", identifier };
 return_type             = type_ref | no_return_type_ref;
-no_return_type_ref = "!";
+no_return_type_ref      = "!";
 
 (* statements *)
 function_block          = "{", statement, { statement_separator, statement }, [ statement_separator ], "}";
@@ -56,9 +62,6 @@ dollar_string_literal   = "$", ? STRING ?;
 (* slashes are not considered escape characters *)
 raw_string_literal      = "r#", ? STRING ?, "#";
 integer_literal         = ? NUMBER ?;
-
-(* wrappers *)
-native_decl             = _keyword_extern;
 
 (* symbol definitions *)
 end_symbol = ";";

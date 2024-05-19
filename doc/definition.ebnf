@@ -13,11 +13,11 @@ version_patch           = ? NUMBER ?;
 include_declaration     = _keyword_use, include_file;
 include_file            = ? STRING ?;
 
-(* scopes and definitions *)
+(* namespaces and definitions *)
 identifier              = ? IDENTIFIER ?;
-_definition             = constant_def | scope | type_definition | enum_definition | variant_definition | implementation | function_definition;
-scope                   = scope_name, "{", { _definition }, "}";
-scope_name              = ? IDENTIFIER ?;
+_definition             = constant_def | namespace | type_definition | enum_definition | variant_definition | implementation | function_definition;
+namespace               = namespace_name, "{", { _definition }, "}";
+namespace_name          = ? IDENTIFIER ?;
 (* types cannot derive from fn_type or from buffers, but that is not a parser error *)
 type_definition         = _keyword_type, base_type_decl, "=",  ( type_ref | native_decl );
 field_declaration       = type_ref, identifier, ";";
@@ -26,7 +26,7 @@ type_ref                = ( base_type_ref | tuple_ref | fn_type ), { buffer_symb
 (* instantiation of a tuple *)
 tuple_ref               = "[", type_ref, { ",", type_ref }, "]";
 (* reference to existing base type, enum or variant. instantiates generic types *)
-base_type_ref           = { scope_name, "." }, identifier, [ generic_types_inst ];
+base_type_ref           = { namespace_name, "." }, identifier, [ generic_types_inst ];
 (* declaration of new type name, declares the existence of generic types *)
 base_type_decl          = identifier, [ generic_types_decl ];
 (* declaration of generic types *)
