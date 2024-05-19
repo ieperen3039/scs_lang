@@ -5,7 +5,7 @@ pub type NumericTypeIdentifier = u32;
 pub type NumericFunctionIdentifier = u32;
 
 pub struct Program {
-    pub namespaces: Scope,
+    pub namespaces: Namespace,
     pub type_definitions: HashMap<NumericTypeIdentifier, TypeDefinition>,
     pub function_definitions: HashMap<NumericFunctionIdentifier, FunctionBody>,
     pub member_function_definitions: HashMap<ImplType, Vec<NumericFunctionIdentifier>>
@@ -17,9 +17,9 @@ pub struct ImplType {
 }
 
 #[derive(Clone)]
-pub struct Scope {
+pub struct Namespace {
     pub full_name: Vec<Identifier>,
-    pub scopes: HashMap<Identifier, Scope>,
+    pub namespaces: HashMap<Identifier, Namespace>,
     pub types: HashMap<Identifier, NumericTypeIdentifier>,
     // only static functions are defined here
     pub functions: HashMap<Identifier, NumericFunctionIdentifier>,

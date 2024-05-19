@@ -4,7 +4,7 @@ use simple_error::{SimpleError, SimpleResult};
 
 use crate::{
     parsing::rule_nodes::RuleNode,
-    symbolization::{ast::Scope, type_collector::TypeCollector},
+    symbolization::{ast::Namespace, type_collector::TypeCollector},
 };
 
 use super::ast::*;
@@ -36,7 +36,7 @@ impl<'a> FunctionCollector<'a> {
     pub fn read_function_declarations(
         &mut self,
         node: &RuleNode<'_, '_>,
-        this_scope: &Scope,
+        this_scope: &Namespace,
     ) -> SimpleResult<Vec<FunctionDeclaration>> {
         match node.rule_name {
             "scope" => {
@@ -124,7 +124,7 @@ impl<'a> FunctionCollector<'a> {
     fn read_scope_functions(
         &mut self,
         node: &RuleNode,
-        super_scope: &Scope,
+        super_scope: &Namespace,
     ) -> SimpleResult<Vec<FunctionDeclaration>> {
         debug_assert_eq!(node.rule_name, "scope");
 
@@ -132,7 +132,7 @@ impl<'a> FunctionCollector<'a> {
             .expect_node("scope_name")
             .map(RuleNode::as_identifier)?;
         let this_scope = super_scope
-            .scopes
+            .namespaces
             .get(&this_scope_name)
             .ok_or_else(|| SimpleError::new(format!("Could not find scope {this_scope_name}")))?;
 
@@ -149,7 +149,7 @@ impl<'a> FunctionCollector<'a> {
     fn read_implementation(
         &mut self,
         node: &RuleNode<'_, '_>,
-        scope: &Scope,
+        scope: &Namespace,
     ) -> SimpleResult<(ImplType, Vec<FunctionDeclaration>)> {
         debug_assert_eq!(node.rule_name, "implementation");
         let impl_type = self.read_impl_type_decl(node, scope)?;
@@ -166,7 +166,7 @@ impl<'a> FunctionCollector<'a> {
     fn read_impl_type_decl(
         &self,
         node: &RuleNode<'_, '_>,
-        scope: &Scope,
+        scope: &Namespace,
     ) -> SimpleResult<ImplType> {
         debug_assert_eq!(node.rule_name, "base_type_decl");
 

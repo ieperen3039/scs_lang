@@ -1,6 +1,6 @@
 use crate::{
     interpretation::built_in::primitives::TYPE_ID_STRING, parsing::{chomsky_parser, ebnf_parser, lexer::Lexer}, symbolization::{
-        ast::{DefinedRef, Identifier, Scope, TypeClass, TypeRef},
+        ast::{DefinedRef, Identifier, Namespace, TypeClass, TypeRef},
         symbolizer,
         type_collector::TypeCollector,
     }, transformation::grammatificator
@@ -21,7 +21,7 @@ fn parse_simple_derived_type() {
 
     println!("{:?}", ast);
 
-    let external_scope = Scope::new("", None);
+    let external_scope = Namespace::new("", None);
     let mut type_collector = TypeCollector::new();
     let parsed_program =
         symbolizer::parse_symbols(ast, &external_scope, &mut type_collector).unwrap();

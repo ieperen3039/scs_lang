@@ -12,7 +12,7 @@ pub struct TypeCollector {
 
 pub enum Definition {
     Type(TypeDefinition),
-    Scope(Scope, Vec<TypeDefinition>),
+    Scope(Namespace, Vec<TypeDefinition>),
     Other
 }
 
@@ -30,13 +30,13 @@ impl TypeCollector {
     pub fn read_scope_definitions(
         &mut self,
         node: &RuleNode,
-        parent_scope: &Scope,
-    ) -> SimpleResult<(Scope, Vec<TypeDefinition>)> {
+        parent_scope: &Namespace,
+    ) -> SimpleResult<(Namespace, Vec<TypeDefinition>)> {
         debug_assert_eq!(node.rule_name, "scope");
 
         let scope_name = node.expect_node("scope_name")?;
 
-        let mut scope = Scope::new(&scope_name.tokens_as_string(), Some(parent_scope));
+        let mut scope = Namespace::new(&scope_name.tokens_as_string(), Some(parent_scope));
         let mut types = Vec::new();
 
         for node in &node.sub_rules {
@@ -58,7 +58,7 @@ impl TypeCollector {
     }
 
     // scope | type_definition | enum_definition | variant_definition | implementation | function_definition
-    pub fn read_definitions(&mut self, node: &RuleNode, scope: &Scope) -> SimpleResult<Definition> {
+    pub fn read_definitions(&mut self, node: &RuleNode, scope: &Namespace) -> SimpleResult<Definition> {
         match node.rule_name {
             "scope" => {
                 let (sub_scope, types) = self.read_scope_definitions(node, scope)?;
@@ -81,7 +81,7 @@ impl TypeCollector {
     }
 
     // base_type, [ derived_type | native_decl ], { field_declaration };
-    pub fn read_type_definition(&mut self, node: &RuleNode, scope: &Scope) -> SimpleResult<TypeDefinition> {
+    pub fn read_type_definition(&mut self, node: &RuleNode, scope: &Namespace) -> SimpleResult<TypeDefinition> {
         debug_assert_eq!(node.rule_name, "type_definition");
 
         // base_type = identifier;
@@ -156,7 +156,7 @@ impl TypeCollector {
     }
 
     // enum_definition = identifier, { identifier };
-    pub fn read_enum(&mut self, node: &RuleNode, scope: &Scope) -> SimpleResult<TypeDefinition> {
+    pub fn read_enum(&mut self, node: &RuleNode, scope: &Namespace) -> SimpleResult<TypeDefinition> {
         debug_assert_eq!(node.rule_name, "enum_definition");
 
         let name_node = node.expect_node("identifier")?;
@@ -178,7 +178,7 @@ impl TypeCollector {
     }
 
     // variant_definition = identifier, variant_value_decl, { variant_value_decl };
-    pub fn read_variant(&mut self, node: &RuleNode, scope: &Scope) -> SimpleResult<TypeDefinition> {
+    pub fn read_variant(&mut self, node: &RuleNode, scope: &Namespace) -> SimpleResult<TypeDefinition> {
         debug_assert_eq!(node.rule_name, "variant_definition");
 
         let name_node = node.expect_node("identifier")?;

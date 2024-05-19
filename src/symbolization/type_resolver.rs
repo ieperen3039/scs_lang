@@ -5,14 +5,14 @@ use simple_error::{SimpleError, SimpleResult};
 use super::ast::*;
 
 pub struct TypeResolver<'ext, 'int> {
-    pub external_scope: &'ext Scope,
-    pub root_scope: &'int Scope,
+    pub external_scope: &'ext Namespace,
+    pub root_scope: &'int Namespace,
 }
 
 pub fn resolve_type_definitions(
     types_to_resolve: Vec<TypeDefinition>,
-    external_scope: &Scope,
-    internal_scope: &Scope,
+    external_scope: &Namespace,
+    internal_scope: &Namespace,
 ) -> SimpleResult<Vec<TypeDefinition>> {
     let resolver = TypeResolver {
         external_scope,
@@ -24,8 +24,8 @@ pub fn resolve_type_definitions(
 
 pub fn resolve_type_name(
     type_to_resolve: &UnresolvedName,
-    root_scope: &Scope,
-    local_scope: &Scope,
+    root_scope: &Namespace,
+    local_scope: &Namespace,
 ) -> SimpleResult<NumericTypeIdentifier> {
     let resolver = TypeResolver {
         external_scope : root_scope,
@@ -49,8 +49,8 @@ pub fn resolve_type_name(
 pub fn resolve_function_name<'s>(
     name: Identifier,
     scope: &[Identifier],
-    root_scope: &Scope,
-    local_scope: &'s Scope,
+    root_scope: &Namespace,
+    local_scope: &'s Namespace,
 ) -> SimpleResult<NumericFunctionIdentifier> {
     let resolver = TypeResolver {
         external_scope : root_scope,
@@ -87,19 +87,19 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
     fn resolve_scope_reference<'a>(
         &'a self,
         scope_to_resolve: &[Identifier],
-        current: &'a Scope,
-    ) -> SimpleResult<&'a Scope> {
+        current: &'a Namespace,
+    ) -> SimpleResult<&'a Namespace> {
         match scope_to_resolve.first() {
             None => Ok(current),
             Some(first) => {
-                if let Some(top_scope) = self.root_scope.scopes.get(first) {
+                if let Some(top_scope) = self.root_scope.namespaces.get(first) {
                     Ok(top_scope)
                 } else if current.full_name.contains(first) {
                     let local_scope = self.resolve_partial_scope_name(current, first);
                     self.resolve_local_scope_reference(&scope_to_resolve[1..], local_scope)
-                } else if let Some(local_scope) = current.scopes.get(first) {
+                } else if let Some(local_scope) = current.namespaces.get(first) {
                     self.resolve_local_scope_reference(&scope_to_resolve[1..], local_scope)
-                } else if let Some(top_scope) = self.external_scope.scopes.get(first) {
+                } else if let Some(top_scope) = self.external_scope.namespaces.get(first) {
                     Ok(top_scope)
                 } else {
                     Err(SimpleError::new(format!(
@@ -111,7 +111,7 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
         }
     }
 
-    fn resolve_partial_scope_name(&self, scope: &Scope, first_of_partial: &Rc<str>) -> &Scope {
+    fn resolve_partial_scope_name(&self, scope: &Namespace, first_of_partial: &Rc<str>) -> &Namespace {
         let mut local_scope = self.external_scope;
 
         for name in &scope.full_name {
@@ -119,7 +119,7 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
                 break;
             }
 
-            local_scope = local_scope.scopes.get(name).unwrap();
+            local_scope = local_scope.namespaces.get(name).unwrap();
         }
 
         local_scope
@@ -128,12 +128,12 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
     fn resolve_local_scope_reference<'a>(
         &'a self,
         scope: &[Identifier],
-        current: &'a Scope,
-    ) -> SimpleResult<&'a Scope> {
+        current: &'a Namespace,
+    ) -> SimpleResult<&'a Namespace> {
         match scope.first() {
             None => Ok(current),
             Some(first) => {
-                if let Some(child_scope) = current.scopes.get(first) {
+                if let Some(child_scope) = current.namespaces.get(first) {
                     self.resolve_local_scope_reference(&scope[1..], child_scope)
                 } else {
                     Err(SimpleError::new(format!(
@@ -148,7 +148,7 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
     fn resolve_type(
         &self,
         type_to_resolve: &mut TypeDefinition,
-        local_scope: &Scope,
+        local_scope: &Namespace,
     ) -> SimpleResult<()> {
         match &mut type_to_resolve.type_class {
             TypeClass::Base { derived: None } => {}
@@ -182,7 +182,7 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
     fn resolve_type_ref(
         &self,
         type_to_resolve: &mut TypeRef,
-        local_scope: &Scope,
+        local_scope: &Namespace,
     ) -> SimpleResult<()> {
         match type_to_resolve {
             TypeRef::UnresolvedName(name_to_resolve) => {
@@ -198,7 +198,7 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
     fn resolve_defined_name(
         &self,
         type_to_resolve: &UnresolvedName,
-        local_scope: &Scope,
+        local_scope: &Namespace,
     ) -> SimpleResult<DefinedRef> {
         let resolved_scope = self.resolve_scope_reference(&type_to_resolve.scope, local_scope)?;
         let &resolved_type = resolved_scope

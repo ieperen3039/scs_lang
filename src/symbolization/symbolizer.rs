@@ -5,21 +5,21 @@ use simple_error::{SimpleError, SimpleResult};
 use crate::{
     parsing::rule_nodes::RuleNode,
     symbolization::{
-        ast::{Scope, VariableDeclaration, Identifier, self}, function_collector::FunctionCollector, function_parser::FunctionParser,
+        ast::{Namespace, VariableDeclaration, Identifier, self}, function_collector::FunctionCollector, function_parser::FunctionParser,
         type_collector::{TypeCollector, Definition}, type_resolver,
     },
 };
 
 pub fn parse_symbols(
     tree: RuleNode,
-    external_scope: &Scope,
+    external_scope: &Namespace,
     type_collector: &mut TypeCollector,
 ) -> SimpleResult<ast::Program> {
     debug_assert_eq!(tree.rule_name, "faux_program");
     // faux_program = [ version_declaration ], { include_declaration }, { _definition }, [ program_interface, function_block ];
     // _definition = constant_def | scope | type_definition | enum_definition | variant_definition | implementation | function_definition;
 
-    let mut proto_scope = Scope::new("", None);
+    let mut proto_scope = Namespace::new("", None);
     let mut types = Vec::new();
     let mut functions = Vec::new();
 

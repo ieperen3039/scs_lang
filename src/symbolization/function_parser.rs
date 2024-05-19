@@ -9,7 +9,7 @@ use super::{ast::*, type_resolver, type_collector::TypeCollector};
 type VarStorage = HashMap<Identifier, Rc<VariableDeclaration>>;
 
 pub struct FunctionParser<'s, 'tc> {
-    pub root_scope: &'s Scope,
+    pub root_scope: &'s Namespace,
     pub functions: HashMap<NumericFunctionIdentifier, FunctionDeclaration>,
     pub type_collector: &'tc TypeCollector,
 }
@@ -19,7 +19,7 @@ impl FunctionParser<'_, '_> {
     pub fn read_function_block(
         &self,
         node: &RuleNode<'_, '_>,
-        this_scope: &Scope,
+        this_scope: &Namespace,
         mut variables: VarStorage,
     ) -> SimpleResult<FunctionBody> {
         let mut statements = Vec::new();
@@ -65,7 +65,7 @@ impl FunctionParser<'_, '_> {
     pub fn read_function_body(
         &self,
         node: &RuleNode<'_, '_>,
-        this_scope: &Scope,
+        this_scope: &Namespace,
         parameters: &HashMap<Identifier, TypeRef>,
         return_var: Rc<VariableDeclaration>,
     ) -> SimpleResult<FunctionBody> {
@@ -93,7 +93,7 @@ impl FunctionParser<'_, '_> {
     pub fn read_statement(
         &self,
         node: &RuleNode<'_, '_>,
-        this_scope: &Scope,
+        this_scope: &Namespace,
         variables: &mut VarStorage,
     ) -> SimpleResult<Statement> {
         debug_assert_eq!(node.rule_name, "statement");
@@ -125,7 +125,7 @@ impl FunctionParser<'_, '_> {
     fn read_expression(
         &self,
         expression_node: &RuleNode<'_, '_>,
-        this_scope: &Scope,
+        this_scope: &Namespace,
         variables: &mut VarStorage,
     ) -> SimpleResult<ValueExpression> {
         match expression_node.rule_name {
@@ -172,7 +172,7 @@ impl FunctionParser<'_, '_> {
         &self,
         mutator_node: &RuleNode<'_, '_>,
         expression_type: &TypeRef,
-        this_scope: &Scope,
+        this_scope: &Namespace,
         variables: &mut VarStorage,
     ) -> SimpleResult<FunctionExpression> {
         match mutator_node.rule_name {
@@ -204,7 +204,7 @@ impl FunctionParser<'_, '_> {
     fn read_static_function_call(
         &self,
         node: &RuleNode<'_, '_>,
-        this_scope: &Scope,
+        this_scope: &Namespace,
         variables: &mut VarStorage,
     ) -> SimpleResult<FunctionCall> {
         assert_eq!(node.rule_name, "static_function_call");
@@ -237,7 +237,7 @@ impl FunctionParser<'_, '_> {
     fn read_arguments(
         &self,
         node: &RuleNode<'_, '_>,
-        this_scope: &Scope,
+        this_scope: &Namespace,
         variables: &mut HashMap<Rc<str>, Rc<VariableDeclaration>>,
     ) -> SimpleResult<HashMap<Rc<str>, ValueExpression>> {
         let mut arguments = HashMap::new();
@@ -267,7 +267,7 @@ impl FunctionParser<'_, '_> {
         &self,
         expression_type: &TypeRef,
         node: &RuleNode<'_, '_>,
-        this_scope: &Scope,
+        this_scope: &Namespace,
         variables: &mut VarStorage,
     ) -> SimpleResult<FunctionCall> {
 

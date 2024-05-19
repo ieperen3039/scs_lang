@@ -47,21 +47,21 @@ impl ValueExpression {
     }
 }
 
-impl Scope {
-    pub fn new(name: &str, parent: Option<&Scope>) -> Scope {
+impl Namespace {
+    pub fn new(name: &str, parent: Option<&Namespace>) -> Namespace {
         let mut full_name = parent.map(|sc| sc.full_name.clone()).unwrap_or(Vec::new());
         full_name.push(Rc::from(name));
 
-        Scope {
+        Namespace {
             full_name,
-            scopes: HashMap::new(),
+            namespaces: HashMap::new(),
             types: HashMap::new(),
             functions: HashMap::new(),
         }
     }
 
-    pub fn add_sub_scope(&mut self, scope_to_add: Scope) {
-        self.scopes.insert(scope_to_add.get_name(), scope_to_add);
+    pub fn add_sub_scope(&mut self, scope_to_add: Namespace) {
+        self.namespaces.insert(scope_to_add.get_name(), scope_to_add);
     }
 
     pub fn add_function(&mut self, fn_to_add: &FunctionDeclaration) {
@@ -76,12 +76,12 @@ impl Scope {
         self.full_name.last().unwrap().to_owned()
     }
 
-    pub fn extend(&mut self, other: Scope) {
-        self.scopes.extend(other.scopes);
+    pub fn extend(&mut self, other: Namespace) {
+        self.namespaces.extend(other.namespaces);
         self.types.extend(other.types);
     }
 
-    pub fn combined_with(&self, other: Scope) -> Scope {
+    pub fn combined_with(&self, other: Namespace) -> Namespace {
         let mut new_self = self.clone();
         new_self.extend(other);
         new_self
