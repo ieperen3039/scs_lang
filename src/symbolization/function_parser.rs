@@ -66,7 +66,7 @@ impl FunctionParser<'_, '_> {
         &self,
         node: &RuleNode<'_, '_>,
         this_scope: &Namespace,
-        parameters: &HashMap<Identifier, TypeRef>,
+        parameters: &Vec<Parameter>,
         return_var: Rc<VariableDeclaration>,
     ) -> SimpleResult<FunctionBody> {
         debug_assert_eq!(node.rule_name, "function_block");
@@ -76,12 +76,13 @@ impl FunctionParser<'_, '_> {
         // this variable will hold the return value when a function returns
         variables.insert(return_var.name.clone(), return_var);
 
-        for (identifier, type_name) in parameters {
+        for param in parameters {
+            
             variables.insert(
-                identifier.clone(),
+                param.identifier().clone(),
                 Rc::from(VariableDeclaration {
-                    var_type: type_name.to_owned(),
-                    name: identifier.to_owned(),
+                    var_type: param.par_type.to_owned(),
+                    name: param.identifier().to_owned(),
                 }),
             );
         }

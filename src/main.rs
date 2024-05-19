@@ -12,6 +12,7 @@ mod tests;
 pub mod transformation;
 pub mod transpilation;
 pub mod interpretation;
+pub mod built_in;
 
 use clap::Parser;
 
@@ -63,7 +64,7 @@ fn main() {
 
         let compile_result = compiler.compile(&base_directory.join(script_file)).expect("compilation failed");
 
-        Interpreter::new(compile_result).execute("main");
+        Interpreter::new(compile_result).execute_by_name("main");
     } else {
         println!(
             "Faux version {} interactive mode (try `help()` for more information)",

@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::interpretation::built_in::primitives::*;
+use crate::built_in::primitives::*;
 
 use super::ast::*;
 
@@ -89,5 +89,15 @@ impl Namespace {
 
     pub fn get(&self, name: &str) -> Option<&NumericTypeIdentifier> {
         self.types.get(name)
+    }
+}
+
+impl Parameter {
+    pub fn to_type(&self) -> &TypeRef {
+        &self.par_type
+    }
+
+    pub fn identifier(&self) -> &Identifier {
+        &self.long_name.or(self.short_name).unwrap()
     }
 }

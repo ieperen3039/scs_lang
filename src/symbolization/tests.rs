@@ -1,5 +1,5 @@
 use crate::{
-    interpretation::built_in::primitives::TYPE_ID_STRING, parsing::{chomsky_parser, ebnf_parser, lexer::Lexer}, symbolization::{
+    built_in::primitives::TYPE_ID_STRING, parsing::{chomsky_parser, ebnf_parser, lexer::Lexer}, symbolization::{
         ast::{DefinedRef, Identifier, Namespace, TypeClass, TypeRef},
         symbolizer,
         type_collector::TypeCollector,

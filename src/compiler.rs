@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use simple_error::{SimpleError, SimpleResult};
 
-use crate::symbolization::ast::Scope;
+use crate::symbolization::ast::Namespace;
 use crate::symbolization::{ast, type_collector::TypeCollector, meta_program, symbolizer};
 use crate::parsing::{lexer::{Lexer, self}, ebnf_parser, parser, left_left_parser};
 use crate::transformation::grammatificator;
@@ -77,7 +77,7 @@ impl FauxCompiler {
         let files_to_compile =
             meta_program::extract_includes(&syntax_tree, &this_path);
 
-        let mut included_scope = Scope::new("root", None);
+        let mut included_scope = Namespace::new("root", None);
 
         for include_file in files_to_compile {
             if !self.file_cache.contains_key(include_file.as_path()) {

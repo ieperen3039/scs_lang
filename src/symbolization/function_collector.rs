@@ -33,15 +33,24 @@ impl<'a> FunctionCollector<'a> {
         id
     }
 
+    pub fn create_external(&mut self, name: &str, parameters: Vec<Parameter>, return_type: TypeRef) -> FunctionDeclaration
+    {
+        FunctionDeclaration {
+            id : self.new_id(),
+            name: Identifier::from(name),
+            parameters,
+            return_type: return_type,
+            is_external: true,
+        }
+    }
+
     pub fn read_function_declarations(
         &mut self,
         node: &RuleNode<'_, '_>,
         this_scope: &Namespace,
     ) -> SimpleResult<Vec<FunctionDeclaration>> {
         match node.rule_name {
-            "scope" => {
-                self.read_scope_functions(node, this_scope)
-            }
+            "scope" => self.read_scope_functions(node, this_scope),
             "implementation" => {
                 let (impl_type, functions) = self.read_implementation(node, this_scope)?;
                 // self.type_definitions
@@ -50,36 +59,32 @@ impl<'a> FunctionCollector<'a> {
                 //     .extend(functions.clone());
                 Ok(functions)
             }
-            "function_definition" => {
-                Ok(vec![self.read_function_declaration(node)?])
-            }
-            _ => Ok(Vec::new())
+            "function_definition" => Ok(vec![self.read_function_declaration(node)?]),
+            _ => Ok(Vec::new()),
         }
     }
 
     // we only read the declaration part of the definition
-    // function_definition     = function_signature, ( function_block | native_decl );
-    // function_signature      = function_name, [ parameter_list ], return_type;
+    // function_definition     = function_name, [ parameter_list ], return_type, function_block;
     pub fn read_function_declaration(
         &mut self,
         node: &RuleNode<'_, '_>,
     ) -> SimpleResult<FunctionDeclaration> {
         debug_assert_eq!(node.rule_name, "function_definition");
-        let signature_node = node.expect_node("function_signature")?;
 
-        let name_node = signature_node.expect_node("function_name")?;
+        let name_node = node.expect_node("function_name")?;
 
-        let parameters: HashMap<Identifier, TypeRef> = {
-            let parameter_node = signature_node.find_node("parameter_list");
+        let parameters = {
+            let parameter_node = node.find_node("parameter_list");
             if let Some(parameter_node) = parameter_node {
                 self.read_parameter_list(parameter_node)?
             } else {
-                HashMap::new()
+                Vec::new()
             }
         };
 
         let return_type = {
-            let return_type_node = signature_node.expect_node("return_type")?;
+            let return_type_node = node.expect_node("return_type")?;
             debug_assert_eq!(return_type_node.sub_rules.len(), 1);
 
             self.type_collector
@@ -99,23 +104,23 @@ impl<'a> FunctionCollector<'a> {
         })
     }
 
-    // parameter_list          = parameter, { parameter };
-    // parameter               = type_ref, [ expansion_decl ], identifier;
-    fn read_parameter_list(
-        &self,
-        node: &RuleNode,
-    ) -> SimpleResult<HashMap<Identifier, TypeRef>> {
+    // parameter_list          = { parameter };
+    // parameter               = type_ref, identifier;
+    fn read_parameter_list(&self, node: &RuleNode) -> SimpleResult<Vec<Parameter>> {
         debug_assert_eq!(node.rule_name, "parameter_list");
         let parameter_nodes = node.find_nodes("parameter");
 
-        let mut parameters = HashMap::new();
+        let mut parameters = Vec::new();
         for parameter_node in parameter_nodes {
             let type_node = parameter_node.expect_node("type_ref")?;
             let type_name = self.type_collector.read_type_ref(type_node)?;
-            let expansion_node = parameter_node.find_node("expansion_decl");
             let name_node = parameter_node.expect_node("identifier")?;
 
-            parameters.insert(name_node.as_identifier(), type_name);
+            parameters.push(Parameter {
+                par_type: type_name,
+                long_name: Some(name_node.as_identifier()),
+                short_name: None,
+            })
         }
 
         Ok(parameters)
@@ -183,7 +188,7 @@ impl<'a> FunctionCollector<'a> {
 
         Ok(ImplType {
             id: type_id.clone(),
-            array_depth: 0
+            array_depth: 0,
         })
     }
 }

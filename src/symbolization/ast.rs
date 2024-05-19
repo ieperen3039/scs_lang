@@ -31,6 +31,9 @@ pub struct Namespace {
 pub enum TypeRef {
     UnresolvedName(UnresolvedName),
     Defined(DefinedRef),
+    Optional(Box<TypeRef>),
+    Result(Box<TypeRef>, Box<TypeRef>),
+    Flag,
     UnamedTuple(Vec<TypeRef>),
     Stream(Box<TypeRef>),
     Function(FunctionType),
@@ -83,11 +86,18 @@ pub struct VariantValue {
 
 // -- implementations --
 
+#[derive(Debug, Clone)]
+pub struct Parameter {
+    pub par_type: TypeRef,
+    pub long_name: Option<Identifier>,
+    pub short_name: Option<Identifier>,
+}
+
 #[derive(Clone)]
 pub struct FunctionDeclaration {
     pub id: NumericFunctionIdentifier,
     pub name: Identifier,
-    pub parameters: HashMap<Identifier, TypeRef>,
+    pub parameters: Vec<Parameter>,
     pub return_type: TypeRef,
     pub is_external: bool,
 }
