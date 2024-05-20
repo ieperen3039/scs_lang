@@ -35,11 +35,11 @@ impl FunctionExpression {
 impl ValueExpression {
     pub fn get_type(
         &self,
-        functions: &HashMap<NumericFunctionIdentifier, FunctionDeclaration>,
     ) -> TypeRef {
         match &self {
-            ValueExpression::FunctionBody(block) => block.return_var.var_type.clone(),
-            ValueExpression::Tuple(buffer_init) => buffer_init.element_type.clone(),
+            ValueExpression::Tuple(elements) => {
+                TypeRef::UnamedTuple(elements.iter().map(|ex| ex.get_type()).collect())
+            }
             ValueExpression::Literal(Literal::String(_)) => TypeRef::STRING.clone(),
             ValueExpression::Literal(Literal::Number(_)) => TypeRef::NUMBER.clone(),
             ValueExpression::Variable(var) => var.var_type.clone(),
@@ -61,7 +61,8 @@ impl Namespace {
     }
 
     pub fn add_sub_scope(&mut self, scope_to_add: Namespace) {
-        self.namespaces.insert(scope_to_add.get_name(), scope_to_add);
+        self.namespaces
+            .insert(scope_to_add.get_name(), scope_to_add);
     }
 
     pub fn add_function(&mut self, fn_to_add: &FunctionDeclaration) {

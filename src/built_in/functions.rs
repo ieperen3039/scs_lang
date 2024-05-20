@@ -3,31 +3,7 @@ use crate::{
     symbolization::{ast::*, function_collector::FunctionCollector},
 };
 
-pub fn flag(long_name: Option<&str>, short_name: Option<&str>) -> Parameter {
-    Parameter {
-        par_type: TypeRef::Flag,
-        long_name: long_name.map(Identifier::from),
-        short_name: short_name.map(Identifier::from),
-    }
-}
-
-pub fn opt_par(long_name: &str, short_name: Option<&str>, t: &TypeRef) -> Parameter {
-    Parameter {
-        par_type: TypeRef::Optional(Box::from(t.clone())),
-        long_name: Some(Identifier::from(long_name)),
-        short_name: short_name.map(Identifier::from),
-    }
-}
-
-pub fn req_par(long_name: &str, short_name: Option<&str>, t: &TypeRef) -> Parameter {
-    Parameter {
-        par_type: t.clone(),
-        long_name: Some(Identifier::from(long_name)),
-        short_name: short_name.map(Identifier::from),
-    }
-}
-
-pub fn get_built_in_functions(collector: &mut FunctionCollector) -> Vec<FunctionDeclaration> {
+pub fn get_functions(collector: &mut FunctionCollector) -> Vec<FunctionDeclaration> {
     vec![collector.create_external(
         "echo",
         vec![
@@ -36,6 +12,30 @@ pub fn get_built_in_functions(collector: &mut FunctionCollector) -> Vec<Function
         ],
         TypeRef::STRING.clone(),
     )]
+}
+
+fn flag(long_name: Option<&str>, short_name: Option<&str>) -> Parameter {
+    Parameter {
+        par_type: TypeRef::Flag,
+        long_name: long_name.map(Identifier::from),
+        short_name: short_name.map(Identifier::from),
+    }
+}
+
+fn opt_par(long_name: &str, short_name: Option<&str>, t: &TypeRef) -> Parameter {
+    Parameter {
+        par_type: TypeRef::Optional(Box::from(t.clone())),
+        long_name: Some(Identifier::from(long_name)),
+        short_name: short_name.map(Identifier::from),
+    }
+}
+
+fn req_par(long_name: &str, short_name: Option<&str>, t: &TypeRef) -> Parameter {
+    Parameter {
+        par_type: t.clone(),
+        long_name: Some(Identifier::from(long_name)),
+        short_name: short_name.map(Identifier::from),
+    }
 }
 
 pub fn create_function_variable(

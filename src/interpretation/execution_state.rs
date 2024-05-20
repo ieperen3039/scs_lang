@@ -1,13 +1,13 @@
-use crate::{built_in, symbolization::ast::*};
+use crate::{
+    built_in::{self, primitives},
+    symbolization::ast::*,
+};
 use std::{collections::HashMap, fmt::Debug};
 
 use super::meta_structures::Value;
 
 pub struct ExecutionState {
-    pub namespaces: Namespace,
-    pub type_definitions: HashMap<NumericTypeIdentifier, TypeDefinition>,
-    pub global_constants: Vec<Variable>,
-    pub stack: Vec<StackFrame>,
+    stack: Vec<StackFrame>,
 }
 
 pub struct StackFrame {
@@ -28,25 +28,16 @@ impl Debug for FunctionBody {
 }
 
 impl ExecutionState {
-    pub fn new(source: Program) -> ExecutionState {
-        let built_in_functions = built_in::functions::get_built_in_functions();
-
-        ExecutionState {
-            namespaces: source.namespaces,
-            type_definitions: source.type_definitions,
-            global_constants: built_in_functions,
-            stack: Vec::new(),
-        }
+    pub fn new() -> ExecutionState {
+        ExecutionState { stack: Vec::new() }
     }
 
-    pub fn resolve(&self, name: Identifier) -> Option<&Variable> {
-        self.stack
-            .last()
-            .unwrap()
-            .get()
-            .iter()
-            .find(|v| v.name == name)
-            .or_else(|| self.global_constants.iter().find(|v| v.name == name))
+    pub fn resolve_variable(&self, name: &str) -> Option<&Variable> {
+        self.stack.last().unwrap().resolve_variable(name)
+    }
+
+    pub fn get_stack(&mut self) -> &mut StackFrame {
+        self.stack.last_mut().unwrap()
     }
 }
 
@@ -56,6 +47,14 @@ impl StackFrame {
             data: Vec::new(),
             scope_size: Vec::new(),
         }
+    }
+
+    pub fn resolve_variable(&self, name: &str) -> Option<&Variable> {
+        self.get().iter().find(|v| v.name.as_ref() == name)
+    }
+
+    pub fn add_variable(&mut self, var: Variable) {
+        self.data.push(var);
     }
 
     pub fn get(&self) -> &[Variable] {

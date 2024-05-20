@@ -29,21 +29,47 @@ fn build_primitive(name: &str, id: u32) -> TypeDefinition {
         full_scope: Vec::new(), // root scope
     }
 }
+pub fn build_derived(
+    mut full_name: Vec<&str>,
+    id: NumericTypeIdentifier,
+    base: &TypeRef,
+) -> TypeDefinition {
+    let name = Identifier::from(full_name.pop().unwrap());
+    let full_scope = full_name.into_iter().map(Identifier::from).collect();
 
-fn build_derived(name: &str, id: u32, base: &TypeRef) -> TypeDefinition {
     TypeDefinition {
-        name: Identifier::from(name),
+        name,
         id,
         type_class: TypeClass::Base {
             derived: Some(Box::from(base.clone())),
         },
-        full_scope: Vec::new(), // root scope
+        full_scope,
     }
 }
 
-fn build_variant(name: &str, id: u32, values: Vec<(&str, &TypeRef)>) -> TypeDefinition {
+pub fn build_result(
+    id: NumericTypeIdentifier,
+    type_1: &TypeRef,
+    type_2: &TypeRef,
+) -> TypeDefinition {
+    build_variant("result", id, vec![("Pos", type_1), ("Neg", type_2)])
+}
+
+pub fn build_optional(id: NumericTypeIdentifier, opt_type: &TypeRef) -> TypeDefinition {
+    build_variant(
+        "optional",
+        id,
+        vec![("Some", opt_type), ("None", &TypeRef::Void)],
+    )
+}
+
+pub fn build_variant(
+    name: &str,
+    id: NumericTypeIdentifier,
+    values: Vec<(&str, &TypeRef)>,
+) -> TypeDefinition {
     TypeDefinition {
-        name: Identifier::from(name),
+        name : Identifier::from(name),
         id,
         type_class: TypeClass::Variant {
             variants: values
@@ -54,6 +80,6 @@ fn build_variant(name: &str, id: u32, values: Vec<(&str, &TypeRef)>) -> TypeDefi
                 })
                 .collect(),
         },
-        full_scope: Vec::new(), // root scope
+        full_scope : Vec::new(),
     }
 }

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, result::Result};
+use std::{collections::HashMap, rc::Rc, result::Result};
 
 use crate::symbolization::ast::*;
 
@@ -6,11 +6,15 @@ pub type InterpResult<T> = Result<T, InterpretationError>;
 
 #[derive(Debug, Clone)]
 pub enum Value {
-    String(String),
+    Nothing, // a value of type void
+    Boolean(bool),
     Int(i32),
+    String(Rc<str>),
     Function(FunctionBody),
     InternalFunction(NativeFunction),
-    Result(Box<(Value, Value)>)
+    Tuple(Vec<Value>),
+    // a _reference_ to a variable is an expression
+    Variable(Rc<VariableDeclaration>),
 }
 
 pub type NativeFunction = fn(HashMap<String, Value>) -> InterpResult<Value>;

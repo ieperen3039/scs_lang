@@ -102,6 +102,7 @@ pub struct FunctionDeclaration {
     pub is_external: bool,
 }
 
+#[derive(Debug, Clone)]
 pub struct VariableDeclaration {
     pub var_type: TypeRef,
     pub name: Identifier,
@@ -122,9 +123,14 @@ pub struct Statement {
 }
 
 #[derive(Clone)]
+pub enum Expression {
+    Value(ValueExpression),
+    Functional(FunctionExpression),
+}
+
+#[derive(Clone)]
 pub enum ValueExpression {
-    FunctionBody(FunctionBody),
-    Tuple(TupleInitialisation),
+    Tuple(Vec<ValueExpression>),
     Literal(Literal),
     // a _reference_ to a variable is an expression
     Variable(Rc<VariableDeclaration>),
@@ -134,6 +140,7 @@ pub enum ValueExpression {
 pub enum Literal {
     Number(i32),
     String(Rc<str>),
+    Boolean(bool),
 }
 
 // mutations of expressions
@@ -147,13 +154,7 @@ pub enum FunctionExpression {
 pub struct FunctionCall {
     pub id: NumericFunctionIdentifier,
     // map of parameter names to expressions. Missing variables indicate that this 'function call' constructs a closure
-    pub arguments: HashMap<Identifier, ValueExpression>,
-}
-
-#[derive(Clone)]
-pub struct TupleInitialisation {
-    pub element_type: TypeRef,
-    pub elements: Vec<ValueExpression>,
+    pub arguments: HashMap<Identifier, Expression>,
 }
 
 impl PartialEq for TypeDefinition {

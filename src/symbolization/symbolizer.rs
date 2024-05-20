@@ -71,13 +71,14 @@ pub fn parse_symbols(
     
     let function_declarations = functions.into_iter().map(|f| (f.id, f)).collect();
 
-    let function_parser = FunctionParser {
-        root_scope: &root_scope,
-        functions: function_declarations,
-        type_collector
-    };
+    let mut function_parser = FunctionParser::new(
+        &root_scope,
+        function_declarations,
+        function_collector,
+        type_collector,
+    );
 
-    let mut function_definitions = HashMap::new();
+    let mut function_definitions: HashMap<u32, ast::FunctionBody> = HashMap::new();
 
     // parse functions bodies
     for node in &tree.sub_rules {
@@ -87,7 +88,7 @@ pub fn parse_symbols(
 
                 let function_body = function_parser.read_function_body(
                     &node,
-                    function_parser.root_scope,
+                    function_parser.root_namespace,
                     &decl.parameters,
                     Rc::from(VariableDeclaration{ var_type: decl.return_type, name: Identifier::from("return") }),
                 )?;
