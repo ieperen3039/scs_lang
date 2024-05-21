@@ -211,7 +211,12 @@ impl FunctionParser<'_, '_> {
         variables: &mut VarStorage,
     ) -> SimpleResult<FunctionExpression> {
         debug_assert!(node.rule_name == "function_expression");
-        match node.rule_name {
+
+        let sub_node = node
+            .sub_rules
+            .first()
+            .expect("function_expression must have subnodes");
+        match sub_node.rule_name {
             "function_call" => {
                 let function_call = self.read_function_call(node, this_scope, variables)?;
                 Ok(FunctionExpression::FunctionCall(function_call))
@@ -222,65 +227,7 @@ impl FunctionParser<'_, '_> {
                 Ok(FunctionExpression::FunctionCall(todo!()))
             }
             "explicit_par_lambda" => {
-                // explicit_par_lambda     = "(", [ untyped_parameter_list ], ")", [ ":", return_type ], function_block;
-                let function_node = node.expect_node("function_block")?;
-                let parameter_node = node.find_node("untyped_parameter_list");
-                let return_type_node = node.find_node("return_type");
-
-                let scope_variables = variables.clone();
-                let function_block =
-                    self.read_function_block(function_node, this_scope, scope_variables)?;
-                let return_type = function_block.return_var.var_type;
-
-                // check return type if possible
-                if return_type_node.is_some() {
-                    let given_type = self.type_collector.read_type_ref(return_type_node.unwrap());
-                    if let Ok(given_type) = given_type {
-                        if return_type != given_type {
-                            return Err(SimpleError::new(format!(
-                                "Lamda return type given is {:?} but actual type is {:?}",
-                                given_type, return_type
-                            )));
-                        }
-                    }
-                }
-
-                let untyped_parameter_list = match parameter_node {
-                    Some(p_node) => self
-                        .function_collector
-                        .read_untyped_parameter_list(p_node)?,
-                    None => Vec::new(),
-                };
-
-                if argument_types.len() != untyped_parameter_list.len() {
-                    return Err(SimpleError::new(format!(
-                        "Expected lamda with {} arguments, but found {}",
-                        argument_types.len(),
-                        untyped_parameter_list.len()
-                    )));
-                }
-
-                let parameters = argument_types
-                    .into_iter()
-                    .zip(untyped_parameter_list.into_iter())
-                    .map(|(t, n)| Parameter {
-                        long_name: Some(n),
-                        par_type: t,
-                        short_name: None,
-                    })
-                    .collect();
-
-                let function_decl = self
-                    .function_collector
-                    .create_lamda(parameters, return_type);
-
-                let id = function_decl.id;
-                self.functions.insert(id, function_decl);
-
-                Ok(FunctionExpression::FunctionCall(FunctionCall {
-                    id,
-                    arguments: todo!(),
-                }))
+                self.read_explicit_parameter_lamda(node, variables, this_scope, argument_types)
             }
             unknown_rule => {
                 return Err(SimpleError::new(format!(
@@ -288,6 +235,85 @@ impl FunctionParser<'_, '_> {
                 )))
             }
         }
+    }
+
+    // explicit_par_lambda     = "(", [ untyped_parameter_list ], ")", [ ":", return_type ], function_block;
+    fn read_explicit_parameter_lamda(
+        &mut self,
+        node: &RuleNode,
+        variables: &mut VarStorage,
+        this_scope: &Namespace,
+        argument_types: Vec<TypeRef>,
+    ) -> Result<FunctionExpression, SimpleError> {
+        debug_assert!(node.rule_name == "explicit_par_lambda");
+
+        let function_node = node.expect_node("function_block")?;
+        let parameter_node = node.find_node("untyped_parameter_list");
+        let return_type_node = node.find_node("return_type");
+
+        let scope_variables = variables.clone();
+        let function_block =
+            self.read_function_block(function_node, this_scope, scope_variables)?;
+        let return_type = function_block.return_var.var_type;
+
+        // check return type if possible
+        self.check_type_node(return_type_node, &return_type)?;
+
+        let untyped_parameter_list = match parameter_node {
+            Some(p_node) => self
+                .function_collector
+                .read_untyped_parameter_list(p_node)?,
+            None => Vec::new(),
+        };
+
+        if argument_types.len() != untyped_parameter_list.len() {
+            return Err(SimpleError::new(format!(
+                "Expected lamda with {} arguments, but found {}",
+                argument_types.len(),
+                untyped_parameter_list.len()
+            )));
+        }
+
+        let parameters = argument_types
+            .into_iter()
+            .zip(untyped_parameter_list.into_iter())
+            .map(|(t, n)| Parameter {
+                long_name: Some(n),
+                par_type: t,
+                short_name: None,
+            })
+            .collect();
+
+        let function_decl = self
+            .function_collector
+            .create_lamda(parameters, return_type);
+
+        let id = function_decl.id;
+        self.functions.insert(id, function_decl);
+
+        Ok(FunctionExpression::FunctionCall(FunctionCall {
+            id,
+            arguments: todo!(),
+        }))
+    }
+
+    fn check_type_node(
+        &mut self,
+        type_node: Option<&RuleNode>,
+        actual_type: &TypeRef,
+    ) -> SimpleResult<()> {
+        if type_node.is_some() {
+            let given_type = self.type_collector.read_type_ref(type_node.unwrap());
+            if let Ok(given_type) = given_type {
+                if *actual_type != given_type {
+                    return Err(SimpleError::new(format!(
+                        "Expected type {:?} but found type {:?}",
+                        given_type, actual_type
+                    )));
+                }
+            }
+        }
+        Ok(())
     }
 
     // function_call           = function_name, "(", [ _argument_list ], ")";
@@ -321,87 +347,159 @@ impl FunctionParser<'_, '_> {
             .expect("function id exist, but function is not found");
 
         let argument_nodes = node.find_nodes("argument");
-        let mut arguments = HashMap::new();
-        for arg_node in argument_nodes {
-            let (name, args) =
-                self.read_argument(arg_node, function_decl, this_scope, variables)?;
-            arguments.insert(name, args);
-        }
+        let arguments =
+            self.read_arguments(argument_nodes, function_decl, this_scope, variables)?;
 
-        // TODO: explicit generic arguments
         Ok(FunctionCall {
             id: function_id,
             arguments,
         })
     }
 
-    // argument                = named_argument | single_argument | flag_argument;
-    // single_argument         = _expression;
+    // if successful, returns the arguments, where the indices map to function_decl.parameters
+    fn read_arguments(
+        &mut self,
+        argument_nodes: Vec<&RuleNode>,
+        function_decl: &FunctionDeclaration,
+        this_scope: &Namespace,
+        variables: &mut VarStorage,
+    ) -> SimpleResult<Vec<Option<Expression>>> {
+        let mut remaining_parameters: Vec<Parameter> = function_decl.parameters;
+        // maps the current parameters to the corresponding indices in the original parameters vec
+        let mut indices: Vec<usize> = (0..function_decl.parameters.len()).collect();
+
+        let mut arguments = Vec::new();
+        arguments.resize(remaining_parameters.len(), None);
+
+        for arg_node in argument_nodes {
+            let (par_idx, expr) =
+                self.read_argument(arg_node, remaining_parameters, this_scope, variables)?;
+            let target_par = remaining_parameters.remove(par_idx);
+            let target_idx = indices.remove(par_idx);
+
+            arguments[target_idx] = Some(expr);
+        }
+        Ok(arguments)
+    }
+
+    // argument                = named_argument | unnamed_argument | flag_argument;
+    // unnamed_argument        = _expression;
     // flag_argument           = ? IDENTIFIER ?;
     // named_argument          = identifier, "=", _expression;
+    // returns (index of parameter in remaining_parameters where this arg binds to, Expression of the argument)
     fn read_argument(
         &mut self,
         node: &RuleNode<'_, '_>,
-        of_function: &FunctionDeclaration,
+        remaining_parameters: Vec<Parameter>,
         this_scope: &Namespace,
-        variables: &mut HashMap<Rc<str>, Rc<VariableDeclaration>>,
-    ) -> SimpleResult<(Rc<str>, Expression)> {
+        variables: &mut VarStorage,
+    ) -> SimpleResult<(usize, Expression)> {
         match node.rule_name {
             "named_argument" => {
                 let arg_name = node.expect_node("identifier")?.as_identifier();
-                let target_parameter = of_function
-                    .parameters
+                let target_parameter_idx = remaining_parameters
                     .iter()
-                    .find(|p| p.long_name == Some(arg_name));
-                let Some(target_parameter) = target_parameter else {
+                    .position(|p| p.long_name == Some(arg_name));
+
+                let Some(target_parameter_idx) = target_parameter_idx else {
                     return Err(SimpleError::new(format!(
                         "No parameter with name {arg_name} found"
                     )));
                 };
 
-                let expected_type = target_parameter.par_type;
+                let expected_type = remaining_parameters[target_parameter_idx].par_type;
 
-                let value_node = node.find_node("value_expression");
-                let arg_value = if let Some(expr_node) = value_node {
-                    Expression::Value(self.read_value_expression(expr_node, this_scope, variables)?)
-                } else {
-                    let function_node = node.find_node("function_expression");
-                    if let Some(expr_node) = function_node {
-                        if let TypeRef::Function(fn_type) = expected_type {
-                            Expression::Functional(self.read_function_expression(
-                                expr_node,
-                                fn_type.parameters,
-                                this_scope,
-                                variables,
-                            )?)
-                        } else {
-                            Expression::Functional(self.read_function_expression(
-                                expr_node,
-                                Vec::new(),
-                                this_scope,
-                                variables,
-                            )?)
-                        }
-                    } else {
-                        return Err(SimpleError::new(
-                            "named_argument without value_expression and function_expression",
-                        ));
-                    }
+                let arg_value = self.read_expression(node, this_scope, variables, expected_type)?;
+
+                Ok((target_parameter_idx, arg_value))
+            }
+            "unnamed_argument" => {
+                let first_non_optional = remaining_parameters
+                    .iter()
+                    .position(|p| !matches!(p.par_type, TypeRef::Flag | TypeRef::Optional(_)));
+
+                let Some(first_non_optional) = first_non_optional else {
+                    return Err(SimpleError::new(
+                        "unnamed_argument given, but no required parameter can be bound to",
+                    ));
                 };
 
-                let arg_name_node = node.expect_node("identifier")?;
-                Ok((arg_name_node.as_identifier(), arg_value))
+                let expected_type = remaining_parameters[first_non_optional].par_type;
+                let arg_value = self.read_expression(node, this_scope, variables, expected_type)?;
+
+                Ok((first_non_optional, arg_value))
             }
-            "single_argument" => {
-                let value_node = node.expect_node("value_expression")?;
-                let arg_value = self.read_value_expression(value_node, this_scope, variables)?;
-                Ok((Identifier::from(""), Expression::Value(arg_value)))
+            "flag_argument" => {
+                let flag_name = node.as_identifier();
+                let target_parameter_idx = remaining_parameters
+                    .iter()
+                    .position(|p| p.short_name == Some(flag_name));
+
+                let Some(target_parameter_idx) = target_parameter_idx else {
+                    return Err(SimpleError::new(format!("flag {flag_name} not found")));
+                };
+
+                let par_type = remaining_parameters[target_parameter_idx].to_type();
+                if par_type != &TypeRef::BOOLEAN {
+                    return Err(SimpleError::new(format!(
+                        "parameter {flag_name} is not a boolean, but {:?} and cannot be used as a flag",
+                        par_type
+                    )));
+                }
+
+                Ok((
+                    target_parameter_idx,
+                    Expression::Value(ValueExpression::Literal(Literal::Boolean(true))),
+                ))
             }
-            "flag_argument" => Ok((
-                node.as_identifier(),
-                Expression::Value(ValueExpression::Literal(Literal::Boolean(true))),
-            )),
         }
+    }
+
+    fn read_expression(
+        &mut self,
+        super_node: &RuleNode,
+        this_scope: &Namespace,
+        variables: &mut VarStorage,
+        target_type: TypeRef,
+    ) -> SimpleResult<Expression> {
+        let value_node = super_node.find_node("value_expression");
+        let arg_value = if let Some(expr_node) = value_node {
+            let value_expression = self.read_value_expression(expr_node, this_scope, variables)?;
+
+            if target_type != value_expression.get_type() {
+                return Err(SimpleError::new(format!(
+                    "Expected type {:?} but found type {:?}",
+                    target_type,
+                    value_expression.get_type()
+                )));
+            }
+
+            Expression::Value(value_expression)
+        } else {
+            let function_node = super_node.find_node("function_expression");
+            if let Some(expr_node) = function_node {
+                if let TypeRef::Function(fn_type) = target_type {
+                    Expression::Functional(self.read_function_expression(
+                        expr_node,
+                        fn_type.parameters,
+                        this_scope,
+                        variables,
+                    )?)
+                } else {
+                    Expression::Functional(self.read_function_expression(
+                        expr_node,
+                        Vec::new(),
+                        this_scope,
+                        variables,
+                    )?)
+                }
+            } else {
+                return Err(SimpleError::new(
+                    "Expected value_expression or function_expression",
+                ));
+            }
+        };
+        Ok(arg_value)
     }
 }
 

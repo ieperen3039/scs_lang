@@ -153,8 +153,10 @@ pub enum FunctionExpression {
 #[derive(Clone)]
 pub struct FunctionCall {
     pub id: NumericFunctionIdentifier,
-    // map of parameter names to expressions. Missing variables indicate that this 'function call' constructs a closure
-    pub arguments: HashMap<Identifier, Expression>,
+    // indices in this vector correspond to the parameter of the called function 
+    // (the argument vector and parameter vector should have the same len)
+    // Option::None indicates that this is itself a fn expression accepting all missing arguments in order
+    pub arguments: Vec<Option<Expression>>,
 }
 
 impl PartialEq for TypeDefinition {

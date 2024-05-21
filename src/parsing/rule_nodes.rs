@@ -107,7 +107,7 @@ impl<'prog, 'bnf> RuleNode<'prog, 'bnf> {
 
     pub fn expect_node<'r>(&'r self, expected: &str) -> SimpleResult<&'r RuleNode> {
         self.find_node(expected)
-            .ok_or_else(|| SimpleError::new(format!("Expected node {expected}")))
+            .ok_or_else(|| SimpleError::new(format!("Expected a {expected}")))
     }
 
     pub fn find_node<'r>(&'r self, expected: &str) -> Option<&'r RuleNode> {

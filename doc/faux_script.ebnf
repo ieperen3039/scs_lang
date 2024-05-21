@@ -36,8 +36,8 @@ variable_name           = ? IDENTIFIER ?;
 (* function call statements *)
 function_call           = function_name, "(", [ _argument_list ], ")";
 _argument_list          = argument, { ",", argument };
-argument                = named_argument | single_argument | flag_argument;
-single_argument         = value_expression;
+argument                = named_argument | unnamed_argument | flag_argument;
+unnamed_argument        = value_expression;
 flag_argument           = ? IDENTIFIER ?;
 named_argument          = identifier, "=", _expression;
 
