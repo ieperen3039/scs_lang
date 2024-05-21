@@ -136,7 +136,7 @@ impl FunctionParser<'_, '_> {
                 "function_expression" => {
                     let mutator = self.read_function_expression(
                         mutator_node,
-                        vec![expression_type],
+                        &vec![expression_type],
                         this_scope,
                         variables,
                     )?;
@@ -151,6 +151,48 @@ impl FunctionParser<'_, '_> {
             base_element: expression,
             mutations,
         })
+    }
+
+    fn read_expression(
+        &mut self,
+        super_node: &RuleNode,
+        this_scope: &Namespace,
+        variables: &mut VarStorage,
+        target_type: TypeRef,
+    ) -> SimpleResult<Expression> {
+        let value_node = super_node.find_node("value_expression");
+        if let Some(expr_node) = value_node {
+            let value_expression = self.read_value_expression(expr_node, this_scope, variables)?;
+
+            if target_type != value_expression.get_type() {
+                return Err(SimpleError::new(format!(
+                    "Expected type {:?} but found type {:?}",
+                    target_type,
+                    value_expression.get_type()
+                )));
+            }
+
+            return Ok(Expression::Value(value_expression));
+        } else {
+            let function_node = super_node.find_node("function_expression");
+            if let Some(expr_node) = function_node {
+                let expr = if let TypeRef::Function(fn_type) = target_type {
+                    self.read_function_expression(
+                        expr_node,
+                        &fn_type.parameters,
+                        this_scope,
+                        variables,
+                    )?
+                } else {
+                    self.read_function_expression(expr_node, &Vec::new(), this_scope, variables)?
+                };
+                return Ok(Expression::Functional(expr));
+            } else {
+                return Err(SimpleError::new(
+                    "Expected value_expression or function_expression",
+                ));
+            }
+        };
     }
 
     // value_expression = variable_name | tuple_construction | _literal;
@@ -206,7 +248,8 @@ impl FunctionParser<'_, '_> {
     fn read_function_expression(
         &mut self,
         node: &RuleNode<'_, '_>,
-        argument_types: Vec<TypeRef>,
+        // what kind of arguments do we expect this function expression to accept?
+        argument_types: &Vec<TypeRef>,
         this_scope: &Namespace,
         variables: &mut VarStorage,
     ) -> SimpleResult<FunctionExpression> {
@@ -216,19 +259,28 @@ impl FunctionParser<'_, '_> {
             .sub_rules
             .first()
             .expect("function_expression must have subnodes");
+
         match sub_node.rule_name {
             "function_call" => {
                 let function_call = self.read_function_call(node, this_scope, variables)?;
                 Ok(FunctionExpression::FunctionCall(function_call))
             },
             "implicit_par_lambda" => {
-                // (* the first statement of a implicit parameter lamdas starts with a function expression *)
-                // implicit_par_lambda     = "{", { { operator }, function_expression }, { statement_separator, statement }, [ statement_separator ], "}";
-                Ok(FunctionExpression::FunctionCall(todo!()))
+                if argument_types.len() != 1 {
+                    return Err(SimpleError::new(format!("implicit_par_lambda can only accept 1 argument, but was expected to handle {}", argument_types.len())));
+                }
+                self.read_implicit_parameter_lamda(
+                    node,
+                    variables,
+                    this_scope,
+                    argument_types.first().unwrap().clone(),
+                )
             },
             "explicit_par_lambda" => {
                 self.read_explicit_parameter_lamda(node, variables, this_scope, argument_types)
             },
+            "mutator_cast" => unimplemented!("{}", node.rule_name),
+            "mutator_assign" => unimplemented!("{}", node.rule_name),
             unknown_rule => {
                 return Err(SimpleError::new(format!(
                     "unknown expression rule {unknown_rule}"
@@ -237,24 +289,27 @@ impl FunctionParser<'_, '_> {
         }
     }
 
-    // explicit_par_lambda     = "(", [ untyped_parameter_list ], ")", [ ":", return_type ], function_block;
+    // explicit_par_lambda     = [ untyped_parameter_list ], [ return_type ], function_block;
     fn read_explicit_parameter_lamda(
         &mut self,
         node: &RuleNode,
-        variables: &mut VarStorage,
+        outer_variables: &mut VarStorage,
         this_scope: &Namespace,
-        argument_types: Vec<TypeRef>,
-    ) -> Result<FunctionExpression, SimpleError> {
+        argument_types: &Vec<TypeRef>,
+    ) -> SimpleResult<FunctionExpression> {
         debug_assert!(node.rule_name == "explicit_par_lambda");
 
-        let function_node = node.expect_node("function_block")?;
         let parameter_node = node.find_node("untyped_parameter_list");
         let return_type_node = node.find_node("return_type");
+        let function_node = node.expect_node("function_block")?;
 
-        let scope_variables = variables.clone();
-        let function_block =
-            self.read_function_block(function_node, this_scope, scope_variables)?;
-        let return_type = function_block.return_var.var_type;
+        // TODO: this means: capture everything _by reference_ and not what we want
+        // let variables = variables.clone();
+        let variables = HashMap::new();
+
+        let function_block = self.read_function_block(function_node, this_scope, variables)?;
+        let return_type = function_block.return_var.var_type.clone();
+        todo!("function_block");
 
         // check return type if possible
         self.check_type_node(return_type_node, &return_type)?;
@@ -275,11 +330,11 @@ impl FunctionParser<'_, '_> {
         }
 
         let parameters = argument_types
-            .into_iter()
+            .iter()
             .zip(untyped_parameter_list.into_iter())
             .map(|(t, n)| Parameter {
                 long_name: Some(n),
-                par_type: t,
+                par_type: t.clone(),
                 short_name: None,
             })
             .collect();
@@ -291,9 +346,87 @@ impl FunctionParser<'_, '_> {
         let id = function_decl.id;
         self.functions.insert(id, function_decl);
 
+        let mut arguments = Vec::new();
+        arguments.resize(parameters.len(), None);
+
         Ok(FunctionExpression::FunctionCall(FunctionCall {
             id,
-            arguments: todo!(),
+            arguments,
+        }))
+    }
+
+    // the first statement of a implicit parameter lamdas starts with a function expression
+    // the body is therefore not just a function body
+    // implicit_par_lambda     = "{", { { operator }, function_expression }, { statement_separator, statement }, [ statement_separator ], "}";
+    fn read_implicit_parameter_lamda(
+        &mut self,
+        node: &RuleNode,
+        outer_variables: &mut VarStorage,
+        this_scope: &Namespace,
+        argument_type: TypeRef,
+    ) -> SimpleResult<FunctionExpression> {
+        debug_assert!(node.rule_name == "implicit_par_lambda");
+
+        let implicit_par_name = Identifier::from("__implicit");
+        let implicit_par = Rc::from(VariableDeclaration {
+            name: implicit_par_name.clone(),
+            var_type: argument_type.clone(),
+        });
+
+        // TODO: this means: capture everything _by reference_ and not what we want
+        // let variables = variables.clone();
+        let mut variables = HashMap::new();
+        variables.insert(implicit_par.name, implicit_par);
+
+        // handle the first statement separately
+        let mut expression_type = argument_type.clone();
+        let mut mutations = Vec::new();
+        for mutator_node in &node.sub_rules {
+            match mutator_node.rule_name {
+                "operator" => {
+                    todo!();
+                },
+                "function_expression" => {
+                    let mutator = self.read_function_expression(
+                        mutator_node,
+                        &vec![expression_type],
+                        this_scope,
+                        &mut variables,
+                    )?;
+
+                    expression_type = mutator.get_type(&self.functions);
+                    mutations.push(mutator);
+                },
+            };
+        }
+        // this works because the first part contains no "statement" nodes
+        let mut function_block = self.read_function_block(node, this_scope, variables)?;
+        // now add the first statement
+        function_block.statements.insert(
+            0,
+            Statement {
+                base_element: ValueExpression::Variable(implicit_par),
+                mutations,
+            },
+        );
+        let return_type = function_block.return_var.var_type.clone();
+        todo!("function_block");
+
+        let function_decl = self.function_collector.create_lamda(
+            vec![Parameter {
+                par_type: argument_type,
+                long_name: Some(implicit_par_name),
+                short_name: None,
+            }],
+            return_type,
+        );
+
+        let id = function_decl.id;
+        self.functions.insert(id, function_decl);
+
+        Ok(FunctionExpression::FunctionCall(FunctionCall {
+            id,
+            arguments: vec![None],
         }))
     }
 
@@ -453,53 +586,6 @@ impl FunctionParser<'_, '_> {
                 ))
             },
         }
-    }
-
-    fn read_expression(
-        &mut self,
-        super_node: &RuleNode,
-        this_scope: &Namespace,
-        variables: &mut VarStorage,
-        target_type: TypeRef,
-    ) -> SimpleResult<Expression> {
-        let value_node = super_node.find_node("value_expression");
-        let arg_value = if let Some(expr_node) = value_node {
-            let value_expression = self.read_value_expression(expr_node, this_scope, variables)?;
-
-            if target_type != value_expression.get_type() {
-                return Err(SimpleError::new(format!(
-                    "Expected type {:?} but found type {:?}",
-                    target_type,
-                    value_expression.get_type()
-                )));
-            }
-
-            Expression::Value(value_expression)
-        } else {
-            let function_node = super_node.find_node("function_expression");
-            if let Some(expr_node) = function_node {
-                if let TypeRef::Function(fn_type) = target_type {
-                    Expression::Functional(self.read_function_expression(
-                        expr_node,
-                        fn_type.parameters,
-                        this_scope,
-                        variables,
-                    )?)
-                } else {
-                    Expression::Functional(self.read_function_expression(
-                        expr_node,
-                        Vec::new(),
-                        this_scope,
-                        variables,
-                    )?)
-                }
-            } else {
-                return Err(SimpleError::new(
-                    "Expected value_expression or function_expression",
-                ));
-            }
-        };
-        Ok(arg_value)
     }
 }
 

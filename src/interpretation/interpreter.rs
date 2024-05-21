@@ -88,7 +88,8 @@ impl Interpreter {
         call: FunctionCall,
         input_value: Value,
     ) -> InterpResult<Value> {
-        self.program.function_definitions.get(call.id)
+        todo!()
+        // self.program.function_definitions.get(call.id)
     }
 
     // only used to resolve the function to call, all subsequent functions are already resolved in the parsing stage
