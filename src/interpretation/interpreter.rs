@@ -39,7 +39,7 @@ impl Interpreter {
                 match expr {
                     ast::FunctionExpression::FunctionCall(call) => {
                         value = self.evaluate_function_call(call, value)?
-                    }
+                    },
                     ast::FunctionExpression::Assignment(var) => {
                         stack.add_variable(Variable {
                             var_type: var.var_type,
@@ -48,7 +48,7 @@ impl Interpreter {
                         });
                         value = Value::Nothing;
                         break;
-                    }
+                    },
                 }
             }
         }
@@ -69,7 +69,7 @@ impl Interpreter {
                     tuple_values.push(self.evaluate_value_expression(ele, stack)?);
                 }
                 Ok(Value::Tuple(tuple_values))
-            }
+            },
             ast::ValueExpression::Literal(ast::Literal::Number(lit)) => Ok(Value::Int(*lit)),
             ast::ValueExpression::Literal(ast::Literal::String(lit)) => Ok(Value::String(*lit)),
             ast::ValueExpression::Literal(ast::Literal::Boolean(lit)) => Ok(Value::Boolean(*lit)),
@@ -80,7 +80,6 @@ impl Interpreter {
                     kind: "variable",
                     symbol: var.name.to_string(),
                 }),
-                
         }
     }
 

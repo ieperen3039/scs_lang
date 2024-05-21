@@ -29,7 +29,7 @@ impl Lexer {
             match self.read_tokens(&string[cursor..]) {
                 Some((TokenClass::WHITESPACE, size)) if self.ignore_whitespace => {
                     cursor += size;
-                }
+                },
                 Some((class, size)) => {
                     let slice = &string[cursor..(cursor + size)];
                     tokens.push(Token {
@@ -38,7 +38,7 @@ impl Lexer {
                         char_idx: cursor,
                     });
                     cursor += size;
-                }
+                },
                 None => return Err(cursor),
             }
         }
@@ -174,8 +174,12 @@ pub struct StreamLexer {
 }
 
 impl StreamLexer {
-    pub fn new(ignore_whitespace : bool) -> StreamLexer {
-        StreamLexer { base: Lexer { ignore_whitespace }, buffer: String::new(), cursor: 0 }
+    pub fn new(ignore_whitespace: bool) -> StreamLexer {
+        StreamLexer {
+            base: Lexer { ignore_whitespace },
+            buffer: String::new(),
+            cursor: 0,
+        }
     }
 
     pub fn next_token<'lexer>(&'lexer mut self) -> Result<Token<'lexer>, (usize, &'lexer str)> {
@@ -184,7 +188,9 @@ impl StreamLexer {
                 self.buffer.clear();
                 std::io::stdin().read_line(&mut self.buffer);
 
-                if self.buffer.is_empty() { return Err((0, &self.buffer)); }
+                if self.buffer.is_empty() {
+                    return Err((0, &self.buffer));
+                }
             }
 
             let char_idx = self.cursor;
@@ -192,16 +198,16 @@ impl StreamLexer {
             match self.base.read_tokens(&self.buffer[char_idx..]) {
                 Some((TokenClass::WHITESPACE, size)) if self.base.ignore_whitespace => {
                     self.cursor += size;
-                }
+                },
                 Some((class, size)) => {
                     let slice = &self.buffer[char_idx..(char_idx + size)];
                     self.cursor += size;
                     return Ok(Token {
                         class,
                         slice,
-                        char_idx
-                    })
-                }
+                        char_idx,
+                    });
+                },
                 None => return Err((char_idx, &self.buffer)),
             }
         }

@@ -25,12 +25,12 @@ fn ebnf_ast_term_to_string(term: &Term, target: &mut String) {
             target.push_str("[ ");
             ebnf_ast_term_to_string(t, target);
             target.push_str(" ]");
-        }
+        },
         Term::Repetition(t) => {
             target.push_str("{ ");
             ebnf_ast_term_to_string(t, target);
             target.push_str(" }");
-        }
+        },
         Term::Concatenation(terms) => {
             target.push_str("( ");
             ebnf_ast_term_to_string(&terms[0], target);
@@ -39,7 +39,7 @@ fn ebnf_ast_term_to_string(term: &Term, target: &mut String) {
                 ebnf_ast_term_to_string(t, target);
             }
             target.push_str(" )");
-        }
+        },
         Term::Alternation(terms) => {
             target.push_str("( ");
             ebnf_ast_term_to_string(&terms[0], target);
@@ -48,17 +48,17 @@ fn ebnf_ast_term_to_string(term: &Term, target: &mut String) {
                 ebnf_ast_term_to_string(t, target);
             }
             target.push_str(" )");
-        }
+        },
         Term::Identifier(i) => target.push_str(i),
         Term::Literal(i) => {
             target.push('"');
             target.push_str(i);
             target.push('"');
-        }
+        },
         Term::Token(i) => {
             target.push_str("? ");
             target.push_str(i.as_str());
             target.push_str(" ?");
-        }
+        },
     };
 }

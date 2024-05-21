@@ -1,6 +1,5 @@
 use super::grammar::RuleId;
 
-
 #[derive(Debug, Clone)]
 pub struct RuleNameGenerator {
     next_id: u32,

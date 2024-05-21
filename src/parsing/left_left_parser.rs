@@ -97,7 +97,7 @@ impl<'c> Parser {
                         failures.insert(index, failure);
                         failures.pop_front();
                     }
-                }
+                },
                 Ok(interpretation) if interpretation.num_tokens() == tokens.len() => {
                     if let ParseNode::Rule(rule_node) = interpretation {
                         // SUCCESS
@@ -107,10 +107,10 @@ impl<'c> Parser {
                             "Primary rule was no rule",
                         ))]);
                     }
-                }
+                },
                 Ok(interpretation) => {
                     longest_success = interpretation;
-                }
+                },
             }
         }
 
@@ -203,7 +203,7 @@ impl<'c> Parser {
             Term::Identifier(rule_name) => self.apply_rule(tokens, token_index, rule_name),
             Term::Concatenation(sub_terms) => {
                 self.apply_concatenation(tokens, token_index, sub_terms)
-            }
+            },
             Term::Alternation(sub_terms) => self.apply_alternation(tokens, token_index, sub_terms),
             Term::Terminal(terminal) => Box::new(std::iter::once(self.parse_terminal(
                 tokens,
@@ -241,7 +241,7 @@ impl<'c> Parser {
             Box::new(all_results.flat_map(move |term_result| match term_result {
                 Ok(term_interp) => {
                     self.continue_concatenation(tokens, token_index, term_interp, &sub_terms[1..])
-                }
+                },
                 Err(failure) => Box::new(std::iter::once(Err(failure))),
             }))
         } else {
@@ -332,7 +332,7 @@ fn char_idx_of(next_token: Option<&Token>, tokens: &[Token]) -> usize {
         None => {
             let last_token = tokens.last().unwrap();
             last_token.char_idx + last_token.slice.len()
-        }
+        },
     }
 }
 
@@ -410,7 +410,7 @@ fn get_index_or_add(patterns: &mut Vec<Term>, pattern: Term) -> usize {
         None => {
             patterns.push(pattern);
             patterns.len() - 1
-        }
+        },
     }
 }
 
@@ -436,7 +436,8 @@ fn get_follow_terminals(grammar: &Grammar) -> HashMap<RuleId, HashSet<Terminal>>
                 for term in pattern {
                     // if there is a rule of the form `B = vAw`, then
                     find_terms_containing_rule(rule_a, term, &mut |w_terms| {
-                        let first_terminals = get_first_terminals_of_concatenation(w_terms, &grammar);
+                        let first_terminals =
+                            get_first_terminals_of_concatenation(w_terms, &grammar);
                         // if `empty` is in Fi(w), then add Fo(B) to Fo(A)
                         if first_terminals.contains(&None) {
                             if let Some(follow_set_of_b) = follow_terminals.get(rule_b) {
@@ -480,16 +481,16 @@ where
                     find_terms_containing_rule(rule_id, sub_term, action)
                 }
             }
-        }
+        },
         Term::Alternation(terms) => {
             for t in terms {
                 find_terms_containing_rule(rule_id, t, action)
             }
-        }
+        },
         Term::Identifier(id) if id.as_ref() == rule_id => {
             action(&[]);
-        }
-        Term::Identifier(_) | Term::Terminal(_) | Term::Empty => {}
+        },
+        Term::Identifier(_) | Term::Terminal(_) | Term::Empty => {},
     }
 }
 
@@ -513,7 +514,7 @@ fn get_first_terminals_of_term(term: &Term, grammar: &Grammar) -> HashSet<Option
                 .get(id)
                 .expect("Rule refers to a rule that does not exist");
             get_first_terminals_of_alternation(rule_patterns, grammar)
-        }
+        },
         Term::Terminal(t) => HashSet::from([Some(t.clone())]),
         Term::Empty => HashSet::from([None]),
     }
@@ -560,7 +561,7 @@ fn extract_alterations(
             let new_rule_name = name_generator.generate_rule_name();
             other_rules.insert(new_rule_name.clone(), sub_terms);
             Term::Identifier(new_rule_name)
-        }
+        },
         Term::Concatenation(sub_terms) => Term::Concatenation(
             sub_terms
                 .into_iter()

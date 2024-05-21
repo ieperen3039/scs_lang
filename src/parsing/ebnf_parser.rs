@@ -2,7 +2,10 @@ use std::cmp;
 
 use simple_error::SimpleError;
 
-use super::{token::TokenClass, ebnf_ast::{EbnfAst, Rule, Term}};
+use super::{
+    ebnf_ast::{EbnfAst, Rule, Term},
+    token::TokenClass,
+};
 
 type EbnfParseResult<'a, T> = Result<OkResult<'a, T>, ErrResult>;
 
@@ -62,7 +65,7 @@ pub fn error_string(error: &ErrResult, source: &str) -> String {
                 &source[offset..ub],
                 ""
             )
-        }
+        },
         _ => format!("{:?}", error),
     }
 }
@@ -145,15 +148,15 @@ where
                     // return the first successful
                     return Ok(ok_result);
                 }
-            }
+            },
             Err(ErrResult::InternalError(_)) => {
                 // if this is a internal error, return it.
                 return result;
-            }
+            },
             Err(err_result) => {
                 // otherwise, just store it in case no rule applies
                 problems.push(err_result)
-            }
+            },
         }
     }
 
@@ -172,7 +175,7 @@ where
                     least_remaining = tokens_remaining;
                     furthest_err = err;
                 }
-            }
+            },
             ErrResult::OutOfTokens { .. } => return Err(err),
             _ => (),
         }
@@ -195,7 +198,7 @@ where
         Ok(mut terms) => {
             terms.val.push(new_rule.val);
             Ok(terms)
-        }
+        },
         Err(_) => Ok(OkResult {
             val: vec![new_rule.val],
             remaining_tokens: new_rule.remaining_tokens,
@@ -287,7 +290,7 @@ fn process_concatenation(tokens: &str) -> EbnfParseResult<Term> {
                 val: Term::Concatenation(terms.val),
                 remaining_tokens: terms.remaining_tokens,
             })
-        }
+        },
         Err(ErrResult::UnexpectedToken { .. }) | Err(ErrResult::OutOfTokens { .. }) => Ok(first),
         Err(err) => Err(err),
     }
@@ -302,7 +305,7 @@ fn process_concatenation_continue(tokens: &str) -> EbnfParseResult<Vec<Term>> {
         Ok(mut terms) => {
             terms.val.push(new_term.val);
             Ok(terms)
-        }
+        },
         Err(_) => Ok(OkResult {
             val: vec![new_term.val],
             remaining_tokens: new_term.remaining_tokens,
@@ -322,7 +325,7 @@ fn process_alternation(tokens: &str) -> EbnfParseResult<Term> {
                 val: Term::Alternation(terms.val),
                 remaining_tokens: terms.remaining_tokens,
             })
-        }
+        },
         Err(ErrResult::UnexpectedToken { .. }) | Err(ErrResult::OutOfTokens { .. }) => Ok(first),
         Err(err) => Err(err),
     }
@@ -337,7 +340,7 @@ fn process_alternation_continue(tokens: &str) -> EbnfParseResult<Vec<Term>> {
         Ok(mut terms) => {
             terms.val.push(new_term.val);
             Ok(terms)
-        }
+        },
         Err(_) => Ok(OkResult {
             val: vec![new_term.val],
             remaining_tokens: new_term.remaining_tokens,
@@ -393,9 +396,10 @@ fn process_terminal_questionmark(tokens: &str) -> EbnfParseResult<Term> {
     let token_class = TokenClass::from_str(&tokens[2..string_end]);
 
     if token_class == TokenClass::INVALID {
-        return Err(
-            ErrResult::UnexpectedToken { tokens_remaining: tokens.len() - 2, expected: "some TokenClass" }
-        )
+        return Err(ErrResult::UnexpectedToken {
+            tokens_remaining: tokens.len() - 2,
+            expected: "some TokenClass",
+        });
     }
 
     Ok(OkResult {

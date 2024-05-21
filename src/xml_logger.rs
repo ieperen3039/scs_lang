@@ -1,9 +1,11 @@
+use std::io::Write;
 
+use crate::parsing::ebnf_ast;
 
 struct XmlParseLogger {
     xml_out: std::fs::File,
     parse_stack: Vec<String>,
-    printed_depth: usize
+    printed_depth: usize,
 }
 
 impl XmlParseLogger {

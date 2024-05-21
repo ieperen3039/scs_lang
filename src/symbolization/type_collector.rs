@@ -47,12 +47,12 @@ impl TypeCollector {
                 Definition::Type(type_def) => {
                     scope.add_type(&type_def);
                     types.push(type_def);
-                }
+                },
                 Definition::Scope(sub_scope, new_types) => {
                     scope.add_sub_scope(sub_scope);
                     types.extend(new_types);
-                }
-                _ => {}
+                },
+                _ => {},
             }
         }
 
@@ -69,19 +69,19 @@ impl TypeCollector {
             "scope" => {
                 let (sub_scope, types) = self.read_scope_definitions(node, scope)?;
                 Ok(Definition::Scope(sub_scope, types))
-            }
+            },
             "type_definition" => {
                 let type_def = self.read_type_definition(node, scope)?;
                 Ok(Definition::Type(type_def))
-            }
+            },
             "enum_definition" => {
                 let enum_def = self.read_enum(node, scope)?;
                 Ok(Definition::Type(enum_def))
-            }
+            },
             "variant_definition" => {
                 let variant_def = self.read_variant(node, scope)?;
                 Ok(Definition::Type(variant_def))
-            }
+            },
             _ => Ok(Definition::Other),
         }
     }

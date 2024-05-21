@@ -4,7 +4,9 @@ use crate::interpretation::meta_structures::*;
 
 pub fn echo(mut args: HashMap<String, Value>) -> InterpResult<Value> {
     let Some(Value::String(in_string)) = args.remove("in") else {
-        return Err(InterpretationError::InternalError("unexpected argument value"))
+        return Err(InterpretationError::InternalError(
+            "unexpected argument value",
+        ));
     };
 
     if args.contains_key("error") {

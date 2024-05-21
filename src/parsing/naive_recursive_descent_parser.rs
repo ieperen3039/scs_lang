@@ -2,7 +2,12 @@ use std::{collections::VecDeque, io::Write};
 
 use simple_error::SimpleError;
 
-use super::{ebnf_ast, token::{Token, TokenClass}, parser::*, rule_nodes::RuleNode};
+use super::{
+    ebnf_ast,
+    parser::*,
+    rule_nodes::RuleNode,
+    token::{Token, TokenClass},
+};
 
 pub type ParseResult<'prog, 'bnf> =
     Box<dyn Iterator<Item = Result<Interpretation<'prog, 'bnf>, Failure<'bnf>>> + 'bnf>;
@@ -13,10 +18,7 @@ pub struct Parser {
 }
 
 impl<'bnf> Parser {
-    pub fn new(
-        grammar: ebnf_ast::EbnfAst,
-        xml_out: Option<std::fs::File>,
-    ) -> Parser {
+    pub fn new(grammar: ebnf_ast::EbnfAst, xml_out: Option<std::fs::File>) -> Parser {
         Parser { grammar, xml_out }
     }
 
@@ -55,7 +57,7 @@ impl<'bnf> Parser {
                         failures.insert(index, failure);
                         failures.pop_front();
                     }
-                }
+                },
                 Ok(interpretation) => {
                     let num_tokens_remaining = interpretation.remaining_tokens.len();
                     if num_tokens_remaining == 0 {
@@ -67,7 +69,7 @@ impl<'bnf> Parser {
                     if num_tokens_remaining < longest_success.remaining_tokens.len() {
                         longest_success = interpretation;
                     }
-                }
+                },
             }
         }
 
@@ -142,7 +144,7 @@ impl<'bnf> Parser {
                         remaining_tokens: &tokens[num_tokens..],
                     }),
                 }
-            }
+            },
             Err(err) => Err(err),
         }))
     }
@@ -159,11 +161,11 @@ impl<'bnf> Parser {
             ebnf_ast::Term::Alternation(sub_terms) => self.apply_alternation(tokens, sub_terms),
             ebnf_ast::Term::Literal(literal) => {
                 Box::new(std::iter::once(self.parse_literal(tokens, literal)))
-            }
+            },
             ebnf_ast::Term::Identifier(rule_name) => self.parse_rule_identifier(tokens, rule_name),
             ebnf_ast::Term::Token(token) => {
                 Box::new(std::iter::once(self.parse_token(tokens, token)))
-            }
+            },
         }
     }
 

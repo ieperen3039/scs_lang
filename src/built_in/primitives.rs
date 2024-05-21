@@ -69,7 +69,7 @@ pub fn build_variant(
     values: Vec<(&str, &TypeRef)>,
 ) -> TypeDefinition {
     TypeDefinition {
-        name : Identifier::from(name),
+        name: Identifier::from(name),
         id,
         type_class: TypeClass::Variant {
             variants: values
@@ -80,6 +80,6 @@ pub fn build_variant(
                 })
                 .collect(),
         },
-        full_scope : Vec::new(),
+        full_scope: Vec::new(),
     }
 }

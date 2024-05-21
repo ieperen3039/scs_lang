@@ -15,7 +15,8 @@ pub fn convert(ast: Grammar) -> Grammar {
 
         for _ in 0..num_old_rules {
             let mut rule = rules.pop_front().unwrap();
-            let new_pattern = normalize_top_level(rule.patterns.clone(), &mut name_generator, &mut rules);
+            let new_pattern =
+                normalize_top_level(rule.patterns.clone(), &mut name_generator, &mut rules);
 
             if rule.patterns != new_pattern {
                 is_done = false;
@@ -61,7 +62,7 @@ fn normalize(
         Term::Concatenation(mut terms) => {
             terms[0] = normalize(terms[0].clone(), name_generator, other_rules);
             Term::Concatenation(terms)
-        }
+        },
         Term::Alternation(terms) => {
             let new_rule_name = name_generator.generate_rule_name();
             other_rules.push_back(Rule {
@@ -69,7 +70,7 @@ fn normalize(
                 patterns: Term::Alternation(terms),
             });
             Term::Identifier(new_rule_name)
-        }
+        },
         Term::Identifier(id) => {
             // inline this rule if it is not an alternation
             let referenced_rule = other_rules
@@ -81,7 +82,7 @@ fn normalize(
                 Term::Alternation(_) => Term::Identifier(id),
                 _ => referenced_rule.patterns.clone(),
             }
-        }
+        },
         other => other,
     }
 }

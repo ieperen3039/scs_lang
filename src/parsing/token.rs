@@ -21,8 +21,8 @@ impl TokenClass {
             TokenClass::INVALID => "<invalid token>",
         }
     }
-    
-    pub fn from_str(string : &str) -> Self {
+
+    pub fn from_str(string: &str) -> Self {
         match string {
             "IDENTIFIER" => Self::IDENTIFIER,
             "NUMBER" => Self::NUMBER,

@@ -266,11 +266,14 @@ fn try_parse_example_faux() {
 
     let start = std::time::Instant::now();
 
-    let tokens = Lexer{ ignore_whitespace: true }.read_all(&program)
-        .map_err(|err| {
-            SimpleError::new(parser::Failure::LexerError { char_idx: err }.error_string(definition))
-        })
-        .unwrap();
+    let tokens = Lexer {
+        ignore_whitespace: true,
+    }
+    .read_all(&program)
+    .map_err(|err| {
+        SimpleError::new(parser::Failure::LexerError { char_idx: err }.error_string(definition))
+    })
+    .unwrap();
     let parse_result = parser.parse_program(&tokens);
 
     println!("Parsing done (took {:?})", start.elapsed());

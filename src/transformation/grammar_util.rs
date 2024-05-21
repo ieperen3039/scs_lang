@@ -28,7 +28,7 @@ where
                 transform_bottom_up(t, function);
             }
         },
-        _ => {}
+        _ => {},
     };
 
     function(term);
@@ -44,7 +44,7 @@ where
                 iterate_recursively(t, function);
             }
         },
-        _ => {}
+        _ => {},
     };
 
     function(term);
@@ -79,7 +79,7 @@ impl Grammar {
                     Grammar::to_string(t, target);
                 }
                 target.push_str(" )");
-            }
+            },
             Term::Alternation(terms) => {
                 target.push_str("( ");
                 Grammar::to_string(&terms[0], target);
@@ -88,22 +88,22 @@ impl Grammar {
                     Grammar::to_string(t, target);
                 }
                 target.push_str(" )");
-            }
+            },
             Term::Identifier(i) => target.push_str(i),
             Term::Terminal(Terminal::Literal(i)) => {
                 target.push('"');
                 target.push_str(i);
                 target.push('"');
-            }
+            },
             Term::Terminal(Terminal::Token(i)) => {
                 target.push_str("? ");
                 target.push_str(i.as_str());
                 target.push_str(" ?");
-            }
+            },
             Term::Terminal(Terminal::EndOfFile) => target.push_str("EOF"),
             Term::Empty => {
                 target.push_str("? EMPTY ?");
-            }
+            },
         };
     }
 }
@@ -113,7 +113,7 @@ impl Terminal {
         match self {
             Terminal::Literal(s) => s,
             Terminal::Token(t) => t.as_str(),
-            Terminal::EndOfFile => "END_OF_FILE"
+            Terminal::EndOfFile => "END_OF_FILE",
         }
     }
 }

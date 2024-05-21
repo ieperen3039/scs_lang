@@ -33,13 +33,11 @@ impl FunctionExpression {
 }
 
 impl ValueExpression {
-    pub fn get_type(
-        &self,
-    ) -> TypeRef {
+    pub fn get_type(&self) -> TypeRef {
         match &self {
             ValueExpression::Tuple(elements) => {
                 TypeRef::UnamedTuple(elements.iter().map(|ex| ex.get_type()).collect())
-            }
+            },
             ValueExpression::Literal(Literal::String(_)) => TypeRef::STRING.clone(),
             ValueExpression::Literal(Literal::Number(_)) => TypeRef::NUMBER.clone(),
             ValueExpression::Variable(var) => var.var_type.clone(),

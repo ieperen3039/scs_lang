@@ -49,21 +49,21 @@ impl GeneratorC {
         match &definition.type_class {
             ast::TypeClass::Base { derived: None } => {
                 write_fmt!(out, "struct {this_name} {{\n\tvoid* mPtr;\n}}")
-            }
+            },
             ast::TypeClass::Base {
                 derived: Some(derived),
             } => {
                 write_str!(out, "typedef ")?;
                 self.write_type_ref(out, &derived)?;
                 write_fmt!(out, " {this_name}")
-            }
+            },
             ast::TypeClass::Enum { values } => {
                 write_fmt!(out, "enum {this_name} {{\n")?;
                 for enum_val in values {
                     write_fmt!(out, "\t{this_name}${enum_val};\n")?;
                 }
                 write_str!(out, "}}")
-            }
+            },
             ast::TypeClass::Variant { variants } => {
                 // first write the enum type
                 write_fmt!(out, "enum {this_name} {{\n")?;
@@ -84,7 +84,7 @@ impl GeneratorC {
                 }
                 write_str!(out, "\t}} mData;\n")?;
                 write_str!(out, "}};")
-            }
+            },
             ast::TypeClass::Tuple { elements } => {
                 write_fmt!(out, "struct {this_name} {{\n")?;
                 for i in 0..elements.len() {
@@ -93,7 +93,7 @@ impl GeneratorC {
                     write_fmt!(out, " _{i};\n")?;
                 }
                 write_str!(out, "}}")
-            }
+            },
         }
     }
 
@@ -120,7 +120,7 @@ impl GeneratorC {
             ast::TypeRef::Defined(defined_ref) => {
                 let real_type = &self.type_definitions[&defined_ref.id];
                 self.write_full_type_name(out, real_type)
-            }
+            },
             ast::TypeRef::UnamedTuple(tuple_types) => {
                 write_str!(out, "tuple$")?;
                 for ele in tuple_types {
@@ -128,11 +128,11 @@ impl GeneratorC {
                     write_str!(out, "$")?;
                 }
                 Ok(())
-            }
+            },
             ast::TypeRef::Stream(array_type) => {
                 self.write_type_ref(out, array_type)?;
                 write_str!(out, "*")
-            }
+            },
             ast::TypeRef::Function(fn_type) => {
                 self.write_type_ref(out, &fn_type.return_type)?;
                 write_str!(out, " (*)(")?;
@@ -141,12 +141,15 @@ impl GeneratorC {
                     write_str!(out, ", ")?;
                 }
                 write_str!(out, ")")
-            }
+            },
             ast::TypeRef::Void | ast::TypeRef::NoReturn => write_str!(out, "void"),
             ast::TypeRef::UnresolvedName(unresolved) => Err(SimpleError::new(format!(
                 "Unresolved type \"{}\" in generation stage",
                 unresolved.name
             ))),
+            ast::TypeRef::Optional(_) => todo!(),
+            ast::TypeRef::Result(_, _) => todo!(),
+            ast::TypeRef::Flag => todo!(),
         }
     }
 }

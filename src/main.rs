@@ -3,16 +3,17 @@ use std::path::PathBuf;
 use crate::{compiler::FauxCompiler, interpretation::interpreter::Interpreter};
 
 pub mod compiler;
+pub mod parsing;
+pub mod symbolization;
+pub mod built_in;
+pub mod interpretation;
+pub mod transformation;
+pub mod transpilation;
 
-mod parsing;
-mod symbolization;
+mod xml_logger;
 
 #[cfg(test)]
 mod tests;
-pub mod transformation;
-pub mod transpilation;
-pub mod interpretation;
-pub mod built_in;
 
 use clap::Parser;
 
@@ -62,7 +63,9 @@ fn main() {
         let base_directory =
             std::env::current_dir().expect("Could not get this program's current directory");
 
-        let compile_result = compiler.compile(&base_directory.join(script_file)).expect("compilation failed");
+        let compile_result = compiler
+            .compile(&base_directory.join(script_file))
+            .expect("compilation failed");
 
         Interpreter::new(compile_result).execute_by_name("main");
     } else {

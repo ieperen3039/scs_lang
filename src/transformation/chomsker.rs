@@ -60,12 +60,12 @@ impl Chomsky {
                             for rule in value {
                                 open_set.push(rule)
                             }
-                        }
+                        },
                         ChomskyPattern::Terminal(t) => {
                             if these_terminals.iter().find(|&other| other == t).is_none() {
                                 these_terminals.push(t.clone())
                             }
-                        }
+                        },
                     }
                 }
 
@@ -143,17 +143,17 @@ impl Chomsky {
                     output_string.push_str(", ");
                     output_string.push_str(t)
                 }
-            }
+            },
             ChomskyPattern::Terminal(Terminal::Literal(literal)) => {
                 output_string.push('"');
                 output_string.push_str(literal);
                 output_string.push('"');
-            }
+            },
             ChomskyPattern::Terminal(Terminal::Token(i)) => {
                 output_string.push_str("? ");
                 output_string.push_str(i.as_str());
                 output_string.push_str(" ?");
-            }
+            },
             ChomskyPattern::Terminal(Terminal::EndOfFile) => output_string.push_str("EOF"),
         }
     }
@@ -181,22 +181,22 @@ fn to_chomsky_terms(patterns: Vec<Term>) -> Vec<ChomskyPattern> {
         match pattern {
             Term::Concatenation(terms) => {
                 non_terminals.push(Chomsky::unwrap_identifiers(terms));
-            }
+            },
             Term::Terminal(t) => {
                 terminals.push(t);
-            }
+            },
             Term::Identifier(rule) if !is_transparent_rule(&rule) => {
                 non_terminals.push(vec![rule]);
-            }
+            },
             Term::Identifier(_) => {
                 panic!("Non-transparent rename rules are not allowed");
-            }
+            },
             Term::Empty => {
                 panic!("Empty rules are not allowed");
-            }
+            },
             Term::Alternation(_) => {
                 panic!("Top-level alternations should have been removed");
-            }
+            },
         }
     }
 
@@ -211,9 +211,7 @@ fn to_chomsky_terms(patterns: Vec<Term>) -> Vec<ChomskyPattern> {
             }
         }
 
-        if !duplicate_indices.is_empty() {
-
-        }
+        if !duplicate_indices.is_empty() {}
     }
 
     // for terms in &non_terminals {
@@ -252,7 +250,7 @@ fn chomsky_unit(rules: RuleStorage) -> RuleStorage {
                             .unwrap();
                         new_terms.extend(alias_terms.clone());
                         any_change = true;
-                    }
+                    },
                     other => new_terms.push(other.to_owned()),
                 }
             }
@@ -287,7 +285,7 @@ fn chomsky_del(rules: RuleStorage) -> RuleStorage {
             match term {
                 Term::Empty => {
                     // all empty terms are removed from the grammar
-                }
+                },
                 Term::Concatenation(terms) => {
                     let inlined_terms = inline_nullable(terms, &nullable_rules, &null_rules);
                     for mut concatenation in inlined_terms {
@@ -298,7 +296,7 @@ fn chomsky_del(rules: RuleStorage) -> RuleStorage {
                             new_terms.push(concatenation.pop().unwrap());
                         }
                     }
-                }
+                },
                 other => new_terms.push(other),
             }
         }
@@ -329,11 +327,11 @@ fn inline_nullable(
         Term::Empty => {
             // all empty terms are removed from the grammar
             // we do not change the prefix
-        }
+        },
         Term::Identifier(other_rule) if null_rules.contains(&other_rule) => {
             // this identifier is of an empty rule. Effectively, this is thus an empty term.
             // we do not change the prefix
-        }
+        },
         Term::Identifier(other_rule) if nullable_rules.contains(&other_rule) => {
             // nullable term, create all prefixes with this term and all prefixes without
             let new_terms_copy = new_terms.clone();
@@ -341,13 +339,13 @@ fn inline_nullable(
                 t.push(Term::Identifier(other_rule.clone()))
             }
             new_terms.extend(new_terms_copy);
-        }
+        },
         other => {
             // non-nullable term, append this term to all prefixes
             for t in &mut new_terms {
                 t.push(other.clone())
             }
-        }
+        },
     }
 
     new_terms
@@ -379,7 +377,7 @@ fn chomsky_bin_term(rules: RuleStorage, name_generator: &mut RuleNameGenerator) 
                             &mut new_rules,
                         ))
                     }
-                }
+                },
                 other => new_terms.push(normalize_to_concatenation(
                     other,
                     name_generator,
@@ -466,10 +464,10 @@ fn normalize_to_identifier(
                     other_rules,
                 ))
             }
-        }
+        },
         Term::Concatenation(terms) => {
             new_terms.push(subdivide(terms, TERM_LENGTH, name_generator, other_rules))
-        }
+        },
     };
 
     assert!(!new_terms.is_empty());
@@ -490,11 +488,11 @@ fn unwrap_top_level_elements(rules: RuleStorage) -> RuleStorage {
                     for t in sub_terms {
                         new_terms.push(t)
                     }
-                }
+                },
                 Term::Alternation(sub_terms) => {
                     println!("Unwrap Alternation");
                     new_terms.extend(sub_terms);
-                }
+                },
 
                 other => new_terms.push(other),
             }
@@ -561,7 +559,7 @@ fn rename_or_this(terminal: &mut Term, renames: &HashMap<RuleId, RuleId>) {
             *id = renames.get(id).unwrap().to_owned();
             // recursively resolve renames, there may be chains of renames in the hashmap
             rename_or_this(terminal, renames);
-        }
+        },
         _ => {},
     }
 }

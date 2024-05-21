@@ -1,17 +1,19 @@
 use std::io::Write;
 
-use crate::{compiler::FauxCompiler, transpilation::generator_c::GeneratorC};
 use super::test_util::create_file_from_text;
+use crate::{compiler::FauxCompiler, transpilation::generator_c::GeneratorC};
 
 #[test]
 fn simple_type() {
     let definition = include_str!("../../doc/definition.ebnf");
 
-    let program_path = create_file_from_text(r#"
+    let program_path = create_file_from_text(
+        r#"
         type FilePath = String
         type AbsoluteFilePath = FilePath
         type RelativeFilePath = FilePath
-    "#);
+    "#,
+    );
 
     let mut compiler = FauxCompiler::build(definition, None).unwrap();
 
@@ -27,7 +29,8 @@ fn simple_type() {
 fn namespace_type() {
     let definition = include_str!("../../doc/definition.ebnf");
 
-    let program_path = create_file_from_text(r#"
+    let program_path = create_file_from_text(
+        r#"
         fs {
             type FilePath = String
             core {
@@ -35,7 +38,8 @@ fn namespace_type() {
                 type RelativeFilePath = FilePath
             }
         }
-    "#);
+    "#,
+    );
 
     let mut compiler = FauxCompiler::build(definition, None).unwrap();
 
@@ -49,14 +53,16 @@ fn namespace_type() {
 fn variant() {
     let definition = include_str!("../../doc/definition.ebnf");
 
-    let program_path = create_file_from_text(r#"
+    let program_path = create_file_from_text(
+        r#"
         version faux 0.0.0
 
         variant Result<P, N> [
             Pos(P),
             Neg(N),
         ]
-    "#);
+    "#,
+    );
 
     let mut compiler = FauxCompiler::build(definition, None).unwrap();
 
@@ -70,7 +76,8 @@ fn variant() {
 fn variant_derived() {
     let definition = include_str!("../../doc/definition.ebnf");
 
-    let program_path = create_file_from_text(r#"
+    let program_path = create_file_from_text(
+        r#"
         version faux 0.0.0
 
         variant Result<P, N> [
@@ -80,7 +87,8 @@ fn variant_derived() {
 
         type Maybe<T> = Result<T, void>
         type boolean = Result<void, void>
-    "#);
+    "#,
+    );
 
     let mut compiler = FauxCompiler::build(definition, None).unwrap();
 

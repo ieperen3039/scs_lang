@@ -77,7 +77,7 @@ impl<'a> FunctionCollector<'a> {
                 //     .ok_or_else(|| SimpleError::new("Unknown type of impl block"))?
                 //     .extend(functions.clone());
                 Ok(functions)
-            }
+            },
             "function_definition" => Ok(vec![self.read_function_declaration(node)?]),
             _ => Ok(Vec::new()),
         }

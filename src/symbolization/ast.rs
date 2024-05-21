@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc, hash::Hash};
+use std::{collections::HashMap, hash::Hash, rc::Rc};
 
 pub type Identifier = Rc<str>;
 pub type NumericTypeIdentifier = u32;
@@ -8,7 +8,7 @@ pub struct Program {
     pub namespaces: Namespace,
     pub type_definitions: HashMap<NumericTypeIdentifier, TypeDefinition>,
     pub function_definitions: HashMap<NumericFunctionIdentifier, FunctionBody>,
-    pub member_function_definitions: HashMap<ImplType, Vec<NumericFunctionIdentifier>>
+    pub member_function_definitions: HashMap<ImplType, Vec<NumericFunctionIdentifier>>,
 }
 
 pub struct ImplType {
@@ -153,7 +153,7 @@ pub enum FunctionExpression {
 #[derive(Clone)]
 pub struct FunctionCall {
     pub id: NumericFunctionIdentifier,
-    // indices in this vector correspond to the parameter of the called function 
+    // indices in this vector correspond to the parameter of the called function
     // (the argument vector and parameter vector should have the same len)
     // Option::None indicates that this is itself a fn expression accepting all missing arguments in order
     pub arguments: Vec<Option<Expression>>,

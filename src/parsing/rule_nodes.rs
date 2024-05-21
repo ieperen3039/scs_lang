@@ -78,9 +78,9 @@ impl<'prog, 'bnf> RuleNode<'prog, 'bnf> {
             (None, None) => {},
             (Some(this_sub_rule), Some(other_sub_rule)) => {
                 if !this_sub_rule.is_similar_to(other_sub_rule) {
-                    return false
+                    return false;
                 }
-            }
+            },
             _ => return false,
         };
 
@@ -90,14 +90,16 @@ impl<'prog, 'bnf> RuleNode<'prog, 'bnf> {
             // self.tokens ~= other.tokens
             let mut this_tokens = self.tokens.iter();
             let mut other_tokens = other.tokens.iter();
-    
+
             match (this_tokens.next(), other_tokens.next()) {
                 (None, None) => {},
                 (Some(this_token), Some(other_token)) => {
-                    if this_token.class != other_token.class || this_token.slice != other_token.slice {
-                        return false
+                    if this_token.class != other_token.class
+                        || this_token.slice != other_token.slice
+                    {
+                        return false;
                     }
-                }
+                },
                 _ => return false,
             };
         }
@@ -123,4 +125,3 @@ impl<'prog, 'bnf> RuleNode<'prog, 'bnf> {
             .collect()
     }
 }
-

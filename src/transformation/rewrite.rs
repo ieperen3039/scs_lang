@@ -1,7 +1,3 @@
-use std::collections::HashSet;
-
-use crate::symbolization::ast::Identifier;
-
 use super::{
     grammar::Term,
     grammar_util::{self, iterate_recursively},
@@ -46,7 +42,7 @@ impl RewriteRule {
             (Term::Concatenation(l), Term::Concatenation(r))
             | (Term::Alternation(l), Term::Alternation(r)) => {
                 l.len() == r.len() && (0..l.len()).all(|i| Self::corresponds(&l[i], &r[i]))
-            }
+            },
             (Term::Identifier(_), _) => true,
             (a, b) => a == b,
         }
@@ -55,7 +51,7 @@ impl RewriteRule {
     // attempt to apply this rewrite rule to the given terms, or one of its sub terms, recursively.
     // the transformation is applied bottom-up: this prevents recursive (infinite) applications of the rewrite rule.
     pub fn transform(&self, term: &mut Term) {
-        grammar_util::transform_bottom_up(term, &|sub_term|{
+        grammar_util::transform_bottom_up(term, &|sub_term| {
             if Self::corresponds(&self.left, sub_term) {
                 // old_term := sub_term, sub_term := self.right
                 let mut old_term = self.right.clone();
@@ -75,13 +71,14 @@ impl RewriteRule {
                     self.transform_recursively(&l[idx], right, elt);
                     idx += 1;
                 }
-            }
+            },
             (Term::Identifier(id_l), term) => {
                 // find the corresponding id in right, and paste it there
                 // (there should be only one, but we cannot guarantee this to the borrow checker)
-                let right_id = Self::find(id_l, right).expect("Every id in Left must occur in Right");
+                let right_id =
+                    Self::find(id_l, right).expect("Every id in Left must occur in Right");
                 *right_id = term;
-            }
+            },
             (_, _) => {},
         }
     }
@@ -94,11 +91,11 @@ impl RewriteRule {
                         return Some(e);
                     }
                 }
-            }
+            },
             Term::Identifier(id_r) if identifier_with_name == id_r.as_ref() => {
                 return Some(right);
-            }
-            _ => {}
+            },
+            _ => {},
         }
 
         None

@@ -96,7 +96,7 @@ impl<'c> Parser {
                 Err(vec![Failure::IncompleteParse {
                     char_idx: parsed_program.tokens.len(),
                 }])
-            }
+            },
             Ok(parsed_program) => Ok(parsed_program),
         }
     }
@@ -167,7 +167,7 @@ impl<'c> Parser {
                     let has_match = match terminal {
                         Terminal::Literal(str) => str == next_token.slice,
                         Terminal::Token(class) => *class == next_token.class,
-                        Terminal::EndOfFile => false /* case is handled at the start of the function*/,
+                        Terminal::EndOfFile => false, /* case is handled at the start of the function*/
                     };
                     assert!(has_match, "{:?} != {:?}", terminal, next_token);
 
@@ -178,7 +178,7 @@ impl<'c> Parser {
                         tokens: &tokens[token_index..=token_index],
                         sub_rules: Vec::new(),
                     });
-                }
+                },
                 ChomskyPattern::NonTerminal(sub_rule_names) => {
                     let result =
                         self.apply_non_terminal(rule_name, token_index, tokens, sub_rule_names);
@@ -186,7 +186,7 @@ impl<'c> Parser {
                         Ok(n) => all_sucesses.push(n),
                         Err(failures) => all_failures.extend(failures),
                     }
-                }
+                },
             };
         }
 
@@ -222,7 +222,7 @@ impl<'c> Parser {
                     } else {
                         sub_rules.push(rule);
                     }
-                }
+                },
                 Err(failures) => return Err(failures),
             }
         }

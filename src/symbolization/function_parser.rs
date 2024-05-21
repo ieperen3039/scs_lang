@@ -2,7 +2,7 @@ use std::{collections::HashMap, rc::Rc};
 
 use simple_error::{SimpleError, SimpleResult};
 
-use crate::{built_in::primitives, parsing::rule_nodes::RuleNode};
+use crate::parsing::rule_nodes::RuleNode;
 
 use super::{
     ast::*, function_collector::FunctionCollector, type_collector::TypeCollector, type_resolver,
@@ -66,7 +66,7 @@ impl FunctionParser<'_, '_> {
                         });
                         variables.insert(return_var.name.clone(), return_var.clone());
                         return_var
-                    }
+                    },
                 };
 
                 statement
@@ -132,7 +132,7 @@ impl FunctionParser<'_, '_> {
             match mutator_node.rule_name {
                 "operator" => {
                     todo!();
-                }
+                },
                 "function_expression" => {
                     let mutator = self.read_function_expression(
                         mutator_node,
@@ -143,7 +143,7 @@ impl FunctionParser<'_, '_> {
 
                     expression_type = mutator.get_type(&self.functions);
                     mutations.push(mutator);
-                }
+                },
             };
         }
 
@@ -166,7 +166,7 @@ impl FunctionParser<'_, '_> {
             "variable_name" => {
                 let variable = expect_variable(variables, &node.tokens_as_string())?;
                 Ok(ValueExpression::Variable(variable))
-            }
+            },
             "tuple_construction" => {
                 let mut tuple_elements = Vec::new();
                 for subnode in &node.sub_rules {
@@ -174,11 +174,11 @@ impl FunctionParser<'_, '_> {
                 }
 
                 Ok(ValueExpression::Tuple(tuple_elements))
-            }
+            },
             "string_literal" => {
                 let string_value = extract_string(node);
                 Ok(ValueExpression::Literal(Literal::String(string_value)))
-            }
+            },
             "integer_literal" => {
                 let as_string = node.tokens_as_string();
                 let parse_result = as_string.parse::<i32>();
@@ -186,19 +186,19 @@ impl FunctionParser<'_, '_> {
                 match parse_result {
                     Ok(integer_value) => {
                         Ok(ValueExpression::Literal(Literal::Number(integer_value)))
-                    }
+                    },
                     Err(err) => Err(SimpleError::new(format!(
                         "Could not parse integer literal \"{as_string}\": {err}"
                     ))),
                 }
-            }
+            },
             "dollar_string_literal" => unimplemented!("{}", node.rule_name),
             "raw_string_literal" => unimplemented!("{}", node.rule_name),
             unknown_rule => {
                 return Err(SimpleError::new(format!(
                     "node is not an _expression node: {unknown_rule}"
                 )))
-            }
+            },
         }
     }
 
@@ -220,20 +220,20 @@ impl FunctionParser<'_, '_> {
             "function_call" => {
                 let function_call = self.read_function_call(node, this_scope, variables)?;
                 Ok(FunctionExpression::FunctionCall(function_call))
-            }
+            },
             "implicit_par_lambda" => {
                 // (* the first statement of a implicit parameter lamdas starts with a function expression *)
                 // implicit_par_lambda     = "{", { { operator }, function_expression }, { statement_separator, statement }, [ statement_separator ], "}";
                 Ok(FunctionExpression::FunctionCall(todo!()))
-            }
+            },
             "explicit_par_lambda" => {
                 self.read_explicit_parameter_lamda(node, variables, this_scope, argument_types)
-            }
+            },
             unknown_rule => {
                 return Err(SimpleError::new(format!(
                     "unknown expression rule {unknown_rule}"
                 )))
-            }
+            },
         }
     }
 
@@ -412,7 +412,7 @@ impl FunctionParser<'_, '_> {
                 let arg_value = self.read_expression(node, this_scope, variables, expected_type)?;
 
                 Ok((target_parameter_idx, arg_value))
-            }
+            },
             "unnamed_argument" => {
                 let first_non_optional = remaining_parameters
                     .iter()
@@ -428,7 +428,7 @@ impl FunctionParser<'_, '_> {
                 let arg_value = self.read_expression(node, this_scope, variables, expected_type)?;
 
                 Ok((first_non_optional, arg_value))
-            }
+            },
             "flag_argument" => {
                 let flag_name = node.as_identifier();
                 let target_parameter_idx = remaining_parameters
@@ -451,7 +451,7 @@ impl FunctionParser<'_, '_> {
                     target_parameter_idx,
                     Expression::Value(ValueExpression::Literal(Literal::Boolean(true))),
                 ))
-            }
+            },
         }
     }
 

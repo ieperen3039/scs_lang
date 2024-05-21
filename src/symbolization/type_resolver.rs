@@ -28,12 +28,12 @@ pub fn resolve_type_name(
     local_scope: &Namespace,
 ) -> SimpleResult<NumericTypeIdentifier> {
     let resolver = TypeResolver {
-        external_scope : root_scope,
+        external_scope: root_scope,
         root_scope,
     };
 
     let resolved_scope = resolver.resolve_scope_reference(&type_to_resolve.scope, local_scope)?;
-    
+
     resolved_scope
         .types
         .get(&type_to_resolve.name)
@@ -53,12 +53,12 @@ pub fn resolve_function_name<'s>(
     local_scope: &'s Namespace,
 ) -> SimpleResult<NumericFunctionIdentifier> {
     let resolver = TypeResolver {
-        external_scope : root_scope,
+        external_scope: root_scope,
         root_scope,
     };
-    
+
     let resolved_scope = resolver.resolve_scope_reference(scope, local_scope)?;
-    
+
     resolved_scope
         .functions
         .get(&name)
@@ -72,7 +72,10 @@ pub fn resolve_function_name<'s>(
 }
 
 impl<'ext, 'int> TypeResolver<'ext, 'int> {
-    fn resolve_types(&self, types_to_resolve: Vec<TypeDefinition>) -> SimpleResult<Vec<TypeDefinition>> {
+    fn resolve_types(
+        &self,
+        types_to_resolve: Vec<TypeDefinition>,
+    ) -> SimpleResult<Vec<TypeDefinition>> {
         let mut new_types = Vec::new();
 
         for mut type_def in types_to_resolve {
@@ -107,11 +110,15 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
                         first, current.full_name
                     )))
                 }
-            }
+            },
         }
     }
 
-    fn resolve_partial_scope_name(&self, scope: &Namespace, first_of_partial: &Rc<str>) -> &Namespace {
+    fn resolve_partial_scope_name(
+        &self,
+        scope: &Namespace,
+        first_of_partial: &Rc<str>,
+    ) -> &Namespace {
         let mut local_scope = self.external_scope;
 
         for name in &scope.full_name {
@@ -141,7 +148,7 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
                         current.full_name
                     )))
                 }
-            }
+            },
         }
     }
 
@@ -151,29 +158,23 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
         local_scope: &Namespace,
     ) -> SimpleResult<()> {
         match &mut type_to_resolve.type_class {
-            TypeClass::Base { derived: None } => {}
-            TypeClass::Enum { .. } => {}
+            TypeClass::Base { derived: None } => {},
+            TypeClass::Enum { .. } => {},
             TypeClass::Base {
                 derived: Some(to_resolve),
             } => {
-                self.resolve_type_ref(
-                    to_resolve.borrow_mut(),
-                    local_scope,
-                )?;
-            }
+                self.resolve_type_ref(to_resolve.borrow_mut(), local_scope)?;
+            },
             TypeClass::Variant { variants } => {
                 for variant in variants {
-                    self.resolve_type_ref(
-                        &mut variant.value_type,
-                        local_scope,
-                    )?;
+                    self.resolve_type_ref(&mut variant.value_type, local_scope)?;
                 }
-            }
+            },
             TypeClass::Tuple { elements } => {
                 for elt in elements {
                     self.resolve_type_ref(elt, local_scope)?;
                 }
-            }
+            },
         }
 
         Ok(())
@@ -186,11 +187,10 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
     ) -> SimpleResult<()> {
         match type_to_resolve {
             TypeRef::UnresolvedName(name_to_resolve) => {
-                let defined_type_ref =
-                    self.resolve_defined_name(name_to_resolve, local_scope)?;
+                let defined_type_ref = self.resolve_defined_name(name_to_resolve, local_scope)?;
                 *type_to_resolve = TypeRef::Defined(defined_type_ref);
-            }
-            _ => {}
+            },
+            _ => {},
         }
         Ok(())
     }
@@ -211,8 +211,6 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
                 ))
             })?;
 
-        Ok(DefinedRef {
-            id: resolved_type,
-        })
+        Ok(DefinedRef { id: resolved_type })
     }
 }

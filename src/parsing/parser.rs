@@ -2,10 +2,7 @@ use std::cmp;
 
 use simple_error::SimpleError;
 
-use super::{
-    rule_nodes::RuleNode,
-    token::Token,
-};
+use super::{rule_nodes::RuleNode, token::Token};
 
 pub const MAX_NUM_TOKENS_BACKTRACE_ON_ERROR: i32 = 5;
 pub const MAX_NUM_TOKENS_BACKTRACE_ON_SUCCESS: usize = 100;
@@ -64,7 +61,7 @@ impl Failure<'_> {
                     &source[offset..ub],
                     ""
                 )
-            }
+            },
             _ => format!("{:?}", self),
         }
     }
@@ -93,9 +90,10 @@ impl<'prog, 'bnf> ParseNode<'prog, 'bnf> {
     pub fn unwrap_to_rulenodes(self) -> Vec<RuleNode<'prog, 'bnf>> {
         match self {
             ParseNode::Rule(rule) => vec![rule],
-            ParseNode::Vec(sub_rules) => {
-                sub_rules.into_iter().flat_map(Self::unwrap_to_rulenodes).collect()
-            }
+            ParseNode::Vec(sub_rules) => sub_rules
+                .into_iter()
+                .flat_map(Self::unwrap_to_rulenodes)
+                .collect(),
             ParseNode::Terminal(_) | ParseNode::EmptyNode => Vec::new(),
         }
     }
@@ -103,9 +101,7 @@ impl<'prog, 'bnf> ParseNode<'prog, 'bnf> {
     pub fn num_tokens(&self) -> usize {
         match self {
             ParseNode::Rule(rule) => rule.tokens.len(),
-            ParseNode::Vec(sub_rules) => {
-                sub_rules.into_iter().map(Self::num_tokens).sum()
-            }
+            ParseNode::Vec(sub_rules) => sub_rules.into_iter().map(Self::num_tokens).sum(),
             ParseNode::Terminal(_) => 1,
             ParseNode::EmptyNode => 0,
         }
@@ -142,7 +138,7 @@ pub fn get_err_significance(failure: &Failure<'_>) -> i32 {
     match failure {
         Failure::UnexpectedToken { char_idx, .. } | Failure::IncompleteParse { char_idx } => {
             *char_idx as i32
-        }
+        },
         Failure::EndOfFile { .. } => i32::MAX - 5,
         Failure::LexerError { .. } => i32::MAX - 3,
         Failure::Error(_) => i32::MAX - 2,

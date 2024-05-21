@@ -21,10 +21,10 @@ pub fn convert_to_grammar(ast: EbnfAst) -> Grammar {
         match new_term {
             grammar::Term::Alternation(terms) => {
                 rules.insert(RuleId::from(old_rule.identifier), terms);
-            }
+            },
             _ => {
                 rules.insert(RuleId::from(old_rule.identifier), vec![new_term]);
-            }
+            },
         }
     }
 
@@ -45,7 +45,7 @@ fn grammificate(
         ebnf_ast::Term::Optional(t) => {
             let normalized_sub_term = grammificate(*t, name_generator, other_rules);
             grammar::Term::Alternation(vec![normalized_sub_term, grammar::Term::Empty])
-        }
+        },
         ebnf_ast::Term::Repetition(t) => {
             // normalized_sub_term is guaranteed to be a ebnf_ast::Term::Identifier
             let normalized_sub_term = grammificate(*t, name_generator, other_rules);
@@ -61,7 +61,7 @@ fn grammificate(
                 ],
             );
             grammar::Term::Identifier(new_rule_name)
-        }
+        },
         ebnf_ast::Term::Alternation(terms) => grammar::Term::Alternation(
             terms
                 .into_iter()

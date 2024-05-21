@@ -22,6 +22,6 @@ pub type NativeFunction = fn(HashMap<String, Value>) -> InterpResult<Value>;
 pub enum InterpretationError {
     TypeError { expected: TypeRef, found: TypeRef },
     ArgumentRequiredError(Parameter),
-    SymbolNotFound{ kind: &'static str, symbol: String },
+    SymbolNotFound { kind: &'static str, symbol: String },
     InternalError(&'static str),
 }
