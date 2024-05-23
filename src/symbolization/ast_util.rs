@@ -18,7 +18,7 @@ impl TypeRef {
 }
 
 impl FunctionExpression {
-    pub fn get_type(
+    pub fn get_result_type(
         &self,
         functions: &HashMap<NumericFunctionIdentifier, FunctionDeclaration>,
     ) -> TypeRef {

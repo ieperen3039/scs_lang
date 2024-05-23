@@ -164,7 +164,7 @@ pub struct FunctionCall {
 pub struct Lamda {
     pub parameters: Vec<Rc<str>>,
     pub body: FunctionBody,
-    pub capture: Vec<VariableDeclaration>,
+    pub capture: Vec<Rc<VariableDeclaration>>,
 }
 
 impl PartialEq for TypeDefinition {

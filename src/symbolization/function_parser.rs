@@ -8,35 +8,50 @@ use super::{
     ast::*, function_collector::FunctionCollector, type_collector::TypeCollector, type_resolver,
 };
 
-#[derive(Clone)]
-struct VarStorage(Vec<Rc<VariableDeclaration>>);
-
-pub struct FunctionParser<'ns, 'tc> {
-    pub root_namespace: &'ns Namespace,
-    pub function_collector: FunctionCollector<'tc>,
-    pub type_collector: &'tc TypeCollector,
-    pub functions: HashMap<NumericFunctionIdentifier, FunctionDeclaration>,
+struct Var {
+    rc: Rc<VariableDeclaration>,
+    used: bool,
 }
+
+struct VarStorage(Vec<Var>);
 
 impl VarStorage {
     pub fn new() -> VarStorage {
         VarStorage(Vec::new())
     }
 
-    pub fn get(&self, identifier: &str) -> Option<&Rc<VariableDeclaration>> {
+    pub fn from(other: &VarStorage) -> VarStorage {
+        VarStorage(other.0.iter().map(|v| Var{rc: v.rc.clone(), used: false}).collect())
+    }
+
+    pub fn use_var(&mut self, identifier: &str) -> Option<Rc<VariableDeclaration>> {
         let VarStorage(vec) = self;
 
-        for var in vec {
-            if var.name.as_ref() == identifier {
-                return Some(&var);
-            }
-        }
+        vec.iter()
+            .find(|var| var.rc.name.as_ref() == identifier)
+            .map(|v| v.rc.clone())
+    }
 
-        None
+    pub fn get_unused_vars(&self) -> Vec<Rc<VariableDeclaration>> {
+        let VarStorage(vec) = self;
+
+        vec.iter()
+            .filter(|v| !v.used)
+            .map(|v| v.rc.clone())
+            .collect()
+    }
+
+    pub fn get_used_vars(&self) -> Vec<Rc<VariableDeclaration>> {
+        let VarStorage(vec) = self;
+
+        vec.iter()
+            .filter(|v| v.used)
+            .map(|v| v.rc.clone())
+            .collect()
     }
 
     pub fn insert(&mut self, var: Rc<VariableDeclaration>) -> SimpleResult<()> {
-        if matches!(self.get(&var.name), None) {
+        if matches!(self.use_var(&var.name), None) {
             return Err(SimpleError::new(format!(
                 "Variable {} already exists",
                 var.name
@@ -44,16 +59,34 @@ impl VarStorage {
         }
 
         let VarStorage(vec) = self;
-        vec.push(var);
+        vec.push(Var {
+            rc: var,
+            used: false,
+        });
 
         Ok(())
     }
 
-    pub fn expect(&self, identifier: &str) -> SimpleResult<Rc<VariableDeclaration>> {
-        self.get(identifier)
-            .map(Rc::clone)
-            .ok_or_else(|| SimpleError::new(format!("expected identifier {identifier}")))
+    pub fn insert_from_param(&mut self, param: &Parameter) {
+        self.insert(Rc::from(VariableDeclaration {
+            var_type: param.par_type.to_owned(),
+            name: param.identifier().to_owned(),
+        }));
     }
+    
+    fn contains(&self, var: &VariableDeclaration) -> bool {
+        let VarStorage(vec) = self;
+
+        vec.iter()
+            .any(|inner| inner.rc.name == var.name)
+    }
+}
+
+pub struct FunctionParser<'ns, 'tc> {
+    pub root_namespace: &'ns Namespace,
+    pub function_collector: FunctionCollector<'tc>,
+    pub type_collector: &'tc TypeCollector,
+    pub functions: HashMap<NumericFunctionIdentifier, FunctionDeclaration>,
 }
 
 impl FunctionParser<'_, '_> {
@@ -74,9 +107,9 @@ impl FunctionParser<'_, '_> {
     // function_block          = statement, { statement_separator, [ statement ] }
     pub fn read_function_block(
         &self,
-        node: &RuleNode<'_, '_>,
+        node: &RuleNode,
         this_scope: &Namespace,
-        mut variables: VarStorage,
+        mut variables: &mut VarStorage,
     ) -> SimpleResult<FunctionBody> {
         let mut statements = Vec::new();
 
@@ -93,12 +126,21 @@ impl FunctionParser<'_, '_> {
                         "Function ended with an assignment, but no semicolon. This implied that we should return the result of the assignment, but that is always void",
                     ));
                 }
+                let last_expression_type = last_mutation.get_result_type(&self.functions);
 
-                let return_var = match variables.get("return") {
-                    Some(var) => var.to_owned(),
+                let return_var = match variables.use_var("return") {
+                    Some(var) => {
+                        if var.var_type != last_expression_type {
+                            return Err(SimpleError::new(format!(
+                                "Expected type {:?} but found type {:?}",
+                                var.var_type, last_expression_type
+                            )));
+                        }
+                        var
+                    },
                     None => {
                         let return_var = Rc::from(VariableDeclaration {
-                            var_type: last_mutation.get_type(&self.functions),
+                            var_type: last_expression_type,
                             name: Identifier::from("return"),
                         });
                         variables.insert(return_var.clone());
@@ -116,40 +158,38 @@ impl FunctionParser<'_, '_> {
 
         Ok(FunctionBody {
             statements,
-            return_var: variables.expect("return")?,
+            return_var: variables.use_var("return").expect("no return var found"),
         })
     }
 
-    pub fn get_function_decl(&self, function_id: u32) -> Option<&FunctionDeclaration> {
-        self
-            .functions
-            .get(&function_id)
-    }
+    
 
     pub fn read_function_body(
         &self,
-        node: &RuleNode<'_, '_>,
+        id: NumericFunctionIdentifier,
+        node: &RuleNode,
         this_scope: &Namespace,
-        parameters: &Vec<Parameter>,
-        return_type: &TypeRef,
     ) -> SimpleResult<FunctionBody> {
         debug_assert_eq!(node.rule_name, "function_block");
+        let function_declaration = self.functions.get(&id).unwrap();
+
         let mut variables = VarStorage::new();
 
-        for param in parameters {
-            variables.insert(Rc::from(VariableDeclaration {
-                var_type: param.par_type.to_owned(),
-                name: param.identifier().to_owned(),
-            }));
+        for param in &function_declaration.parameters {
+            variables.insert_from_param(param);
         }
 
-        let function_block = self.read_function_block(node, this_scope, variables)?;
+        let function_block = self.read_function_block(node, this_scope, &mut variables)?;
 
-        if &function_block.return_var.var_type != return_type {
+        if &function_block.return_var.var_type != &function_declaration.return_type {
             return Err(SimpleError::new(format!(
                 "Expected type {:?} but found type {:?}",
-                function_block.return_var.var_type, return_type
+                function_block.return_var.var_type, &function_declaration.return_type
             )));
+        }
+
+        for unused in variables.get_unused_vars() {
+            println!("WARN: parameter {} of function {} not used", unused.name, function_declaration.name)
         }
 
         Ok(function_block)
@@ -158,7 +198,7 @@ impl FunctionParser<'_, '_> {
     // statement = value_expression, { { operator }, function_expression };
     fn read_statement(
         &self,
-        node: &RuleNode<'_, '_>,
+        node: &RuleNode,
         this_scope: &Namespace,
         variables: &mut VarStorage,
     ) -> SimpleResult<Statement> {
@@ -176,7 +216,7 @@ impl FunctionParser<'_, '_> {
         for mutator_node in &node.sub_rules {
             let mutator =
                 self.read_mutator(mutator_node, expression_type, this_scope, variables)?;
-            expression_type = mutator.get_type(&self.functions);
+            expression_type = mutator.get_result_type(&self.functions);
             mutations.push(mutator);
         }
 
@@ -233,17 +273,37 @@ impl FunctionParser<'_, '_> {
         } else {
             let function_node = super_node.find_node("function_expression");
             if let Some(expr_node) = function_node {
-                let expr = if let TypeRef::Function(fn_type) = target_type {
-                    self.read_function_expression(
+                if let TypeRef::Function(fn_type) = target_type {
+                    let expr = self.read_function_expression(
                         expr_node,
                         &fn_type.parameters,
                         this_scope,
                         variables,
-                    )?
+                    )?;
+
+                    let expr_result_type = expr.get_result_type(&self.functions);
+                    if fn_type.return_type.as_ref() != &expr_result_type {
+                        return Err(SimpleError::new(format!(
+                            "Expected type {:?} but found type {:?}",
+                            target_type,
+                            expr_result_type
+                        )));
+                    }
+                    return Ok(Expression::Functional(expr));
+
                 } else {
-                    self.read_function_expression(expr_node, &Vec::new(), this_scope, variables)?
+                    let expr = self.read_function_expression(expr_node, &Vec::new(), this_scope, variables)?;
+                    
+                    let expr_result_type = expr.get_result_type(&self.functions);
+                    if target_type != &expr_result_type {
+                        return Err(SimpleError::new(format!(
+                            "Expected type {:?} but found type {:?}",
+                            target_type,
+                            expr_result_type
+                        )));
+                    }
+                    return Ok(Expression::Functional(expr));
                 };
-                return Ok(Expression::Functional(expr));
             } else {
                 return Err(SimpleError::new(
                     "Expected value_expression or function_expression",
@@ -256,14 +316,17 @@ impl FunctionParser<'_, '_> {
     // _literal = string_literal | integer_literal | dollar_string_literal | raw_string_literal;
     fn read_value_expression(
         &self,
-        node: &RuleNode<'_, '_>,
+        node: &RuleNode,
         this_scope: &Namespace,
         variables: &mut VarStorage,
     ) -> SimpleResult<ValueExpression> {
         debug_assert!(node.rule_name == "value_expression");
         match node.rule_name {
             "variable_name" => {
-                let variable = variables.expect(&node.tokens_as_string())?;
+                let var_name = node.tokens_as_string();
+                let variable = variables
+                    .use_var(&var_name)
+                    .ok_or_else(|| SimpleError::new(format!("variable {var_name} not found")))?;
                 Ok(ValueExpression::Variable(variable))
             },
             "tuple_construction" => {
@@ -304,7 +367,7 @@ impl FunctionParser<'_, '_> {
     // function_expression = implicit_par_lambda | explicit_par_lambda | function_call | mutator_cast | mutator_assign;
     fn read_function_expression(
         &self,
-        node: &RuleNode<'_, '_>,
+        node: &RuleNode,
         // what kind of arguments do we expect this function expression to accept?
         argument_types: &Vec<TypeRef>,
         this_scope: &Namespace,
@@ -375,24 +438,31 @@ impl FunctionParser<'_, '_> {
             )));
         }
 
-        let mut parameters = VarStorage::new();
+        let mut inner_variables = VarStorage::from(outer_variables);
 
         for (t, n) in argument_types.iter().zip(untyped_parameter_list.iter()) {
-            parameters.insert(Rc::from(VariableDeclaration {
+            inner_variables.insert(Rc::from(VariableDeclaration {
                 var_type: t.to_owned(),
                 name: n.to_owned(),
             }))?;
         }
 
-        let function_block = self.read_function_block(function_node, this_scope, parameters)?;
+        let function_block = self.read_function_block(function_node, this_scope, &mut inner_variables)?;
 
         // check return type if possible
         self.check_type_node(return_type_node, &function_block.return_var.var_type)?;
+        
+        let mut capture = Vec::new();
+        for var in inner_variables.get_used_vars() {
+            if outer_variables.contains(&var) {
+                capture.push(var)
+            }
+        }
 
         Ok(FunctionExpression::Lamda(Lamda {
             parameters: untyped_parameter_list,
             body: function_block,
-            capture: vec![], // TODO captures
+            capture, 
         }))
     }
 
@@ -414,21 +484,21 @@ impl FunctionParser<'_, '_> {
             var_type: argument_type.clone(),
         });
 
-        let mut variables = VarStorage::new();
-        variables.insert(implicit_par.clone());
+        let mut inner_variables = VarStorage::from(outer_variables);
+        inner_variables.insert(implicit_par.clone());
 
         // handle the first statement separately
         let mut expression_type = argument_type.clone();
         let mut mutations = Vec::new();
         for mutator_node in &node.sub_rules {
             let mutator =
-                self.read_mutator(mutator_node, expression_type, this_scope, &mut variables)?;
-            expression_type = mutator.get_type(&self.functions);
+                self.read_mutator(mutator_node, expression_type, this_scope, &mut inner_variables)?;
+            expression_type = mutator.get_result_type(&self.functions);
             mutations.push(mutator);
         }
 
         // this works because the first part contains no "statement" nodes
-        let mut function_block = self.read_function_block(node, this_scope, variables)?;
+        let mut function_block = self.read_function_block(node, this_scope, &mut inner_variables)?;
         // now add the first statement
         function_block.statements.insert(
             0,
@@ -438,10 +508,17 @@ impl FunctionParser<'_, '_> {
             },
         );
 
+        let mut capture = Vec::new();
+        for var in inner_variables.get_used_vars() {
+            if outer_variables.contains(&var) {
+                capture.push(var)
+            }
+        }
+
         Ok(FunctionExpression::Lamda(Lamda {
             parameters: vec![implicit_par_name],
             body: function_block,
-            capture: vec![], // TODO captures
+            capture,
         }))
     }
 
@@ -467,7 +544,7 @@ impl FunctionParser<'_, '_> {
     // function_call           = function_name, "(", [ _argument_list ], ")";
     fn read_function_call(
         &self,
-        node: &RuleNode<'_, '_>,
+        node: &RuleNode,
         this_scope: &Namespace,
         variables: &mut VarStorage,
     ) -> SimpleResult<FunctionCall> {
@@ -489,7 +566,10 @@ impl FunctionParser<'_, '_> {
             this_scope,
         )?;
 
-        let function_decl = self.get_function_decl(function_id)
+        let function_decl = {
+            let this = &self;
+            this.functions.get(&function_id)
+        }
             .expect("function id exist, but function is not found");
 
         let argument_nodes = node.find_nodes("argument");
@@ -501,7 +581,7 @@ impl FunctionParser<'_, '_> {
             arguments,
         })
     }
-    
+
     // if successful, returns the arguments, where the indices map to function_decl.parameters
     fn read_arguments(
         &self,
@@ -535,7 +615,7 @@ impl FunctionParser<'_, '_> {
     // returns (index of parameter in remaining_parameters where this arg binds to, Expression of the argument)
     fn read_argument(
         &self,
-        node: &RuleNode<'_, '_>,
+        node: &RuleNode,
         remaining_parameters: &Vec<Parameter>,
         this_scope: &Namespace,
         variables: &mut VarStorage,
@@ -607,7 +687,7 @@ impl FunctionParser<'_, '_> {
     }
 }
 
-fn extract_string(expression_node: &RuleNode<'_, '_>) -> Rc<str> {
+fn extract_string(expression_node: &RuleNode) -> Rc<str> {
     let string = expression_node.tokens_as_string();
     // remove quotation marks
     Rc::from(&string[1..string.len() - 1])
