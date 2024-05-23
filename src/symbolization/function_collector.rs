@@ -48,21 +48,6 @@ impl<'a> FunctionCollector<'a> {
         }
     }
 
-    pub fn create_lamda(
-        &self,
-        parameters: Vec<Parameter>,
-        return_type: TypeRef,
-    ) -> FunctionDeclaration {
-        let id = self.new_id();
-        FunctionDeclaration {
-            id,
-            name: Identifier::from(format!("lamda {id}")),
-            parameters,
-            return_type: return_type,
-            is_external: true,
-        }
-    }
-
     pub fn read_function_declarations(
         &mut self,
         node: &RuleNode<'_, '_>,
@@ -150,7 +135,7 @@ impl<'a> FunctionCollector<'a> {
         debug_assert_eq!(node.rule_name, "untyped_parameter_list");
 
         let mut parameters = Vec::new();
-        for parameter_node in node.sub_rules {
+        for parameter_node in &node.sub_rules {
             let name_node = parameter_node.expect_node("identifier")?;
             parameters.push(name_node.as_identifier())
         }

@@ -28,6 +28,7 @@ impl FunctionExpression {
                 .map(|f| f.return_type.clone())
                 .unwrap_or(TypeRef::Void), // TODO: unknown function: is this an error?
             FunctionExpression::Assignment(_) => TypeRef::Void,
+            FunctionExpression::Lamda(lamda) => lamda.body.return_var.var_type.clone(),
         }
     }
 }
@@ -40,6 +41,7 @@ impl ValueExpression {
             },
             ValueExpression::Literal(Literal::String(_)) => TypeRef::STRING.clone(),
             ValueExpression::Literal(Literal::Number(_)) => TypeRef::NUMBER.clone(),
+            ValueExpression::Literal(Literal::Boolean(_)) => TypeRef::BOOLEAN.clone(),
             ValueExpression::Variable(var) => var.var_type.clone(),
         }
     }
@@ -97,6 +99,6 @@ impl Parameter {
     }
 
     pub fn identifier(&self) -> &Identifier {
-        &self.long_name.or(self.short_name).unwrap()
+        self.long_name.as_ref().or(self.short_name.as_ref()).expect("Parameters always have either a long name or a short name")
     }
 }

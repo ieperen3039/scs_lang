@@ -147,6 +147,7 @@ pub enum Literal {
 #[derive(Clone)]
 pub enum FunctionExpression {
     FunctionCall(FunctionCall),
+    Lamda(Lamda),
     Assignment(Rc<VariableDeclaration>),
 }
 
@@ -157,6 +158,13 @@ pub struct FunctionCall {
     // (the argument vector and parameter vector should have the same len)
     // Option::None indicates that this is itself a fn expression accepting all missing arguments in order
     pub arguments: Vec<Option<Expression>>,
+}
+
+#[derive(Clone)]
+pub struct Lamda {
+    pub parameters: Vec<Rc<str>>,
+    pub body: FunctionBody,
+    pub capture: Vec<VariableDeclaration>,
 }
 
 impl PartialEq for TypeDefinition {

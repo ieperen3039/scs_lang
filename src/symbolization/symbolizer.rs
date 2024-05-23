@@ -1,12 +1,13 @@
 use std::{rc::Rc, collections::HashMap};
 
+use clap::Id;
 use simple_error::{SimpleError, SimpleResult};
 
 use crate::{
     parsing::rule_nodes::RuleNode,
     symbolization::{
-        ast::{Namespace, VariableDeclaration, Identifier, self}, function_collector::FunctionCollector, function_parser::FunctionParser,
-        type_collector::{TypeCollector, Definition}, type_resolver,
+        ast::{self, Identifier, Namespace, NumericFunctionIdentifier, VariableDeclaration}, function_collector::FunctionCollector, function_parser::FunctionParser,
+        type_collector::{Definition, TypeCollector}, type_resolver,
     },
 };
 
@@ -69,28 +70,32 @@ pub fn parse_symbols(
         functions.extend(new_functions);
     }
     
-    let function_declarations = functions.into_iter().map(|f| (f.id, f)).collect();
+    let function_declarations: HashMap<NumericFunctionIdentifier, ast::FunctionDeclaration> = functions.into_iter().map(|f| (f.id, f)).collect();
+    
+    let function_map : HashMap<Identifier, NumericFunctionIdentifier> = function_declarations.iter().map(|(id, decl)| (decl.name.clone(), id.to_owned())).collect();
 
-    let mut function_parser = FunctionParser::new(
+    let function_parser = FunctionParser::new(
         &root_scope,
         function_declarations,
         function_collector,
         type_collector,
     );
 
-    let mut function_definitions: HashMap<u32, ast::FunctionBody> = HashMap::new();
+    let mut function_definitions: HashMap<NumericFunctionIdentifier, ast::FunctionBody> = HashMap::new();
 
     // parse functions bodies
     for node in &tree.sub_rules {
         match node.rule_name {
             "function_definition" => {
-                let decl = function_collector.read_function_declaration(&node)?;
+                let function_name = node.expect_node("function_name")?;
+                let id = function_map.get(&function_name.as_identifier()).unwrap();
+                let decl = function_parser.get_function_decl(*id).unwrap();
 
                 let function_body = function_parser.read_function_body(
                     &node,
                     function_parser.root_namespace,
                     &decl.parameters,
-                    Rc::from(VariableDeclaration{ var_type: decl.return_type, name: Identifier::from("return") }),
+                    &decl.return_type,
                 )?;
 
                 function_definitions.insert(decl.id, function_body);

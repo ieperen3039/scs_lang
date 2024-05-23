@@ -21,14 +21,14 @@ impl Interpreter {
         Interpreter { program }
     }
 
-    pub fn execute_by_name(&mut self, function: &str) -> InterpResult<String> {
+    pub fn execute_by_name(&self, function: &str) -> InterpResult<String> {
         let to_execute = self.resolve_function(function)?;
         let result = self.evaluate_fn_body(to_execute)?;
 
         return Ok(format!("{:?}", result));
     }
 
-    pub fn evaluate_fn_body(&mut self, target: &FunctionBody) -> InterpResult<Value> {
+    pub fn evaluate_fn_body(&self, target: &FunctionBody) -> InterpResult<Value> {
         let mut value = Value::Nothing;
         let mut stack = StackFrame::new();
 
@@ -58,7 +58,7 @@ impl Interpreter {
     }
 
     fn evaluate_value_expression(
-        &mut self,
+        &self,
         expr: &ast::ValueExpression,
         stack: &mut StackFrame,
     ) -> InterpResult<Value> {
@@ -71,7 +71,7 @@ impl Interpreter {
                 Ok(Value::Tuple(tuple_values))
             },
             ast::ValueExpression::Literal(ast::Literal::Number(lit)) => Ok(Value::Int(*lit)),
-            ast::ValueExpression::Literal(ast::Literal::String(lit)) => Ok(Value::String(*lit)),
+            ast::ValueExpression::Literal(ast::Literal::String(lit)) => Ok(Value::String(lit.clone())),
             ast::ValueExpression::Literal(ast::Literal::Boolean(lit)) => Ok(Value::Boolean(*lit)),
             ast::ValueExpression::Variable(var) => stack
                 .resolve_variable(&var.name)
