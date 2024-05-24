@@ -31,7 +31,7 @@ fn build_primitive(name: &str, id: u32) -> TypeDefinition {
 }
 pub fn build_derived(
     mut full_name: Vec<&str>,
-    id: NumericTypeIdentifier,
+    id: TypeId,
     base: &TypeRef,
 ) -> TypeDefinition {
     let name = Identifier::from(full_name.pop().unwrap());
@@ -48,14 +48,14 @@ pub fn build_derived(
 }
 
 pub fn build_result(
-    id: NumericTypeIdentifier,
+    id: TypeId,
     type_1: &TypeRef,
     type_2: &TypeRef,
 ) -> TypeDefinition {
     build_variant("result", id, vec![("Pos", type_1), ("Neg", type_2)])
 }
 
-pub fn build_optional(id: NumericTypeIdentifier, opt_type: &TypeRef) -> TypeDefinition {
+pub fn build_optional(id: TypeId, opt_type: &TypeRef) -> TypeDefinition {
     build_variant(
         "optional",
         id,
@@ -65,7 +65,7 @@ pub fn build_optional(id: NumericTypeIdentifier, opt_type: &TypeRef) -> TypeDefi
 
 pub fn build_variant(
     name: &str,
-    id: NumericTypeIdentifier,
+    id: TypeId,
     values: Vec<(&str, &TypeRef)>,
 ) -> TypeDefinition {
     TypeDefinition {

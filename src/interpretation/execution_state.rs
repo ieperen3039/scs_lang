@@ -8,9 +8,9 @@ pub struct StackFrame {
     scope_size: Vec<usize>,
 }
 
+#[derive(Clone)]
 pub struct Variable {
-    pub var_type: TypeRef,
-    pub name: Identifier,
+    pub id: VariableId,
     pub value: Value,
 }
 
@@ -21,15 +21,15 @@ impl Debug for FunctionBody {
 }
 
 impl StackFrame {
-    pub fn new() -> StackFrame {
+    pub fn new(initial_values: Vec<Variable>) -> StackFrame {
         StackFrame {
             data: Vec::new(),
             scope_size: Vec::new(),
         }
     }
 
-    pub fn resolve_variable(&self, name: &str) -> Option<&Variable> {
-        self.get().iter().find(|v| v.name.as_ref() == name)
+    pub fn resolve_variable(&self, id: VariableId) -> Option<&Variable> {
+        self.get().iter().find(|v| v.id == id)
     }
 
     pub fn add_variable(&mut self, var: Variable) {

@@ -10,13 +10,13 @@ use super::{ast::*, parse_result::SemanticResult};
 pub struct FunctionCollector<'tc> {
     next_id: u32,
     pub type_collector: &'tc TypeCollector,
-    pub type_definitions: HashMap<NumericTypeIdentifier, TypeDefinition>,
+    pub type_definitions: HashMap<TypeId, TypeDefinition>,
 }
 
 impl<'a> FunctionCollector<'a> {
     pub fn new(
         type_collector: &'a TypeCollector,
-        type_definitions: HashMap<NumericTypeIdentifier, TypeDefinition>,
+        type_definitions: HashMap<TypeId, TypeDefinition>,
     ) -> Self {
         FunctionCollector {
             next_id: 0,
@@ -112,6 +112,7 @@ impl<'a> FunctionCollector<'a> {
         debug_assert_eq!(node.rule_name, "parameter_list");
         let parameter_nodes = node.find_nodes("parameter");
 
+        let mut next_id = 0;
         let mut parameters = Vec::new();
         for parameter_node in parameter_nodes {
             let type_node = parameter_node.expect_node("type_ref")?;
@@ -122,7 +123,9 @@ impl<'a> FunctionCollector<'a> {
                 par_type: type_name,
                 long_name: Some(name_node.as_identifier()),
                 short_name: None,
-            })
+                id: next_id,
+            });
+            next_id += 1;
         }
 
         Ok(parameters)
@@ -155,7 +158,10 @@ impl<'a> FunctionCollector<'a> {
         let this_scope = super_scope
             .namespaces
             .get(&this_scope_name)
-            .ok_or_else(|| SemanticError::SymbolNotFound{ kind: "scope", symbol: this_scope_name })?;
+            .ok_or_else(|| SemanticError::SymbolNotFound {
+                kind: "scope",
+                symbol: this_scope_name,
+            })?;
 
         let mut scope_function_declarations = Vec::new();
         for node in &node.sub_rules {
@@ -196,7 +202,11 @@ impl<'a> FunctionCollector<'a> {
             .map(RuleNode::as_identifier)?;
 
         let type_id = scope.types.get(&base_type_name).ok_or_else(|| {
-            SemanticError::SymbolNotFoundInScope{ kind: "type", symbol: base_type_name, scope: scope.full_name }
+            SemanticError::SymbolNotFoundInScope {
+                kind: "type",
+                symbol: base_type_name,
+                scope: scope.full_name,
+            }
         })?;
 
         Ok(ImplType {

@@ -1,60 +1,39 @@
-use crate::{
-    interpretation::{execution_state::Variable, meta_structures::*},
-    symbolization::{ast::*, function_collector::FunctionCollector},
-};
+use crate::symbolization::{ast::*, function_collector::FunctionCollector};
 
 pub fn get_functions(collector: &mut FunctionCollector) -> Vec<FunctionDeclaration> {
     vec![collector.create_external(
         "echo",
         vec![
-            req_par("in", None, &TypeRef::STRING),
-            flag(Some("error"), Some("e")),
+            req_par(0, "in", None, &TypeRef::STRING),
+            flag(1, Some("error"), Some("e")),
         ],
         TypeRef::STRING.clone(),
     )]
 }
 
-fn flag(long_name: Option<&str>, short_name: Option<&str>) -> Parameter {
+fn flag(id: VariableId, long_name: Option<&str>, short_name: Option<&str>) -> Parameter {
     Parameter {
+        id,
         par_type: TypeRef::Flag,
         long_name: long_name.map(Identifier::from),
         short_name: short_name.map(Identifier::from),
     }
 }
 
-fn opt_par(long_name: &str, short_name: Option<&str>, t: &TypeRef) -> Parameter {
+fn opt_par(id: VariableId, long_name: &str, short_name: Option<&str>, t: &TypeRef) -> Parameter {
     Parameter {
+        id,
         par_type: TypeRef::Optional(Box::from(t.clone())),
         long_name: Some(Identifier::from(long_name)),
         short_name: short_name.map(Identifier::from),
     }
 }
 
-fn req_par(long_name: &str, short_name: Option<&str>, t: &TypeRef) -> Parameter {
+fn req_par(id: VariableId, long_name: &str, short_name: Option<&str>, t: &TypeRef) -> Parameter {
     Parameter {
+        id,
         par_type: t.clone(),
         long_name: Some(Identifier::from(long_name)),
         short_name: short_name.map(Identifier::from),
-    }
-}
-
-pub fn create_function_variable(
-    decl: FunctionDeclaration,
-    implementation: NativeFunction,
-) -> Variable {
-    let parameters = decl
-        .parameters
-        .iter()
-        .map(Parameter::to_type)
-        .cloned()
-        .collect();
-
-    Variable {
-        name: decl.name,
-        var_type: TypeRef::Function(FunctionType {
-            parameters,
-            return_type: Box::from(decl.return_type),
-        }),
-        value: Value::InternalFunction(implementation),
     }
 }

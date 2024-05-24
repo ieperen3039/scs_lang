@@ -1,6 +1,6 @@
 use crate::{
     interpretation::execution_state::StackFrame,
-    symbolization::ast::{self, FunctionBody, FunctionCall, Identifier, Program},
+    symbolization::ast::{self, FunctionBody, Program},
 };
 
 use super::{execution_state::Variable, meta_structures::*};
@@ -16,14 +16,14 @@ impl Interpreter {
 
     pub fn execute_by_name(&self, function: &str) -> InterpResult<String> {
         let to_execute = self.resolve_function(function)?;
-        let result = self.evaluate_fn_body(to_execute)?;
+        let result = self.evaluate_fn_body(to_execute, Vec::new())?;
 
         return Ok(format!("{:?}", result));
     }
 
-    pub fn evaluate_fn_body(&self, target: &FunctionBody) -> InterpResult<Value> {
+    pub fn evaluate_fn_body(&self, target: &FunctionBody, arguments: Vec<Variable>) -> InterpResult<Value> {
         let mut value = Value::Nothing;
-        let mut stack = StackFrame::new();
+        let mut stack = StackFrame::new(arguments);
 
         for stmt in target.statements {
             value = self.evaluate_value_expression(&stmt.base_element, &mut stack)?;
@@ -41,27 +41,47 @@ impl Interpreter {
                             .function_definitions
                             .get(&call.id)
                             .expect("FunctionCall must be valid");
-                        self.evaluate_fn_body(body)?
+
+                        let mut actual_arguments = Vec::new();
+                        let mut var_id = 0;
+                        for ele in call.arguments {
+                            let arg_value = match ele {
+                                Some(expr) => self.evaluate_expression(expr, &mut stack)?,
+                                None => value,
+                            };
+                            actual_arguments.push(Variable{ id: var_id, value: arg_value});
+                            // assume that all parameters have consectutive variable ids starting from 0
+                            var_id += 1;
+                        }
+
+                        self.evaluate_fn_body(body, actual_arguments)?
                     },
                     ast::FunctionExpression::Assignment(var) => {
                         stack.add_variable(Variable {
-                            var_type: var.var_type,
-                            name: var.name,
+                            id: var.id,
                             value,
                         });
                         Value::Nothing
                     },
-                    ast::FunctionExpression::Operator(_) => todo!(),
-                    ast::FunctionExpression::Lamda(_) => todo!(),
+                    ast::FunctionExpression::Operator(id) => todo!(),
+                    ast::FunctionExpression::Lamda(lamda) => {
+                        let mut actual_arguments = Vec::new();
+                        for ele in lamda.capture {
+                            let variable = stack.resolve_variable(ele.id).unwrap();
+                            actual_arguments.push(variable.clone())
+                        }
+
+                        self.evaluate_fn_body(&lamda.body, actual_arguments)?
+                    }
                 }
             }
 
             debug_assert!(matches!(value, Value::Nothing));
         }
 
-        stack.resolve_variable("return")
+        stack.resolve_variable(target.return_var.id)
             .map(|v| v.value)
-            .ok_or_else(|| InterpretationError::SymbolNotFound { kind: "variable", symbol: String::from("return") })
+            .ok_or_else(|| InterpretationError::SymbolNotFound { kind: "variable", symbol: target.return_var.name.to_string() })
     }
 
     fn evaluate_value_expression(
@@ -83,7 +103,7 @@ impl Interpreter {
             },
             ast::ValueExpression::Literal(ast::Literal::Boolean(lit)) => Ok(Value::Boolean(*lit)),
             ast::ValueExpression::Variable(var) => Ok(stack
-                .resolve_variable(&var.name)
+                .resolve_variable(var.id)
                 .map(|v| v.value)
                 // syntactially the variable exists in this scope.
                 // If we do not have a value stored, then the variable is conditionally (not) assigned
@@ -118,5 +138,9 @@ impl Interpreter {
             kind: "function",
             symbol: function_name.to_string(),
         })
+    }
+    
+    fn evaluate_expression(&self, expr: ast::Expression, stack: &mut StackFrame) -> InterpResult<Value> {
+        todo!()
     }
 }

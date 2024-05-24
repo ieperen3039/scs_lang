@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     parsing::rule_nodes::RuleNode,
     symbolization::{
-        ast::{self, Identifier, Namespace, NumericFunctionIdentifier},
+        ast::{self, Identifier, Namespace, FunctionId},
         function_collector::FunctionCollector,
         function_parser::FunctionParser,
         type_collector::{Definition, TypeCollector},
@@ -47,7 +47,7 @@ pub fn parse_symbols(
     // then resolve type cross-references
     let types = type_resolver::resolve_type_definitions(types, external_scope, &proto_scope)?;
 
-    let type_definitions: HashMap<ast::NumericTypeIdentifier, ast::TypeDefinition> =
+    let type_definitions: HashMap<ast::TypeId, ast::TypeDefinition> =
         types.into_iter().map(|t| (t.id, t)).collect();
 
     let mut function_collector = FunctionCollector::new(type_collector, type_definitions.clone());
@@ -66,10 +66,10 @@ pub fn parse_symbols(
         functions.extend(new_functions);
     }
 
-    let function_declarations: HashMap<NumericFunctionIdentifier, ast::FunctionDeclaration> =
+    let function_declarations: HashMap<FunctionId, ast::FunctionDeclaration> =
         functions.into_iter().map(|f| (f.id, f)).collect();
 
-    let function_map: HashMap<Identifier, NumericFunctionIdentifier> = function_declarations
+    let function_map: HashMap<Identifier, FunctionId> = function_declarations
         .iter()
         .map(|(id, decl)| (decl.name.clone(), id.to_owned()))
         .collect();
@@ -81,7 +81,7 @@ pub fn parse_symbols(
         type_collector,
     );
 
-    let mut function_definitions: HashMap<NumericFunctionIdentifier, ast::FunctionBody> =
+    let mut function_definitions: HashMap<FunctionId, ast::FunctionBody> =
         HashMap::new();
 
     // parse functions bodies

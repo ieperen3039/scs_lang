@@ -1,18 +1,19 @@
 use std::{collections::HashMap, hash::Hash, rc::Rc};
 
 pub type Identifier = Rc<str>;
-pub type NumericTypeIdentifier = u32;
-pub type NumericFunctionIdentifier = u32;
+pub type TypeId = u32;
+pub type FunctionId = u32;
+pub type VariableId = u32;
 
 pub struct Program {
     pub namespaces: Namespace,
-    pub type_definitions: HashMap<NumericTypeIdentifier, TypeDefinition>,
-    pub function_definitions: HashMap<NumericFunctionIdentifier, FunctionBody>,
-    pub member_function_definitions: HashMap<ImplType, Vec<NumericFunctionIdentifier>>,
+    pub type_definitions: HashMap<TypeId, TypeDefinition>,
+    pub function_definitions: HashMap<FunctionId, FunctionBody>,
+    pub member_function_definitions: HashMap<ImplType, Vec<FunctionId>>,
 }
 
 pub struct ImplType {
-    pub id: NumericTypeIdentifier,
+    pub id: TypeId,
     pub array_depth: u8,
 }
 
@@ -20,9 +21,9 @@ pub struct ImplType {
 pub struct Namespace {
     pub full_name: Vec<Identifier>,
     pub namespaces: HashMap<Identifier, Namespace>,
-    pub types: HashMap<Identifier, NumericTypeIdentifier>,
+    pub types: HashMap<Identifier, TypeId>,
     // only static functions are defined here
-    pub functions: HashMap<Identifier, NumericFunctionIdentifier>,
+    pub functions: HashMap<Identifier, FunctionId>,
 }
 
 // -- references to types --
@@ -44,7 +45,7 @@ pub enum TypeRef {
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 // could be a base type, but also an enum variant or a named tuple
 pub struct DefinedRef {
-    pub id: NumericTypeIdentifier,
+    pub id: TypeId,
 }
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
@@ -64,7 +65,7 @@ pub struct FunctionType {
 
 #[derive(Debug, Clone)]
 pub struct TypeDefinition {
-    pub id: NumericTypeIdentifier,
+    pub id: TypeId,
     pub name: Identifier,
     pub full_scope: Vec<Identifier>,
     pub type_class: TypeClass,
@@ -88,6 +89,7 @@ pub struct VariantValue {
 
 #[derive(Debug, Clone)]
 pub struct Parameter {
+    pub id: VariableId,
     pub par_type: TypeRef,
     pub long_name: Option<Identifier>,
     pub short_name: Option<Identifier>,
@@ -95,7 +97,7 @@ pub struct Parameter {
 
 #[derive(Clone)]
 pub struct FunctionDeclaration {
-    pub id: NumericFunctionIdentifier,
+    pub id: FunctionId,
     pub name: Identifier,
     pub parameters: Vec<Parameter>,
     pub return_type: TypeRef,
@@ -104,12 +106,14 @@ pub struct FunctionDeclaration {
 
 #[derive(Debug, Clone)]
 pub struct VariableDeclaration {
+    pub id: VariableId,
     pub var_type: TypeRef,
     pub name: Identifier,
 }
 
 #[derive(Clone)]
 pub struct FunctionBody {
+    pub parameters: Vec<VariableId>,
     pub statements: Vec<Statement>,
     pub return_var: Rc<VariableDeclaration>,
 }
@@ -147,14 +151,20 @@ pub enum Literal {
 #[derive(Clone)]
 pub enum FunctionExpression {
     FunctionCall(FunctionCall),
-    Operator(NumericFunctionIdentifier),
+    Operator(Operator),
     Lamda(Lamda),
     Assignment(Rc<VariableDeclaration>),
 }
 
 #[derive(Clone)]
+pub struct Operator {
+    pub id: FunctionId, 
+    pub arg: Box<FunctionExpression>
+}
+
+#[derive(Clone)]
 pub struct FunctionCall {
-    pub id: NumericFunctionIdentifier,
+    pub id: FunctionId,
     // indices in this vector correspond to the parameter of the called function
     // (the argument vector and parameter vector should have the same len)
     // Option::None indicates that this is itself a fn expression accepting all missing arguments in order

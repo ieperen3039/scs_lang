@@ -12,15 +12,27 @@ impl TypeRef {
     pub const FLOAT: TypeRef = Self::from(TYPE_ID_FLOAT);
     pub const BOOLEAN: TypeRef = Self::from(TYPE_ID_BOOLEAN);
 
-    pub const fn from(id: NumericTypeIdentifier) -> TypeRef {
+    pub const fn from(id: TypeId) -> TypeRef {
         TypeRef::Defined(DefinedRef { id })
+    }
+
+    pub fn from_fn_decl(fun: &FunctionDeclaration) -> TypeRef {
+        TypeRef::Function(FunctionType {
+            parameters: fun
+                .parameters
+                .iter()
+                .map(Parameter::to_type)
+                .cloned()
+                .collect(),
+            return_type: Box::new(fun.return_type),
+        })
     }
 }
 
 impl FunctionExpression {
     pub fn get_result_type(
         &self,
-        functions: &HashMap<NumericFunctionIdentifier, FunctionDeclaration>,
+        functions: &HashMap<FunctionId, FunctionDeclaration>,
     ) -> TypeRef {
         match &self {
             FunctionExpression::FunctionCall(fc) => functions
@@ -29,8 +41,8 @@ impl FunctionExpression {
                 .expect("Broken function call"), // TODO: unknown function: is this an error?
             FunctionExpression::Assignment(_) => TypeRef::Void,
             FunctionExpression::Lamda(lamda) => lamda.body.return_var.var_type.clone(),
-            FunctionExpression::Operator(id) => functions
-                .get(id)
+            FunctionExpression::Operator(op) => functions
+                .get(&op.id)
                 .map(|f| f.return_type.clone())
                 .expect("Broken function call"), // TODO: unknown function: is this an error?
         }
@@ -92,7 +104,7 @@ impl Namespace {
         new_self
     }
 
-    pub fn get(&self, name: &str) -> Option<&NumericTypeIdentifier> {
+    pub fn get(&self, name: &str) -> Option<&TypeId> {
         self.types.get(name)
     }
 }
@@ -102,7 +114,11 @@ impl Parameter {
         &self.par_type
     }
 
-    pub fn identifier(&self) -> &Identifier {
+    pub fn identifier(&self) -> &VariableId {
+        &self.id
+    }
+
+    pub fn name(&self) -> &Identifier {
         self.long_name
             .as_ref()
             .or(self.short_name.as_ref())

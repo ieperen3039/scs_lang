@@ -4,9 +4,9 @@ use std::collections::HashMap;
 use crate::symbolization::ast::{self, Program};
 
 pub struct GeneratorC {
-    pub type_definitions: HashMap<ast::NumericTypeIdentifier, ast::TypeDefinition>,
-    pub function_definitions: HashMap<ast::NumericFunctionIdentifier, ast::FunctionBody>,
-    pub member_function_definitions: HashMap<ast::ImplType, Vec<ast::NumericFunctionIdentifier>>,
+    pub type_definitions: HashMap<ast::TypeId, ast::TypeDefinition>,
+    pub function_definitions: HashMap<ast::FunctionId, ast::FunctionBody>,
+    pub member_function_definitions: HashMap<ast::ImplType, Vec<ast::FunctionId>>,
 }
 
 // call `write!`, and wrap the error into a SimpleError

@@ -24,7 +24,7 @@ pub fn resolve_type_name(
     type_to_resolve: &UnresolvedName,
     root_scope: &Namespace,
     local_scope: &Namespace,
-) -> SemanticResult<NumericTypeIdentifier> {
+) -> SemanticResult<TypeId> {
     let resolver = TypeResolver {
         external_scope: root_scope,
         root_scope,
@@ -46,7 +46,7 @@ pub fn resolve_function_name<'s>(
     scope: &[Identifier],
     root_scope: &Namespace,
     local_scope: &'s Namespace,
-) -> SemanticResult<NumericFunctionIdentifier> {
+) -> SemanticResult<FunctionId> {
     let resolver = TypeResolver {
         external_scope: root_scope,
         root_scope,

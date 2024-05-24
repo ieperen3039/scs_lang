@@ -15,59 +15,83 @@ struct Var {
     used: bool,
 }
 
-struct VarStorage(Vec<Var>);
+struct VarStorage {
+    data: Vec<Var>,
+    next_var_id: VariableId,
+}
 
 impl VarStorage {
     pub fn new() -> VarStorage {
-        VarStorage(Vec::new())
+        VarStorage {
+            data: Vec::new(),
+            next_var_id: 0,
+        }
     }
 
     pub fn from(other: &VarStorage) -> VarStorage {
-        VarStorage(
-            other
-                .0
+        VarStorage {
+            data: other
+                .data
                 .iter()
                 .map(|v| Var {
                     rc: v.rc.clone(),
                     used: false,
                 })
                 .collect(),
-        )
+            next_var_id: other.next_var_id,
+        }
     }
 
-    pub fn use_var(&mut self, identifier: &str) -> Option<Rc<VariableDeclaration>> {
-        let VarStorage(vec) = self;
-
-        vec.iter()
+    pub fn use_var_by_name(&mut self, identifier: &str) -> Option<Rc<VariableDeclaration>> {
+        self.data
+            .iter()
             .find(|var| var.rc.name.as_ref() == identifier)
             .map(|v| v.rc.clone())
     }
 
-    pub fn get_unused_vars(&self) -> Vec<Rc<VariableDeclaration>> {
-        let VarStorage(vec) = self;
+    pub fn use_var(&mut self, identifier: VariableId) -> Rc<VariableDeclaration> {
+        self.data
+            .iter()
+            .find(|var| var.rc.id == identifier)
+            .expect("ids given to use_var should always exist")
+            .rc
+            .clone()
+    }
 
-        vec.iter()
+    pub fn get_unused_vars(&self) -> Vec<Rc<VariableDeclaration>> {
+        self.data
+            .iter()
             .filter(|v| !v.used)
             .map(|v| v.rc.clone())
             .collect()
     }
 
     pub fn get_used_vars(&self) -> Vec<Rc<VariableDeclaration>> {
-        let VarStorage(vec) = self;
-
-        vec.iter()
+        self.data
+            .iter()
             .filter(|v| v.used)
             .map(|v| v.rc.clone())
             .collect()
     }
 
-    pub fn insert(&mut self, var: Rc<VariableDeclaration>) -> SemanticResult<()> {
-        if matches!(self.use_var(&var.name), None) {
+    pub fn insert(
+        &mut self,
+        name: Identifier,
+        var_type: TypeRef,
+    ) -> SemanticResult<Rc<VariableDeclaration>> {
+        let id = self.next_var_id;
+        self.next_var_id += 1;
+        let var: Rc<VariableDeclaration> = Rc::from(VariableDeclaration { id, var_type, name });
+        self.insert_raw(var.clone())?;
+        Ok(var)
+    }
+
+    pub fn insert_raw(&mut self, var: Rc<VariableDeclaration>) -> SemanticResult<()> {
+        if self.contains(&var) {
             return Err(SemanticError::VariableExists { name: var.name });
         }
 
-        let VarStorage(vec) = self;
-        vec.push(Var {
+        self.data.push(Var {
             rc: var,
             used: false,
         });
@@ -76,16 +100,16 @@ impl VarStorage {
     }
 
     pub fn insert_from_param(&mut self, param: &Parameter) {
-        self.insert(Rc::from(VariableDeclaration {
+        self.insert_raw(Rc::from(VariableDeclaration {
             var_type: param.par_type.to_owned(),
-            name: param.identifier().to_owned(),
+            name: param.name().to_owned(),
+            id: param.id,
         }));
     }
 
     fn contains(&self, var: &VariableDeclaration) -> bool {
-        let VarStorage(vec) = self;
-
-        vec.iter().any(|inner| inner.rc.name == var.name)
+        // TODO shadowing
+        self.data.iter().any(|inner| inner.rc.name == var.name)
     }
 }
 
@@ -93,13 +117,13 @@ pub struct FunctionParser<'ns, 'tc> {
     pub root_namespace: &'ns Namespace,
     pub function_collector: FunctionCollector<'tc>,
     pub type_collector: &'tc TypeCollector,
-    pub functions: HashMap<NumericFunctionIdentifier, FunctionDeclaration>,
+    pub functions: HashMap<FunctionId, FunctionDeclaration>,
 }
 
 impl FunctionParser<'_, '_> {
     pub fn new<'ns, 'tc>(
         root_namespace: &'ns Namespace,
-        functions: HashMap<NumericFunctionIdentifier, FunctionDeclaration>,
+        functions: HashMap<FunctionId, FunctionDeclaration>,
         function_collector: FunctionCollector<'tc>,
         type_collector: &'tc TypeCollector,
     ) -> FunctionParser<'ns, 'tc> {
@@ -118,6 +142,8 @@ impl FunctionParser<'_, '_> {
         this_scope: &Namespace,
         mut variables: &mut VarStorage,
     ) -> SemanticResult<FunctionBody> {
+        let parameters = variables.data.iter().map(|v| v.rc.id).collect();
+
         let mut statements = Vec::new();
 
         for ele in node.sub_rules.chunks(2) {
@@ -135,7 +161,7 @@ impl FunctionParser<'_, '_> {
                 }
                 let last_expression_type = last_mutation.get_result_type(&self.functions);
 
-                let return_var = match variables.use_var("return") {
+                let return_var = match variables.use_var_by_name("return") {
                     Some(var) => {
                         if var.var_type != last_expression_type {
                             return Err(SemanticError::TypeMismatchError {
@@ -145,14 +171,7 @@ impl FunctionParser<'_, '_> {
                         }
                         var
                     },
-                    None => {
-                        let return_var = Rc::from(VariableDeclaration {
-                            var_type: last_expression_type,
-                            name: Identifier::from("return"),
-                        });
-                        variables.insert(return_var.clone());
-                        return_var
-                    },
+                    None => variables.insert(Identifier::from("return"), last_expression_type)?,
                 };
 
                 statement
@@ -165,13 +184,16 @@ impl FunctionParser<'_, '_> {
 
         Ok(FunctionBody {
             statements,
-            return_var: variables.use_var("return").expect("no return var found"),
+            return_var: variables
+                .use_var_by_name("return")
+                .expect("no return var found"),
+            parameters,
         })
     }
 
     pub fn read_function_body(
         &self,
-        id: NumericFunctionIdentifier,
+        id: FunctionId,
         node: &RuleNode,
         this_scope: &Namespace,
     ) -> SemanticResult<FunctionBody> {
@@ -213,15 +235,20 @@ impl FunctionParser<'_, '_> {
         debug_assert_eq!(node.rule_name, "statement");
 
         let expression_node = node.expect_node("value_expression")?;
-
         let expression = self.read_value_expression(expression_node, this_scope, variables)?;
-
         let mut expression_type = expression.get_type();
 
         let mut mutations = Vec::new();
-        for mutator_node in &node.sub_rules {
-            let mutator =
-                self.read_mutator(mutator_node, expression_type, this_scope, variables)?;
+        let mut mutator_iter: std::slice::Iter<RuleNode> = node.sub_rules.iter();
+
+        while let Some(mutator_node) = mutator_iter.next() {
+            let mutator = self.read_mutator(
+                mutator_node,
+                &mut mutator_iter,
+                expression_type,
+                this_scope,
+                variables,
+            )?;
             expression_type = mutator.get_result_type(&self.functions);
             mutations.push(mutator);
         }
@@ -235,6 +262,7 @@ impl FunctionParser<'_, '_> {
     fn read_mutator(
         &self,
         mutator_node: &RuleNode,
+        mutator_iter: &mut std::slice::Iter<RuleNode>,
         expression_type: TypeRef,
         this_scope: &Namespace,
         variables: &mut VarStorage,
@@ -250,7 +278,31 @@ impl FunctionParser<'_, '_> {
                         kind: "operator",
                         symbol: operator_str,
                     })?;
-                Ok(FunctionExpression::Operator(*function_id))
+
+                let inner_type = self
+                    .functions
+                    .get(function_id)
+                    .map(|f| TypeRef::from_fn_decl(&f))
+                    .expect("Broken function call");
+
+                let inner_expression = self.read_mutator(
+                    mutator_node,
+                    mutator_iter,
+                    inner_type,
+                    this_scope,
+                    variables,
+                )?;
+
+                if let Some(mutator_node) = mutator_iter.next() {
+                    Ok(FunctionExpression::Operator(Operator {
+                        id: *function_id,
+                        arg: Box::new(inner_expression),
+                    }))
+                } else {
+                    Err(SemanticError::NodeNotFound {
+                        expected: "function_expression",
+                    })
+                }
             },
             "function_expression" => self.read_function_expression(
                 mutator_node,
@@ -342,13 +394,12 @@ impl FunctionParser<'_, '_> {
         match node.rule_name {
             "variable_name" => {
                 let var_name = node.as_identifier();
-                let variable =
-                    variables
-                        .use_var(&var_name)
-                        .ok_or_else(|| SemanticError::SymbolNotFound {
-                            kind: "variable",
-                            symbol: var_name,
-                        })?;
+                let variable = variables.use_var_by_name(&var_name).ok_or_else(|| {
+                    SemanticError::SymbolNotFound {
+                        kind: "variable",
+                        symbol: var_name,
+                    }
+                })?;
                 Ok(ValueExpression::Variable(variable))
             },
             "tuple_construction" => {
@@ -469,10 +520,7 @@ impl FunctionParser<'_, '_> {
         let mut inner_variables = VarStorage::from(outer_variables);
 
         for (t, n) in argument_types.iter().zip(untyped_parameter_list.iter()) {
-            inner_variables.insert(Rc::from(VariableDeclaration {
-                var_type: t.to_owned(),
-                name: n.to_owned(),
-            }))?;
+            inner_variables.insert(n.to_owned(), t.to_owned())?;
         }
 
         let function_block =
@@ -507,21 +555,20 @@ impl FunctionParser<'_, '_> {
     ) -> SemanticResult<FunctionExpression> {
         debug_assert!(node.rule_name == "implicit_par_lambda");
 
-        let implicit_par_name = Identifier::from("__implicit");
-        let implicit_par = Rc::from(VariableDeclaration {
-            name: implicit_par_name.clone(),
-            var_type: argument_type.clone(),
-        });
-
         let mut inner_variables = VarStorage::from(outer_variables);
-        inner_variables.insert(implicit_par.clone());
+
+        let implicit_par_name = Identifier::from("__implicit");
+        let implicit_par = inner_variables.insert(implicit_par_name.clone(), argument_type.clone())?;
 
         // handle the first statement separately
         let mut expression_type = argument_type.clone();
         let mut mutations = Vec::new();
-        for mutator_node in &node.sub_rules {
+        let mut mutator_iter: std::slice::Iter<RuleNode> = node.sub_rules.iter();
+
+        while let Some(mutator_node) = mutator_iter.next() {
             let mutator = self.read_mutator(
                 mutator_node,
+                &mut mutator_iter,
                 expression_type,
                 this_scope,
                 &mut inner_variables,
@@ -639,7 +686,7 @@ impl FunctionParser<'_, '_> {
                 this_scope,
                 variables,
             )?;
-            remaining_parameters.remove(par_idx);
+            let target_par = remaining_parameters.remove(par_idx);
             let target_idx = indices.remove(par_idx);
 
             arguments[target_idx] = Some(expr);
