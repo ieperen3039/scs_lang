@@ -1,9 +1,6 @@
 use std::hash::Hash;
 
-use simple_error::{SimpleError, SimpleResult};
-
-use crate::symbolization::ast::Identifier;
-
+use crate::symbolization::{ast::Identifier, parse_result::{SemanticError, SemanticResult}};
 use super::token::Token;
 
 // the entire resulting syntax tree consists of these nodes
@@ -107,9 +104,9 @@ impl<'prog, 'bnf> RuleNode<'prog, 'bnf> {
         true
     }
 
-    pub fn expect_node<'r>(&'r self, expected: &str) -> SimpleResult<&'r RuleNode> {
+    pub fn expect_node<'r>(&'r self, expected: &str) -> SemanticResult<&'r RuleNode> {
         self.find_node(expected)
-            .ok_or_else(|| SimpleError::new(format!("Expected a {expected}")))
+            .ok_or_else(|| SemanticError::NodeNotFound { expected })
     }
 
     pub fn find_node<'r>(&'r self, expected: &str) -> Option<&'r RuleNode> {

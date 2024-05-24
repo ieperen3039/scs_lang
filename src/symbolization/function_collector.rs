@@ -1,13 +1,11 @@
 use std::collections::HashMap;
 
-use simple_error::{SimpleError, SimpleResult};
-
 use crate::{
     parsing::rule_nodes::RuleNode,
-    symbolization::{ast::Namespace, type_collector::TypeCollector},
+    symbolization::{ast::Namespace, parse_result::SemanticError, type_collector::TypeCollector},
 };
 
-use super::ast::*;
+use super::{ast::*, parse_result::SemanticResult};
 
 pub struct FunctionCollector<'tc> {
     next_id: u32,
@@ -52,7 +50,7 @@ impl<'a> FunctionCollector<'a> {
         &mut self,
         node: &RuleNode<'_, '_>,
         this_scope: &Namespace,
-    ) -> SimpleResult<Vec<FunctionDeclaration>> {
+    ) -> SemanticResult<Vec<FunctionDeclaration>> {
         match node.rule_name {
             "scope" => self.read_scope_functions(node, this_scope),
             "implementation" => {
@@ -73,7 +71,7 @@ impl<'a> FunctionCollector<'a> {
     pub fn read_function_declaration(
         &mut self,
         node: &RuleNode<'_, '_>,
-    ) -> SimpleResult<FunctionDeclaration> {
+    ) -> SemanticResult<FunctionDeclaration> {
         debug_assert_eq!(node.rule_name, "function_definition");
 
         let name_node = node.expect_node("function_name")?;
@@ -110,7 +108,7 @@ impl<'a> FunctionCollector<'a> {
 
     // parameter_list          = { parameter };
     // parameter               = type_ref, identifier;
-    fn read_parameter_list(&self, node: &RuleNode) -> SimpleResult<Vec<Parameter>> {
+    fn read_parameter_list(&self, node: &RuleNode) -> SemanticResult<Vec<Parameter>> {
         debug_assert_eq!(node.rule_name, "parameter_list");
         let parameter_nodes = node.find_nodes("parameter");
 
@@ -131,7 +129,7 @@ impl<'a> FunctionCollector<'a> {
     }
 
     // untyped_parameter_list  = identifier, { ",", identifier };
-    pub fn read_untyped_parameter_list(&self, node: &RuleNode) -> SimpleResult<Vec<Identifier>> {
+    pub fn read_untyped_parameter_list(&self, node: &RuleNode) -> SemanticResult<Vec<Identifier>> {
         debug_assert_eq!(node.rule_name, "untyped_parameter_list");
 
         let mut parameters = Vec::new();
@@ -147,16 +145,17 @@ impl<'a> FunctionCollector<'a> {
         &mut self,
         node: &RuleNode,
         super_scope: &Namespace,
-    ) -> SimpleResult<Vec<FunctionDeclaration>> {
+    ) -> SemanticResult<Vec<FunctionDeclaration>> {
         debug_assert_eq!(node.rule_name, "scope");
 
         let this_scope_name = node
             .expect_node("scope_name")
             .map(RuleNode::as_identifier)?;
+
         let this_scope = super_scope
             .namespaces
             .get(&this_scope_name)
-            .ok_or_else(|| SimpleError::new(format!("Could not find scope {this_scope_name}")))?;
+            .ok_or_else(|| SemanticError::SymbolNotFound{ kind: "scope", symbol: this_scope_name })?;
 
         let mut scope_function_declarations = Vec::new();
         for node in &node.sub_rules {
@@ -172,7 +171,7 @@ impl<'a> FunctionCollector<'a> {
         &mut self,
         node: &RuleNode<'_, '_>,
         scope: &Namespace,
-    ) -> SimpleResult<(ImplType, Vec<FunctionDeclaration>)> {
+    ) -> SemanticResult<(ImplType, Vec<FunctionDeclaration>)> {
         debug_assert_eq!(node.rule_name, "implementation");
         let impl_type = self.read_impl_type_decl(node, scope)?;
 
@@ -189,7 +188,7 @@ impl<'a> FunctionCollector<'a> {
         &self,
         node: &RuleNode<'_, '_>,
         scope: &Namespace,
-    ) -> SimpleResult<ImplType> {
+    ) -> SemanticResult<ImplType> {
         debug_assert_eq!(node.rule_name, "base_type_decl");
 
         let base_type_name = node
@@ -197,10 +196,7 @@ impl<'a> FunctionCollector<'a> {
             .map(RuleNode::as_identifier)?;
 
         let type_id = scope.types.get(&base_type_name).ok_or_else(|| {
-            SimpleError::new(format!(
-                "Could not find '{}' in scope '{:?}'",
-                base_type_name, scope.full_name
-            ))
+            SemanticError::SymbolNotFoundInScope{ kind: "type", symbol: base_type_name, scope: scope.full_name }
         })?;
 
         Ok(ImplType {

@@ -1,12 +1,9 @@
-use std::{collections::HashMap, rc::Rc};
-
-use clap::Id;
-use simple_error::{SimpleError, SimpleResult};
+use std::collections::HashMap;
 
 use crate::{
     parsing::rule_nodes::RuleNode,
     symbolization::{
-        ast::{self, Identifier, Namespace, NumericFunctionIdentifier, VariableDeclaration},
+        ast::{self, Identifier, Namespace, NumericFunctionIdentifier},
         function_collector::FunctionCollector,
         function_parser::FunctionParser,
         type_collector::{Definition, TypeCollector},
@@ -14,11 +11,13 @@ use crate::{
     },
 };
 
+use super::parse_result::SemanticResult;
+
 pub fn parse_symbols(
     tree: RuleNode,
     external_scope: &Namespace,
     type_collector: &mut TypeCollector,
-) -> SimpleResult<ast::Program> {
+) -> SemanticResult<ast::Program> {
     debug_assert_eq!(tree.rule_name, "faux_program");
     // faux_program = [ version_declaration ], { include_declaration }, { _definition }, [ program_interface, function_block ];
     // _definition = constant_def | scope | type_definition | enum_definition | variant_definition | implementation | function_definition;

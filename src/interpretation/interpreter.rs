@@ -1,6 +1,3 @@
-use std::collections::HashMap;
-
-use simple_error::SimpleError;
 
 use crate::{
     interpretation::execution_state::StackFrame,

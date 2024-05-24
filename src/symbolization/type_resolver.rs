@@ -1,8 +1,6 @@
 use std::{borrow::BorrowMut, rc::Rc};
 
-use simple_error::{SimpleError, SimpleResult};
-
-use super::ast::*;
+use super::{ast::*, parse_result::{SemanticError, SemanticResult}};
 
 pub struct TypeResolver<'ext, 'int> {
     pub external_scope: &'ext Namespace,
@@ -13,7 +11,7 @@ pub fn resolve_type_definitions(
     types_to_resolve: Vec<TypeDefinition>,
     external_scope: &Namespace,
     internal_scope: &Namespace,
-) -> SimpleResult<Vec<TypeDefinition>> {
+) -> SemanticResult<Vec<TypeDefinition>> {
     let resolver = TypeResolver {
         external_scope,
         root_scope: internal_scope,
@@ -26,7 +24,7 @@ pub fn resolve_type_name(
     type_to_resolve: &UnresolvedName,
     root_scope: &Namespace,
     local_scope: &Namespace,
-) -> SimpleResult<NumericTypeIdentifier> {
+) -> SemanticResult<NumericTypeIdentifier> {
     let resolver = TypeResolver {
         external_scope: root_scope,
         root_scope,
@@ -39,10 +37,7 @@ pub fn resolve_type_name(
         .get(&type_to_resolve.name)
         .map(u32::clone)
         .ok_or_else(|| {
-            SimpleError::new(format!(
-                "Could not find '{}' in scope '{:?}'",
-                type_to_resolve.name, resolved_scope.full_name
-            ))
+            SemanticError::SymbolNotFoundInScope { kind: "type", symbol: type_to_resolve.name, scope: resolved_scope.full_name }
         })
 }
 
@@ -51,7 +46,7 @@ pub fn resolve_function_name<'s>(
     scope: &[Identifier],
     root_scope: &Namespace,
     local_scope: &'s Namespace,
-) -> SimpleResult<NumericFunctionIdentifier> {
+) -> SemanticResult<NumericFunctionIdentifier> {
     let resolver = TypeResolver {
         external_scope: root_scope,
         root_scope,
@@ -64,10 +59,7 @@ pub fn resolve_function_name<'s>(
         .get(&name)
         .map(u32::clone)
         .ok_or_else(|| {
-            SimpleError::new(format!(
-                "Could not find '{}' in scope '{:?}'",
-                name, resolved_scope.full_name
-            ))
+            SemanticError::SymbolNotFoundInScope { kind: "function", symbol: name, scope: resolved_scope.full_name }
         })
 }
 
@@ -75,7 +67,7 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
     fn resolve_types(
         &self,
         types_to_resolve: Vec<TypeDefinition>,
-    ) -> SimpleResult<Vec<TypeDefinition>> {
+    ) -> SemanticResult<Vec<TypeDefinition>> {
         let mut new_types = Vec::new();
 
         for mut type_def in types_to_resolve {
@@ -91,7 +83,7 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
         &'a self,
         scope_to_resolve: &[Identifier],
         current: &'a Namespace,
-    ) -> SimpleResult<&'a Namespace> {
+    ) -> SemanticResult<&'a Namespace> {
         match scope_to_resolve.first() {
             None => Ok(current),
             Some(first) => {
@@ -105,10 +97,7 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
                 } else if let Some(top_scope) = self.external_scope.namespaces.get(first) {
                     Ok(top_scope)
                 } else {
-                    Err(SimpleError::new(format!(
-                        "Could not find '{}' in scope {:?}, nor in the global scope",
-                        first, current.full_name
-                    )))
+                    Err(SemanticError::SymbolNotFoundInScope { kind: "namespace", symbol: first.clone(), scope: current.full_name })
                 }
             },
         }
@@ -136,17 +125,14 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
         &'a self,
         scope: &[Identifier],
         current: &'a Namespace,
-    ) -> SimpleResult<&'a Namespace> {
+    ) -> SemanticResult<&'a Namespace> {
         match scope.first() {
             None => Ok(current),
             Some(first) => {
                 if let Some(child_scope) = current.namespaces.get(first) {
                     self.resolve_local_scope_reference(&scope[1..], child_scope)
                 } else {
-                    Err(SimpleError::new(format!(
-                        "Could not find '{first}' in scope {:?}",
-                        current.full_name
-                    )))
+                    Err(SemanticError::SymbolNotFoundInScope { kind: "namespace", symbol: first.clone(), scope: current.full_name })
                 }
             },
         }
@@ -156,7 +142,7 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
         &self,
         type_to_resolve: &mut TypeDefinition,
         local_scope: &Namespace,
-    ) -> SimpleResult<()> {
+    ) -> SemanticResult<()> {
         match &mut type_to_resolve.type_class {
             TypeClass::Base { derived: None } => {},
             TypeClass::Enum { .. } => {},
@@ -184,7 +170,7 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
         &self,
         type_to_resolve: &mut TypeRef,
         local_scope: &Namespace,
-    ) -> SimpleResult<()> {
+    ) -> SemanticResult<()> {
         match type_to_resolve {
             TypeRef::UnresolvedName(name_to_resolve) => {
                 let defined_type_ref = self.resolve_defined_name(name_to_resolve, local_scope)?;
@@ -199,16 +185,13 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
         &self,
         type_to_resolve: &UnresolvedName,
         local_scope: &Namespace,
-    ) -> SimpleResult<DefinedRef> {
+    ) -> SemanticResult<DefinedRef> {
         let resolved_scope = self.resolve_scope_reference(&type_to_resolve.scope, local_scope)?;
         let &resolved_type = resolved_scope
             .types
             .get(&type_to_resolve.name)
             .ok_or_else(|| {
-                SimpleError::new(format!(
-                    "Could not find '{}' in scope '{:?}'",
-                    type_to_resolve.name, resolved_scope.full_name
-                ))
+                SemanticError::SymbolNotFoundInScope { kind: "type", symbol: type_to_resolve.name, scope: resolved_scope.full_name }
             })?;
 
         Ok(DefinedRef { id: resolved_type })
