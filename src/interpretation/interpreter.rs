@@ -49,6 +49,8 @@ impl Interpreter {
                         value = Value::Nothing;
                         break;
                     },
+                    ast::FunctionExpression::Operator(_, _) => todo!(),
+                    ast::FunctionExpression::Lamda(_) => todo!(),
                 }
             }
         }

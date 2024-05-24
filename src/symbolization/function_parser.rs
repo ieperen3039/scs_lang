@@ -8,6 +8,16 @@ use super::{
     ast::*, function_collector::FunctionCollector, type_collector::TypeCollector, type_resolver,
 };
 
+enum ParseError {
+    UnexpectedNode{ found: String, expected: &'static str },
+    TypeError { expected: TypeRef, found: TypeRef },
+    ArgumentRequiredError(Parameter),
+    SymbolNotFound { kind: &'static str, symbol: String },
+    InternalError(&'static str),
+}
+
+type ParseResult<T> = Result<T, ParseError>;
+
 struct Var {
     rc: Rc<VariableDeclaration>,
     used: bool,
@@ -235,18 +245,24 @@ impl FunctionParser<'_, '_> {
     ) -> SimpleResult<FunctionExpression> {
         match mutator_node.rule_name {
             "operator" => {
-                todo!();
+                let operator_str = mutator_node.as_identifier();
+                let function_id = self.root_namespace.functions.get(&operator_str)
+                    .ok_or_else(|| SimpleError::new(format!("operator {operator_str} not found")))?;
+                Ok(FunctionExpression::Operator(*function_id))
             },
             "function_expression" => {
-                let mutator = self.read_function_expression(
+                self.read_function_expression(
                     mutator_node,
                     &vec![expression_type],
                     this_scope,
                     variables,
-                )?;
-                Ok(mutator)
+                )
             },
-            _ => todo!(),
+            unknown_rule => {
+                return Err(SimpleError::new(format!(
+                    "node is not a mutator: {unknown_rule}"
+                )))
+            },
         }
     }
 
@@ -527,8 +543,8 @@ impl FunctionParser<'_, '_> {
         type_node: Option<&RuleNode>,
         actual_type: &TypeRef,
     ) -> SimpleResult<()> {
-        if type_node.is_some() {
-            let given_type = self.type_collector.read_type_ref(type_node.unwrap());
+        if let Some(type_node) = type_node {
+            let given_type = self.type_collector.read_type_ref(type_node);
             if let Ok(given_type) = given_type {
                 if *actual_type != given_type {
                     return Err(SimpleError::new(format!(
@@ -600,7 +616,7 @@ impl FunctionParser<'_, '_> {
         for arg_node in argument_nodes {
             let (par_idx, expr) =
                 self.read_argument(arg_node, &remaining_parameters, this_scope, variables)?;
-            let target_par = remaining_parameters.remove(par_idx);
+            remaining_parameters.remove(par_idx);
             let target_idx = indices.remove(par_idx);
 
             arguments[target_idx] = Some(expr);

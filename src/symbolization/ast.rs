@@ -147,6 +147,7 @@ pub enum Literal {
 #[derive(Clone)]
 pub enum FunctionExpression {
     FunctionCall(FunctionCall),
+    Operator(NumericFunctionIdentifier),
     Lamda(Lamda),
     Assignment(Rc<VariableDeclaration>),
 }
