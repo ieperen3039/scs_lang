@@ -1,13 +1,9 @@
-
 use crate::{
     interpretation::execution_state::StackFrame,
     symbolization::ast::{self, FunctionBody, FunctionCall, Identifier, Program},
 };
 
-use super::{
-    execution_state::{ExecutionState, Variable},
-    meta_structures::*,
-};
+use super::{execution_state::Variable, meta_structures::*};
 
 pub struct Interpreter {
     program: Program,
@@ -33,9 +29,19 @@ impl Interpreter {
             value = self.evaluate_value_expression(&stmt.base_element, &mut stack)?;
 
             for expr in stmt.mutations {
-                match expr {
+                if matches!(value, Value::Nothing) {
+                    // the value does not exist, and the expressions that follow are not executed
+                    break;
+                }
+
+                value = match expr {
                     ast::FunctionExpression::FunctionCall(call) => {
-                        value = self.evaluate_function_call(call, value)?
+                        let body = self
+                            .program
+                            .function_definitions
+                            .get(&call.id)
+                            .expect("FunctionCall must be valid");
+                        self.evaluate_fn_body(body)?
                     },
                     ast::FunctionExpression::Assignment(var) => {
                         stack.add_variable(Variable {
@@ -43,17 +49,19 @@ impl Interpreter {
                             name: var.name,
                             value,
                         });
-                        value = Value::Nothing;
-                        break;
+                        Value::Nothing
                     },
-                    ast::FunctionExpression::Operator(_, _) => todo!(),
+                    ast::FunctionExpression::Operator(_) => todo!(),
                     ast::FunctionExpression::Lamda(_) => todo!(),
                 }
             }
+
+            debug_assert!(matches!(value, Value::Nothing));
         }
 
-        todo!("this does not yet follow conditional assignments etc.");
-        Ok(value)
+        stack.resolve_variable("return")
+            .map(|v| v.value)
+            .ok_or_else(|| InterpretationError::SymbolNotFound { kind: "variable", symbol: String::from("return") })
     }
 
     fn evaluate_value_expression(
@@ -70,25 +78,17 @@ impl Interpreter {
                 Ok(Value::Tuple(tuple_values))
             },
             ast::ValueExpression::Literal(ast::Literal::Number(lit)) => Ok(Value::Int(*lit)),
-            ast::ValueExpression::Literal(ast::Literal::String(lit)) => Ok(Value::String(lit.clone())),
+            ast::ValueExpression::Literal(ast::Literal::String(lit)) => {
+                Ok(Value::String(lit.clone()))
+            },
             ast::ValueExpression::Literal(ast::Literal::Boolean(lit)) => Ok(Value::Boolean(*lit)),
-            ast::ValueExpression::Variable(var) => stack
+            ast::ValueExpression::Variable(var) => Ok(stack
                 .resolve_variable(&var.name)
                 .map(|v| v.value)
-                .ok_or_else(|| InterpretationError::SymbolNotFound {
-                    kind: "variable",
-                    symbol: var.name.to_string(),
-                }),
+                // syntactially the variable exists in this scope.
+                // If we do not have a value stored, then the variable is conditionally (not) assigned
+                .unwrap_or(Value::Nothing)),
         }
-    }
-
-    fn evaluate_function_call(
-        &self,
-        call: FunctionCall,
-        input_value: Value,
-    ) -> InterpResult<Value> {
-        todo!()
-        // self.program.function_definitions.get(call.id)
     }
 
     // only used to resolve the function to call, all subsequent functions are already resolved in the parsing stage
@@ -100,7 +100,7 @@ impl Interpreter {
         for ele in full_function_scope {
             target_scope = target_scope.namespaces.get(ele).ok_or_else(|| {
                 InterpretationError::SymbolNotFound {
-                    kind: "scope",
+                    kind: "namespace",
                     symbol: ele.to_string(),
                 }
             })?;

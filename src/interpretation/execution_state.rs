@@ -3,10 +3,6 @@ use std::fmt::Debug;
 
 use super::meta_structures::Value;
 
-pub struct ExecutionState {
-    stack: Vec<StackFrame>,
-}
-
 pub struct StackFrame {
     data: Vec<Variable>,
     scope_size: Vec<usize>,
@@ -21,20 +17,6 @@ pub struct Variable {
 impl Debug for FunctionBody {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FunctionBody").finish()
-    }
-}
-
-impl ExecutionState {
-    pub fn new() -> ExecutionState {
-        ExecutionState { stack: Vec::new() }
-    }
-
-    pub fn resolve_variable(&self, name: &str) -> Option<&Variable> {
-        self.stack.last().unwrap().resolve_variable(name)
-    }
-
-    pub fn get_stack(&mut self) -> &mut StackFrame {
-        self.stack.last_mut().unwrap()
     }
 }
 
