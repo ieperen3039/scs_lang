@@ -3,18 +3,18 @@ use std::{borrow::BorrowMut, rc::Rc};
 use super::{ast::*, semantic_result::{SemanticError, SemanticResult}};
 
 pub struct TypeResolver<'ext, 'int> {
-    pub external_scope: &'ext Namespace,
-    pub root_scope: &'int Namespace,
+    pub external_namespace: &'ext Namespace,
+    pub root_namespace: &'int Namespace,
 }
 
 pub fn resolve_type_definitions(
     types_to_resolve: Vec<TypeDefinition>,
-    external_scope: &Namespace,
-    internal_scope: &Namespace,
+    external_namespace: &Namespace,
+    internal_namespace: &Namespace,
 ) -> SemanticResult<Vec<TypeDefinition>> {
     let resolver = TypeResolver {
-        external_scope,
-        root_scope: internal_scope,
+        external_namespace,
+        root_namespace: internal_namespace,
     };
 
     resolver.resolve_types(types_to_resolve)
@@ -22,44 +22,44 @@ pub fn resolve_type_definitions(
 
 pub fn resolve_type_name(
     type_to_resolve: &UnresolvedName,
-    root_scope: &Namespace,
-    local_scope: &Namespace,
+    root_namespace: &Namespace,
+    local_namespace: &Namespace,
 ) -> SemanticResult<TypeId> {
     let resolver = TypeResolver {
-        external_scope: root_scope,
-        root_scope,
+        external_namespace: root_namespace,
+        root_namespace,
     };
 
-    let resolved_scope = resolver.resolve_scope_reference(&type_to_resolve.scope, local_scope)?;
+    let resolved_namespace = resolver.resolve_namespace_reference(&type_to_resolve.scope, local_namespace)?;
 
-    resolved_scope
+    resolved_namespace
         .types
         .get(&type_to_resolve.name)
         .map(u32::clone)
         .ok_or_else(|| {
-            SemanticError::SymbolNotFoundInScope { kind: "type", symbol: type_to_resolve.name.clone(), scope: resolved_scope.full_name.clone() }
+            SemanticError::SymbolNotFoundInScope { kind: "type", symbol: type_to_resolve.name.clone(), scope: resolved_namespace.full_name.clone() }
         })
 }
 
 pub fn resolve_function_name<'s>(
     name: Identifier,
-    scope: &[Identifier],
-    root_scope: &Namespace,
-    local_scope: &'s Namespace,
+    namespace: &[Identifier],
+    root_namespace: &Namespace,
+    local_namespace: &'s Namespace,
 ) -> SemanticResult<FunctionId> {
     let resolver = TypeResolver {
-        external_scope: root_scope,
-        root_scope,
+        external_namespace: root_namespace,
+        root_namespace,
     };
 
-    let resolved_scope = resolver.resolve_scope_reference(scope, local_scope)?;
+    let resolved_namespace = resolver.resolve_namespace_reference(namespace, local_namespace)?;
 
-    resolved_scope
+    resolved_namespace
         .functions
         .get(&name)
         .map(u32::clone)
         .ok_or_else(|| {
-            SemanticError::SymbolNotFoundInScope { kind: "function", symbol: name, scope: resolved_scope.full_name.clone() }
+            SemanticError::SymbolNotFoundInScope { kind: "function", symbol: name, scope: resolved_namespace.full_name.clone() }
         })
 }
 
@@ -71,31 +71,31 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
         let mut new_types = Vec::new();
 
         for mut type_def in types_to_resolve {
-            // we remove this type from the scope, in order to allow passing the scope to resolve_type
-            self.resolve_type(&mut type_def, self.root_scope)?;
+            // we remove this type from the namespace, in order to allow passing the namespace to resolve_type
+            self.resolve_type(&mut type_def, self.root_namespace)?;
             new_types.push(type_def);
         }
 
         Ok(new_types)
     }
 
-    fn resolve_scope_reference<'a>(
+    fn resolve_namespace_reference<'a>(
         &'a self,
-        scope_to_resolve: &[Identifier],
+        namespace_to_resolve: &[Identifier],
         current: &'a Namespace,
     ) -> SemanticResult<&'a Namespace> {
-        match scope_to_resolve.first() {
+        match namespace_to_resolve.first() {
             None => Ok(current),
             Some(first) => {
-                if let Some(top_scope) = self.root_scope.namespaces.get(first) {
-                    Ok(top_scope)
+                if let Some(top_namespace) = self.root_namespace.namespaces.get(first) {
+                    Ok(top_namespace)
                 } else if current.full_name.contains(first) {
-                    let local_scope = self.resolve_partial_scope_name(current, first);
-                    self.resolve_local_scope_reference(&scope_to_resolve[1..], local_scope)
-                } else if let Some(local_scope) = current.namespaces.get(first) {
-                    self.resolve_local_scope_reference(&scope_to_resolve[1..], local_scope)
-                } else if let Some(top_scope) = self.external_scope.namespaces.get(first) {
-                    Ok(top_scope)
+                    let local_namespace = self.resolve_partial_namespace_name(current, first);
+                    self.resolve_local_namespace_reference(&namespace_to_resolve[1..], local_namespace)
+                } else if let Some(local_namespace) = current.namespaces.get(first) {
+                    self.resolve_local_namespace_reference(&namespace_to_resolve[1..], local_namespace)
+                } else if let Some(top_namespace) = self.external_namespace.namespaces.get(first) {
+                    Ok(top_namespace)
                 } else {
                     Err(SemanticError::SymbolNotFoundInScope { kind: "namespace", symbol: first.clone(), scope: current.full_name.clone() })
                 }
@@ -103,34 +103,34 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
         }
     }
 
-    fn resolve_partial_scope_name(
+    fn resolve_partial_namespace_name(
         &self,
-        scope: &Namespace,
+        namespace: &Namespace,
         first_of_partial: &Rc<str>,
     ) -> &Namespace {
-        let mut local_scope = self.external_scope;
+        let mut local_namespace = self.external_namespace;
 
-        for name in &scope.full_name {
+        for name in &namespace.full_name {
             if name == first_of_partial {
                 break;
             }
 
-            local_scope = local_scope.namespaces.get(name).unwrap();
+            local_namespace = local_namespace.namespaces.get(name).unwrap();
         }
 
-        local_scope
+        local_namespace
     }
 
-    fn resolve_local_scope_reference<'a>(
+    fn resolve_local_namespace_reference<'a>(
         &'a self,
-        scope: &[Identifier],
+        namespace: &[Identifier],
         current: &'a Namespace,
     ) -> SemanticResult<&'a Namespace> {
-        match scope.first() {
+        match namespace.first() {
             None => Ok(current),
             Some(first) => {
-                if let Some(child_scope) = current.namespaces.get(first) {
-                    self.resolve_local_scope_reference(&scope[1..], child_scope)
+                if let Some(child_namespace) = current.namespaces.get(first) {
+                    self.resolve_local_namespace_reference(&namespace[1..], child_namespace)
                 } else {
                     Err(SemanticError::SymbolNotFoundInScope { kind: "namespace", symbol: first.clone(), scope: current.full_name.clone() })
                 }
@@ -141,7 +141,7 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
     fn resolve_type(
         &self,
         type_to_resolve: &mut TypeDefinition,
-        local_scope: &Namespace,
+        local_namespace: &Namespace,
     ) -> SemanticResult<()> {
         match &mut type_to_resolve.type_class {
             TypeClass::Base { derived: None } => {},
@@ -149,16 +149,16 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
             TypeClass::Base {
                 derived: Some(to_resolve),
             } => {
-                self.resolve_type_ref(to_resolve.borrow_mut(), local_scope)?;
+                self.resolve_type_ref(to_resolve.borrow_mut(), local_namespace)?;
             },
             TypeClass::Variant { variants } => {
                 for variant in variants {
-                    self.resolve_type_ref(&mut variant.value_type, local_scope)?;
+                    self.resolve_type_ref(&mut variant.value_type, local_namespace)?;
                 }
             },
             TypeClass::Tuple { elements } => {
                 for elt in elements {
-                    self.resolve_type_ref(elt, local_scope)?;
+                    self.resolve_type_ref(elt, local_namespace)?;
                 }
             },
         }
@@ -169,11 +169,11 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
     fn resolve_type_ref(
         &self,
         type_to_resolve: &mut TypeRef,
-        local_scope: &Namespace,
+        local_namespace: &Namespace,
     ) -> SemanticResult<()> {
         match type_to_resolve {
             TypeRef::UnresolvedName(name_to_resolve) => {
-                let defined_type_ref = self.resolve_defined_name(name_to_resolve, local_scope)?;
+                let defined_type_ref = self.resolve_defined_name(name_to_resolve, local_namespace)?;
                 *type_to_resolve = TypeRef::Defined(defined_type_ref);
             },
             _ => {},
@@ -184,14 +184,14 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
     fn resolve_defined_name(
         &self,
         type_to_resolve: &UnresolvedName,
-        local_scope: &Namespace,
+        local_namespace: &Namespace,
     ) -> SemanticResult<DefinedRef> {
-        let resolved_scope = self.resolve_scope_reference(&type_to_resolve.scope, local_scope)?;
-        let &resolved_type = resolved_scope
+        let resolved_namespace = self.resolve_namespace_reference(&type_to_resolve.scope, local_namespace)?;
+        let &resolved_type = resolved_namespace
             .types
             .get(&type_to_resolve.name)
             .ok_or_else(|| {
-                SemanticError::SymbolNotFoundInScope { kind: "type", symbol: type_to_resolve.name.clone(), scope: resolved_scope.full_name.clone() }
+                SemanticError::SymbolNotFoundInScope { kind: "type", symbol: type_to_resolve.name.clone(), scope: resolved_namespace.full_name.clone() }
             })?;
 
         Ok(DefinedRef { id: resolved_type })

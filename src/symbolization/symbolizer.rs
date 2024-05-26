@@ -15,7 +15,7 @@ use super::semantic_result::SemanticResult;
 
 pub fn parse_symbols(
     tree: RuleNode,
-    external_scope: &Namespace,
+    external_namespace: &Namespace,
     type_collector: &mut TypeCollector,
 ) -> SemanticResult<ast::Program> {
     debug_assert_eq!(tree.rule_name, "faux_program");
@@ -45,14 +45,14 @@ pub fn parse_symbols(
     types.sort_unstable_by_key(|t| t.id);
 
     // then resolve type cross-references
-    let types = type_resolver::resolve_type_definitions(types, external_scope, &proto_scope)?;
+    let types = type_resolver::resolve_type_definitions(types, external_namespace, &proto_scope)?;
 
     let type_definitions: HashMap<ast::TypeId, ast::TypeDefinition> =
         types.into_iter().map(|t| (t.id, t)).collect();
 
     let mut function_collector = FunctionCollector::new(type_collector, type_definitions.clone());
 
-    let mut root_scope = proto_scope.combined_with(external_scope.clone());
+    let mut root_scope = proto_scope.combined_with(external_namespace.clone());
 
     // read function declarations
     for node in &tree.sub_rules {
