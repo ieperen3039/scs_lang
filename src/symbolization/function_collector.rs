@@ -205,7 +205,7 @@ impl<'a> FunctionCollector<'a> {
             SemanticError::SymbolNotFoundInScope {
                 kind: "type",
                 symbol: base_type_name,
-                scope: scope.full_name,
+                scope: scope.full_name.clone(),
             }
         })?;
 

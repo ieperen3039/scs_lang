@@ -83,7 +83,7 @@ impl VarStorage {
 
     pub fn insert_raw(&mut self, var: Rc<VariableDeclaration>) -> SemanticResult<()> {
         if self.contains(&var) {
-            return Err(SemanticError::VariableExists { name: var.name });
+            return Err(SemanticError::VariableExists { name: var.name.clone() });
         }
 
         self.data.push(Var {

@@ -37,7 +37,7 @@ pub fn resolve_type_name(
         .get(&type_to_resolve.name)
         .map(u32::clone)
         .ok_or_else(|| {
-            SemanticError::SymbolNotFoundInScope { kind: "type", symbol: type_to_resolve.name, scope: resolved_scope.full_name }
+            SemanticError::SymbolNotFoundInScope { kind: "type", symbol: type_to_resolve.name.clone(), scope: resolved_scope.full_name.clone() }
         })
 }
 
@@ -59,7 +59,7 @@ pub fn resolve_function_name<'s>(
         .get(&name)
         .map(u32::clone)
         .ok_or_else(|| {
-            SemanticError::SymbolNotFoundInScope { kind: "function", symbol: name, scope: resolved_scope.full_name }
+            SemanticError::SymbolNotFoundInScope { kind: "function", symbol: name, scope: resolved_scope.full_name.clone() }
         })
 }
 
@@ -97,7 +97,7 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
                 } else if let Some(top_scope) = self.external_scope.namespaces.get(first) {
                     Ok(top_scope)
                 } else {
-                    Err(SemanticError::SymbolNotFoundInScope { kind: "namespace", symbol: first.clone(), scope: current.full_name })
+                    Err(SemanticError::SymbolNotFoundInScope { kind: "namespace", symbol: first.clone(), scope: current.full_name.clone() })
                 }
             },
         }
@@ -132,7 +132,7 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
                 if let Some(child_scope) = current.namespaces.get(first) {
                     self.resolve_local_scope_reference(&scope[1..], child_scope)
                 } else {
-                    Err(SemanticError::SymbolNotFoundInScope { kind: "namespace", symbol: first.clone(), scope: current.full_name })
+                    Err(SemanticError::SymbolNotFoundInScope { kind: "namespace", symbol: first.clone(), scope: current.full_name.clone() })
                 }
             },
         }
@@ -191,7 +191,7 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
             .types
             .get(&type_to_resolve.name)
             .ok_or_else(|| {
-                SemanticError::SymbolNotFoundInScope { kind: "type", symbol: type_to_resolve.name, scope: resolved_scope.full_name }
+                SemanticError::SymbolNotFoundInScope { kind: "type", symbol: type_to_resolve.name.clone(), scope: resolved_scope.full_name.clone() }
             })?;
 
         Ok(DefinedRef { id: resolved_type })

@@ -63,7 +63,7 @@ impl FunctionParser<'_, '_> {
                     Some(var) => {
                         if var.var_type != last_expression_type {
                             return Err(SemanticError::TypeMismatchError {
-                                expected: var.var_type,
+                                expected: var.var_type.clone(),
                                 found: last_expression_type,
                             });
                         }
@@ -108,8 +108,8 @@ impl FunctionParser<'_, '_> {
 
         if &function_block.return_var.var_type != &function_declaration.return_type {
             return Err(SemanticError::TypeMismatchError {
-                expected: function_block.return_var.var_type,
-                found: function_declaration.return_type,
+                expected: function_block.return_var.var_type.clone(),
+                found: function_declaration.return_type.clone(),
             });
         }
 

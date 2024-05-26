@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc, result::Result};
+use std::{rc::Rc, result::Result};
 
 use crate::symbolization::ast::*;
 
@@ -21,6 +21,6 @@ pub type NativeFunction = fn(Vec<Value>) -> InterpResult<Value>;
 pub enum InterpretationError {
     TypeError { expected: TypeRef, found: TypeRef },
     ArgumentRequiredError(Parameter),
-    SymbolNotFound { kind: &'static str, symbol: String },
+    SymbolNotFound { kind: &'static str, symbol: Identifier },
     InternalError(&'static str),
 }

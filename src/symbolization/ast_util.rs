@@ -24,7 +24,7 @@ impl TypeRef {
                 .map(Parameter::to_type)
                 .cloned()
                 .collect(),
-            return_type: Box::new(fun.return_type),
+            return_type: Box::new(fun.return_type.clone()),
         })
     }
 }

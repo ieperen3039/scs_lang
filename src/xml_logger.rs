@@ -30,6 +30,6 @@ impl XmlParseLogger {
     }
 
     fn log_push(&mut self, rule: &ebnf_ast::Rule) {
-        self.parse_stack.push(rule.identifier);
+        self.parse_stack.push(rule.identifier.clone());
     }
 }

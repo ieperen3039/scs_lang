@@ -1,6 +1,6 @@
 use crate::{
     interpretation::execution_state::StackFrame,
-    symbolization::ast::{self, FunctionBody, Program},
+    symbolization::ast::{self, FunctionBody, Identifier, Program},
 };
 
 use super::{execution_state::Variable, meta_structures::*};
@@ -22,19 +22,20 @@ impl Interpreter {
     }
 
     pub fn evaluate_fn_body(&self, target: &FunctionBody, arguments: Vec<Variable>) -> InterpResult<Value> {
-        let mut value = Value::Nothing;
         let mut stack = StackFrame::new(arguments);
+        
+        let mut expr_value;
 
-        for stmt in target.statements {
-            value = self.evaluate_value_expression(&stmt.base_element, &mut stack)?;
+        for stmt in &target.statements {
+            expr_value = self.evaluate_value_expression(&stmt.base_element, &mut stack)?;
 
-            for expr in stmt.mutations {
-                if matches!(value, Value::Nothing) {
+            for expr in &stmt.mutations {
+                if matches!(expr_value, Value::Nothing) {
                     // the value does not exist, and the expressions that follow are not executed
                     break;
                 }
 
-                value = match expr {
+                expr_value = match expr {
                     ast::FunctionExpression::FunctionCall(call) => {
                         let body = self
                             .program
@@ -44,10 +45,13 @@ impl Interpreter {
 
                         let mut actual_arguments = Vec::new();
                         let mut var_id = 0;
-                        for ele in call.arguments {
+                        for ele in &call.arguments {
                             let arg_value = match ele {
                                 Some(expr) => self.evaluate_expression(expr, &mut stack)?,
-                                None => value,
+                                None => {
+                                    debug_assert!(!matches!(expr_value, Value::Nothing));
+                                    std::mem::replace(&mut expr_value, Value::Nothing)
+                                },
                             };
                             actual_arguments.push(Variable{ id: var_id, value: arg_value});
                             // assume that all parameters have consectutive variable ids starting from 0
@@ -59,14 +63,14 @@ impl Interpreter {
                     ast::FunctionExpression::Assignment(var) => {
                         stack.add_variable(Variable {
                             id: var.id,
-                            value,
+                            value: expr_value,
                         });
                         Value::Nothing
                     },
-                    ast::FunctionExpression::Operator(id) => todo!(),
+                    ast::FunctionExpression::Operator(op) => todo!(),
                     ast::FunctionExpression::Lamda(lamda) => {
                         let mut actual_arguments = Vec::new();
-                        for ele in lamda.capture {
+                        for ele in &lamda.capture {
                             let variable = stack.resolve_variable(ele.id).unwrap();
                             actual_arguments.push(variable.clone())
                         }
@@ -76,12 +80,11 @@ impl Interpreter {
                 }
             }
 
-            debug_assert!(matches!(value, Value::Nothing));
+            debug_assert!(matches!(expr_value, Value::Nothing));
         }
 
-        stack.resolve_variable(target.return_var.id)
-            .map(|v| v.value)
-            .ok_or_else(|| InterpretationError::SymbolNotFound { kind: "variable", symbol: target.return_var.name.to_string() })
+        stack.unravel_to(target.return_var.id)
+            .ok_or_else(|| InterpretationError::SymbolNotFound { kind: "variable", symbol: target.return_var.name.clone() })
     }
 
     fn evaluate_value_expression(
@@ -104,7 +107,7 @@ impl Interpreter {
             ast::ValueExpression::Literal(ast::Literal::Boolean(lit)) => Ok(Value::Boolean(*lit)),
             ast::ValueExpression::Variable(var) => Ok(stack
                 .resolve_variable(var.id)
-                .map(|v| v.value)
+                .map(|v| v.value.clone())
                 // syntactially the variable exists in this scope.
                 // If we do not have a value stored, then the variable is conditionally (not) assigned
                 .unwrap_or(Value::Nothing)),
@@ -121,14 +124,14 @@ impl Interpreter {
             target_scope = target_scope.namespaces.get(ele).ok_or_else(|| {
                 InterpretationError::SymbolNotFound {
                     kind: "namespace",
-                    symbol: ele.to_string(),
+                    symbol: Identifier::from(ele),
                 }
             })?;
         }
         let function_id = target_scope.functions.get(function_name).ok_or_else(|| {
             InterpretationError::SymbolNotFound {
                 kind: "function",
-                symbol: function_name.to_string(),
+                symbol: Identifier::from(function_name),
             }
         })?;
 
@@ -136,11 +139,11 @@ impl Interpreter {
 
         to_execute.ok_or_else(|| InterpretationError::SymbolNotFound {
             kind: "function",
-            symbol: function_name.to_string(),
+            symbol: Identifier::from(function_name),
         })
     }
     
-    fn evaluate_expression(&self, expr: ast::Expression, stack: &mut StackFrame) -> InterpResult<Value> {
+    fn evaluate_expression(&self, expr: &ast::Expression, stack: &mut StackFrame) -> InterpResult<Value> {
         todo!()
     }
 }

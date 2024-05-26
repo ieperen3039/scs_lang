@@ -104,7 +104,7 @@ impl<'prog, 'bnf> RuleNode<'prog, 'bnf> {
         true
     }
 
-    pub fn expect_node<'r>(&'r self, expected: &str) -> SemanticResult<&'r RuleNode> {
+    pub fn expect_node<'r>(&'r self, expected: &'static str) -> SemanticResult<&'r RuleNode> {
         self.find_node(expected)
             .ok_or_else(|| SemanticError::NodeNotFound { expected })
     }

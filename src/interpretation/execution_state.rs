@@ -23,21 +23,17 @@ impl Debug for FunctionBody {
 impl StackFrame {
     pub fn new(initial_values: Vec<Variable>) -> StackFrame {
         StackFrame {
-            data: Vec::new(),
+            data: initial_values,
             scope_size: Vec::new(),
         }
     }
 
-    pub fn resolve_variable(&self, id: VariableId) -> Option<&Variable> {
-        self.get().iter().find(|v| v.id == id)
+    pub fn resolve_variable(&mut self, id: VariableId) -> Option<&mut Variable> {
+        self.data.iter_mut().find(|v| v.id == id)
     }
 
     pub fn add_variable(&mut self, var: Variable) {
         self.data.push(var);
-    }
-
-    pub fn get(&self) -> &[Variable] {
-        &self.data
     }
 
     pub fn open_scope(&mut self) {
@@ -53,5 +49,9 @@ impl StackFrame {
         while self.data.len() > data_retain_size {
             self.data.pop();
         }
+    }
+
+    pub fn unravel_to(self, id: VariableId) -> Option<Value> {
+        self.data.into_iter().find(|v| v.id == id).map(|v| v.value)
     }
 }
