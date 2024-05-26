@@ -38,7 +38,7 @@ impl<'prog, 'bnf> std::fmt::Debug for RuleNode<'prog, 'bnf> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.sub_rules.is_empty() {
             f.write_fmt(format_args!(
-                "{{{}, \"{:?}\"}}",
+                "{{{}, {:?}}}",
                 self.rule_name, self.tokens
             ))
         } else {

@@ -108,7 +108,7 @@ impl FauxCompiler {
         // we have resolved and compiled all includes.
         // now we can start parsing this file
         let program =
-            symbolizer::parse_symbols(syntax_tree, &included_scope, &mut self.type_collector)
+            symbolizer::parse_faux_program(syntax_tree, &included_scope, &mut self.type_collector)
                 .map_err(SimpleError::from)?;
         Ok(program)
     }

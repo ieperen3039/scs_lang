@@ -5,8 +5,8 @@ use simple_error::SimpleError;
 use super::{rule_nodes::RuleNode, token::Token};
 
 pub const MAX_NUM_TOKENS_BACKTRACE_ON_ERROR: i32 = 5;
-pub const MAX_NUM_TOKENS_BACKTRACE_ON_SUCCESS: usize = 100;
-pub const MAX_ERRORS_PER_RULE: usize = 50;
+pub const MAX_NUM_TOKENS_BACKTRACE_ON_SUCCESS: usize = 50;
+pub const MAX_ERRORS_PER_RULE: usize = 20;
 
 #[derive(Debug, Clone)]
 pub enum Failure<'bnf> {
@@ -28,6 +28,10 @@ pub enum Failure<'bnf> {
     LexerError {
         char_idx: usize,
     },
+    WhileParsingRule{
+        rule: &'bnf str,
+        cause: Box<Failure<'bnf>>
+    },
     // the program or grammar has some unspecified syntax error
     #[allow(dead_code)]
     Error(SimpleError),
@@ -39,6 +43,9 @@ pub enum Failure<'bnf> {
 impl Failure<'_> {
     pub fn error_string(&self, source: &str) -> String {
         match self {
+            Failure::WhileParsingRule { rule, cause } => {
+                format!("{}\n\twhile parsing rule {rule}", cause.error_string(source))
+            }
             Failure::UnexpectedToken { char_idx, .. }
             | Failure::LexerError { char_idx }
             | Failure::IncompleteParse { char_idx } => {
@@ -144,6 +151,7 @@ pub fn get_err_significance(failure: &Failure<'_>) -> i32 {
         Failure::LexerError { .. } => i32::MAX - 3,
         Failure::Error(_) => i32::MAX - 2,
         Failure::InternalError(_) => i32::MAX - 1,
+        Failure::WhileParsingRule { cause, .. } => get_err_significance(cause),
     }
 }
 

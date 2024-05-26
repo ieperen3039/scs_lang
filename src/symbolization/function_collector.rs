@@ -25,25 +25,10 @@ impl<'a> FunctionCollector<'a> {
         }
     }
 
-    fn new_id(&mut self) -> u32 {
+    pub fn new_id(&mut self) -> u32 {
         let id = self.next_id;
         self.next_id = id + 1;
         id
-    }
-
-    pub fn create_external(
-        &mut self,
-        name: &str,
-        parameters: Vec<Parameter>,
-        return_type: TypeRef,
-    ) -> FunctionDeclaration {
-        FunctionDeclaration {
-            id: self.new_id(),
-            name: Identifier::from(name),
-            parameters,
-            return_type: return_type,
-            is_external: true,
-        }
     }
 
     pub fn read_function_declarations(
@@ -52,7 +37,7 @@ impl<'a> FunctionCollector<'a> {
         this_scope: &Namespace,
     ) -> SemanticResult<Vec<FunctionDeclaration>> {
         match node.rule_name {
-            "scope" => self.read_scope_functions(node, this_scope),
+            "namespace" => self.read_functions_of_namespace(node, this_scope),
             "implementation" => {
                 let (impl_type, functions) = self.read_implementation(node, this_scope)?;
                 // self.type_definitions
@@ -144,22 +129,22 @@ impl<'a> FunctionCollector<'a> {
         Ok(parameters)
     }
 
-    fn read_scope_functions(
+    fn read_functions_of_namespace(
         &mut self,
         node: &RuleNode,
         super_scope: &Namespace,
     ) -> SemanticResult<Vec<FunctionDeclaration>> {
-        debug_assert_eq!(node.rule_name, "scope");
+        debug_assert_eq!(node.rule_name, "namespace");
 
         let this_scope_name = node
-            .expect_node("scope_name")
+            .expect_node("namespace_name")
             .map(RuleNode::as_identifier)?;
 
         let this_scope = super_scope
             .namespaces
             .get(&this_scope_name)
             .ok_or_else(|| SemanticError::SymbolNotFound {
-                kind: "scope",
+                kind: "namespace",
                 symbol: this_scope_name,
             })?;
 

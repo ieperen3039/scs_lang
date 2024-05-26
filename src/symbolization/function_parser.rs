@@ -33,8 +33,8 @@ impl FunctionParser<'_, '_> {
         }
     }
 
-    // function_block          = statement, { statement_separator, [ statement ] }
-    pub fn read_function_block(
+    // function_block          = statement, { statement_separator, statement }, [ statement_separator ]
+    pub fn read_statements(
         &self,
         node: &RuleNode,
         this_scope: &Namespace,
@@ -104,7 +104,7 @@ impl FunctionParser<'_, '_> {
             variables.insert_from_param(param)?;
         }
 
-        let function_block = self.read_function_block(node, this_scope, &mut variables)?;
+        let function_block = self.read_statements(node, this_scope, &mut variables)?;
 
         if &function_block.return_var.var_type != &function_declaration.return_type {
             return Err(SemanticError::TypeMismatchError {
@@ -422,7 +422,7 @@ impl FunctionParser<'_, '_> {
         }
 
         let function_block =
-            self.read_function_block(function_node, this_scope, &mut inner_variables)?;
+            self.read_statements(function_node, this_scope, &mut inner_variables)?;
 
         // check return type if possible
         self.check_type_node(return_type_node, &function_block.return_var.var_type)?;
@@ -477,7 +477,7 @@ impl FunctionParser<'_, '_> {
 
         // this works because the first part contains no "statement" nodes
         let mut function_block =
-            self.read_function_block(node, this_scope, &mut inner_variables)?;
+            self.read_statements(node, this_scope, &mut inner_variables)?;
         // now add the first statement
         function_block.statements.insert(
             0,

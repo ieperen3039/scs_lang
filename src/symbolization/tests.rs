@@ -1,7 +1,7 @@
 use simple_error::SimpleError;
 
 use crate::{
-    parsing::{ebnf_parser, left_left_parser, lexer::Lexer, parser}, transformation::grammatificator
+    parsing::{ebnf_parser, left_left_parser, lexer::Lexer, parser}, transformation::{grammar::Grammar, grammatificator}
 };
 
 use super::{ast::Namespace, symbolizer, type_collector::TypeCollector};
@@ -43,23 +43,20 @@ use super::{ast::Namespace, symbolizer, type_collector::TypeCollector};
 //     );
 // }
 
-// #[test]
-// fn parse_implicit() {
-//     let definition = include_str!("../../doc/definition.ebnf");
-//     let program = include_str!("../../doc/implicit_impl.faux");
-// }
-
 #[test]
-fn parse_function() {
+fn parse_function_definition() {
     let definition = include_str!("../../doc/faux_script.ebnf");
+    // it should be noted that floating point arithmatic is (probably) not supported
     let program = r#"
         fn invsq(int number) : int {
             number
-                square()
+                mul(number)
                 (sq) { 
-                    1.0 div(sq) 
+                    1 div(sq)
                 }
         }
+
+        5 invsq();
     "#;
 
     let grammar = ebnf_parser::parse_ebnf(definition)
@@ -67,14 +64,11 @@ fn parse_function() {
         .unwrap();
 
     let tokens = Lexer::read_faux(&program).unwrap();
-
     let parser = left_left_parser::Parser::new(grammar, None);
     let syntax_tree = parser.parse_program(&tokens).unwrap();
-
-    println!("{:?}", syntax_tree);
 
     let root_namespace = Namespace::new("root", None);
     let mut type_collector = TypeCollector::new();
 
-    let _program = symbolizer::parse_symbols(syntax_tree, &root_namespace, &mut type_collector).unwrap();
+    let _program = symbolizer::parse_faux_script(syntax_tree, &root_namespace, &mut type_collector).unwrap();
 }

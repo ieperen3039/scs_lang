@@ -164,9 +164,12 @@ impl<'c> Parser {
         if possible_patterns.is_empty() {
             return Box::new(self.parse_table.get_expected(rule_name).into_iter().map(
                 move |expected| {
-                    Err(Failure::UnexpectedToken {
-                        char_idx: char_idx_of(next_token, tokens),
-                        expected,
+                    Err(Failure::WhileParsingRule {
+                        rule: rule_name,
+                        cause: Box::new(Failure::UnexpectedToken {
+                            char_idx: char_idx_of(next_token, tokens),
+                            expected,
+                        }),
                     })
                 },
             ));
@@ -183,14 +186,19 @@ impl<'c> Parser {
         // not transparent: wrap every ParseNode into a RuleNode
         // replace every empty parse with an EmptyNode
         Box::new(result_of_terms.map(move |result| {
-            result.map(|parse_node| match parse_node.num_tokens() {
-                0 => ParseNode::EmptyNode,
-                num_tokens => ParseNode::Rule(RuleNode {
-                    rule_name,
-                    tokens: &tokens[token_index..(token_index + num_tokens)],
-                    sub_rules: parse_node.unwrap_to_rulenodes(),
-                }),
-            })
+            result
+                .map(|parse_node| match parse_node.num_tokens() {
+                    0 => ParseNode::EmptyNode,
+                    num_tokens => ParseNode::Rule(RuleNode {
+                        rule_name,
+                        tokens: &tokens[token_index..(token_index + num_tokens)],
+                        sub_rules: parse_node.unwrap_to_rulenodes(),
+                    }),
+                })
+                .map_err(|e| Failure::WhileParsingRule {
+                    rule: &rule_name,
+                    cause: Box::new(e),
+                })
         }))
     }
 
@@ -389,9 +397,8 @@ fn construct_parse_table(grammar: Grammar) -> ParseTable {
             }
         }
     }
-    
-    if false
-    {
+
+    if false {
         println!("");
         println!("first_sets = {:?}", first_terminal_map_copy);
         println!("");
@@ -431,9 +438,6 @@ fn get_follow_terminals(grammar: &Grammar) -> HashMap<RuleId, HashSet<Terminal>>
         let mut has_change = false;
 
         for (rule_a, _) in &grammar.rules {
-            // let follow_set = follow_terminals
-            //     .entry(rule_a.clone())
-            //     .or_insert(HashSet::new());
             let mut follow_set = follow_terminals.remove(rule_a).unwrap_or(HashSet::new());
             let len = follow_set.len();
 

@@ -9,7 +9,7 @@ pub struct Program {
     pub namespaces: Namespace,
     pub type_definitions: HashMap<TypeId, TypeDefinition>,
     pub function_definitions: HashMap<FunctionId, FunctionBody>,
-    pub member_function_definitions: HashMap<ImplType, Vec<FunctionId>>,
+    pub entry_function : FunctionId
 }
 
 pub struct ImplType {
