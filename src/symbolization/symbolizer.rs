@@ -113,7 +113,11 @@ pub fn parse_faux_script(
     let mut root_scope = external_namespace.clone();
 
     // read function declarations
-    let functions = parse_function_declarations(&ast, &mut function_collector, &mut root_scope)?;
+    let functions = parse_function_declarations(&ast, &mut function_collector, &mut root_scope).map_err(|e| SemanticError::WhileParsing {
+        rule_name: "faux_script (parse_function_declarations)",
+        char_idx: ast.first_char(),
+        cause: Box::from(e),
+    })?;
 
     let function_declarations: HashMap<FunctionId, ast::FunctionDeclaration> =
         functions.into_iter().map(|f| (f.id, f)).collect();
@@ -133,10 +137,19 @@ pub fn parse_faux_script(
     );
 
     let mut function_definitions =
-        parse_function_definitions(&ast, &function_map, &function_parser)?;
+        parse_function_definitions(&ast, &function_map, &function_parser).map_err(|e| SemanticError::WhileParsing {
+            rule_name: "faux_script (parse_function_definitions)",
+            char_idx: ast.first_char(),
+            cause: Box::from(e),
+        })?;
 
-    let entry_function =
-        function_parser.read_statements(&ast, &root_scope, &mut VarStorage::new())?;
+    let entry_function = function_parser
+        .read_statements(&ast, &root_scope, &mut VarStorage::new())
+        .map_err(|e| SemanticError::WhileParsing {
+            rule_name: "faux_script (read_statements)",
+            char_idx: ast.first_char(),
+            cause: Box::from(e),
+        })?;
 
     function_definitions.insert(entry_function_id, entry_function);
 
@@ -156,7 +169,7 @@ fn parse_function_declarations(
     let mut functions = Vec::new();
     for node in &ast.sub_rules {
         let new_functions = function_collector.read_function_declarations(&node, &*root_scope)?;
-        
+
         for fn_decl in &new_functions {
             root_scope.add_function(fn_decl);
         }

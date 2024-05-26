@@ -3,12 +3,12 @@ use std::{collections::HashMap, rc::Rc};
 use crate::parsing::rule_nodes::RuleNode;
 
 use super::{
-    variable_storage::VarStorage,
     ast::*,
     function_collector::FunctionCollector,
     semantic_result::{SemanticError, SemanticResult},
     type_collector::TypeCollector,
     type_resolver,
+    variable_storage::VarStorage,
 };
 
 pub struct FunctionParser<'ns, 'tc> {
@@ -33,7 +33,7 @@ impl FunctionParser<'_, '_> {
         }
     }
 
-    // function_block          = statement, { statement_separator, statement }, [ statement_separator ]
+    // function_block = statement, { statement_separator, statement }, [ statement_separator ]
     pub fn read_statements(
         &self,
         node: &RuleNode,
@@ -46,7 +46,13 @@ impl FunctionParser<'_, '_> {
 
         for ele in node.sub_rules.chunks(2) {
             let statement_node = ele[0].expect_node("statement")?;
-            let mut statement = self.read_statement(statement_node, this_scope, &mut variables)?;
+            let mut statement = self
+                .read_statement(statement_node, this_scope, &mut variables)
+                .map_err(|e| SemanticError::WhileParsing {
+                    rule_name: "statement",
+                    char_idx: statement_node.first_char(),
+                    cause: Box::from(e),
+                })?;
 
             if ele.len() == 2 {
                 ele[1].expect_node("statement_separator")?;
@@ -115,7 +121,7 @@ impl FunctionParser<'_, '_> {
 
         for unused in variables.get_unused_vars() {
             println!(
-                "WARN: parameter {} of function {} not used",
+                "WARNING: parameter {} of function {} not used",
                 unused.name, function_declaration.name
             )
         }
@@ -133,7 +139,14 @@ impl FunctionParser<'_, '_> {
         debug_assert_eq!(node.rule_name, "statement");
 
         let expression_node = node.expect_node("value_expression")?;
-        let expression = self.read_value_expression(expression_node, this_scope, variables)?;
+        let expression = self
+            .read_value_expression(expression_node, this_scope, variables)
+            .map_err(|e| SemanticError::WhileParsing {
+                rule_name: "value_expression",
+                char_idx: expression_node.first_char(),
+                cause: Box::from(e),
+            })?;
+
         let mut expression_type = expression.get_type();
 
         let mut mutations = Vec::new();
@@ -183,15 +196,15 @@ impl FunctionParser<'_, '_> {
                     .map(|f| TypeRef::from_fn_decl(&f))
                     .expect("Broken function call");
 
-                let inner_expression = self.read_mutator(
-                    mutator_node,
-                    mutator_iter,
-                    inner_type,
-                    this_scope,
-                    variables,
-                )?;
+                if let Some(inner_mutator_node) = mutator_iter.next() {
+                    let inner_expression = self.read_mutator(
+                        inner_mutator_node,
+                        mutator_iter,
+                        inner_type,
+                        this_scope,
+                        variables,
+                    )?;
 
-                if let Some(mutator_node) = mutator_iter.next() {
                     Ok(FunctionExpression::Operator(Operator {
                         id: *function_id,
                         arg: Box::new(inner_expression),
@@ -226,7 +239,13 @@ impl FunctionParser<'_, '_> {
     ) -> SemanticResult<Expression> {
         let value_node = super_node.find_node("value_expression");
         if let Some(expr_node) = value_node {
-            let value_expression = self.read_value_expression(expr_node, this_scope, variables)?;
+            let value_expression = self
+                .read_value_expression(expr_node, this_scope, variables)
+                .map_err(|e| SemanticError::WhileParsing {
+                    rule_name: "value_expression",
+                    char_idx: expr_node.first_char(),
+                    cause: Box::from(e),
+                })?;
 
             if target_type != &value_expression.get_type() {
                 return Err(SemanticError::TypeMismatchError {
@@ -240,12 +259,18 @@ impl FunctionParser<'_, '_> {
             let function_node = super_node.find_node("function_expression");
             if let Some(expr_node) = function_node {
                 if let TypeRef::Function(fn_type) = target_type {
-                    let expr = self.read_function_expression(
-                        expr_node,
-                        &fn_type.parameters,
-                        this_scope,
-                        variables,
-                    )?;
+                    let expr = self
+                        .read_function_expression(
+                            expr_node,
+                            &fn_type.parameters,
+                            this_scope,
+                            variables,
+                        )
+                        .map_err(|e| SemanticError::WhileParsing {
+                            rule_name: "function_expression",
+                            char_idx: expr_node.first_char(),
+                            cause: Box::from(e),
+                        })?;
 
                     let expr_result_type = expr.get_result_type(&self.functions);
                     if fn_type.return_type.as_ref() != &expr_result_type {
@@ -256,12 +281,13 @@ impl FunctionParser<'_, '_> {
                     }
                     return Ok(Expression::Functional(expr));
                 } else {
-                    let expr = self.read_function_expression(
-                        expr_node,
-                        &Vec::new(),
-                        this_scope,
-                        variables,
-                    )?;
+                    let expr = self
+                        .read_function_expression(expr_node, &Vec::new(), this_scope, variables)
+                        .map_err(|e| SemanticError::WhileParsing {
+                            rule_name: "function_expression",
+                            char_idx: expr_node.first_char(),
+                            cause: Box::from(e),
+                        })?;
 
                     let expr_result_type = expr.get_result_type(&self.functions);
                     if target_type != &expr_result_type {
@@ -354,7 +380,13 @@ impl FunctionParser<'_, '_> {
 
         match sub_node.rule_name {
             "function_call" => {
-                let function_call = self.read_function_call(node, this_scope, variables)?;
+                let function_call = self
+                    .read_function_call(node, this_scope, variables)
+                    .map_err(|e| SemanticError::WhileParsing {
+                        rule_name: "function_call",
+                        char_idx: sub_node.first_char(),
+                        cause: Box::from(e),
+                    })?;
                 Ok(FunctionExpression::FunctionCall(function_call))
             },
             "implicit_par_lambda" => {
@@ -371,9 +403,19 @@ impl FunctionParser<'_, '_> {
                     this_scope,
                     argument_types.first().unwrap().clone(),
                 )
+                .map_err(|e| SemanticError::WhileParsing {
+                    rule_name: "implicit_par_lambda",
+                    char_idx: sub_node.first_char(),
+                    cause: Box::from(e),
+                })
             },
             "explicit_par_lambda" => {
                 self.read_explicit_parameter_lamda(node, variables, this_scope, argument_types)
+                .map_err(|e| SemanticError::WhileParsing {
+                    rule_name: "explicit_par_lambda",
+                    char_idx: sub_node.first_char(),
+                    cause: Box::from(e),
+                })
             },
             "mutator_cast" => unimplemented!("{}", node.rule_name),
             "mutator_assign" => unimplemented!("{}", node.rule_name),
@@ -456,7 +498,8 @@ impl FunctionParser<'_, '_> {
         let mut inner_variables = VarStorage::from(outer_variables);
 
         let implicit_par_name = Identifier::from("__implicit");
-        let implicit_par = inner_variables.insert(implicit_par_name.clone(), argument_type.clone())?;
+        let implicit_par =
+            inner_variables.insert(implicit_par_name.clone(), argument_type.clone())?;
 
         // handle the first statement separately
         let mut expression_type = argument_type.clone();
@@ -476,8 +519,7 @@ impl FunctionParser<'_, '_> {
         }
 
         // this works because the first part contains no "statement" nodes
-        let mut function_block =
-            self.read_statements(node, this_scope, &mut inner_variables)?;
+        let mut function_block = self.read_statements(node, this_scope, &mut inner_variables)?;
         // now add the first statement
         function_block.statements.insert(
             0,

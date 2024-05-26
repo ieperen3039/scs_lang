@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use crate::{
     parsing::rule_nodes::RuleNode,
-    symbolization::{ast::Namespace, semantic_result::SemanticError, type_collector::TypeCollector},
+    symbolization::{
+        ast::Namespace, semantic_result::SemanticError, type_collector::TypeCollector,
+    },
 };
 
 use super::{ast::*, semantic_result::SemanticResult};
@@ -37,16 +39,38 @@ impl<'a> FunctionCollector<'a> {
         this_scope: &Namespace,
     ) -> SemanticResult<Vec<FunctionDeclaration>> {
         match node.rule_name {
-            "namespace" => self.read_functions_of_namespace(node, this_scope),
+            "namespace" => self
+                .read_functions_of_namespace(node, this_scope)
+                .map_err(|e| SemanticError::WhileParsing {
+                    rule_name: "namespace",
+                    char_idx: node.first_char(),
+                    cause: Box::from(e),
+                }),
             "implementation" => {
-                let (impl_type, functions) = self.read_implementation(node, this_scope)?;
+                let (impl_type, functions) =
+                    self.read_implementation(node, this_scope).map_err(|e| {
+                        SemanticError::WhileParsing {
+                            rule_name: "implementation",
+                            char_idx: node.first_char(),
+                            cause: Box::from(e),
+                        }
+                    })?;
                 // self.type_definitions
                 //     .get_mut(&impl_type.id)
                 //     .ok_or_else(|| SimpleError::new("Unknown type of impl block"))?
                 //     .extend(functions.clone());
                 Ok(functions)
             },
-            "function_definition" => Ok(vec![self.read_function_declaration(node)?]),
+            "function_definition" => {
+                let fn_decl = self.read_function_declaration(node).map_err(|e| {
+                    SemanticError::WhileParsing {
+                        rule_name: "implementation",
+                        char_idx: node.first_char(),
+                        cause: Box::from(e),
+                    }
+                })?;
+                Ok(vec![fn_decl])
+            },
             _ => Ok(Vec::new()),
         }
     }
@@ -64,7 +88,11 @@ impl<'a> FunctionCollector<'a> {
         let parameters = {
             let parameter_node = node.find_node("parameter_list");
             if let Some(parameter_node) = parameter_node {
-                self.read_parameter_list(parameter_node)?
+                self.read_parameter_list(parameter_node).map_err(|e| SemanticError::WhileParsing {
+                    rule_name: "parameter_list",
+                    char_idx: node.first_char(),
+                    cause: Box::from(e),
+                })?
             } else {
                 Vec::new()
             }

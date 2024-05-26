@@ -59,6 +59,10 @@ impl<'prog, 'bnf> RuleNode<'prog, 'bnf> {
             .fold(String::new(), |s, t| s + t)
     }
 
+    pub fn first_char(&self) -> usize {
+        self.tokens.first().map(|t| t.char_idx).unwrap_or(0)
+    }
+
     // returns true if this rule node is syntactically equivalent.
     // this check is more expensive than eq
     #[allow(dead_code)]

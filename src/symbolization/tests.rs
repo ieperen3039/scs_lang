@@ -70,5 +70,11 @@ fn parse_function_definition() {
     let root_namespace = Namespace::new("root", None);
     let mut type_collector = TypeCollector::new();
 
-    let _program = symbolizer::parse_faux_script(syntax_tree, &root_namespace, &mut type_collector).unwrap();
+    let program_result = symbolizer::parse_faux_script(syntax_tree, &root_namespace, &mut type_collector);
+
+    if let Err(error) = program_result {
+        panic!(
+            "Error parsing program: \n{error}"
+        );
+    }
 }
