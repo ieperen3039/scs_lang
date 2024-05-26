@@ -362,7 +362,7 @@ fn construct_parse_table(grammar: Grammar) -> ParseTable {
             rule_id.clone(),
             rule_patterns
                 .iter()
-                .map(|t| get_first_terminals_of_term(t, &grammar))
+                .map(|t| get_first_terminals_of_term(t, &grammar, rule_id))
                 .collect::<Vec<_>>(),
         );
     }
@@ -442,7 +442,7 @@ fn get_follow_terminals(grammar: &Grammar) -> HashMap<RuleId, HashSet<Terminal>>
                     // if there is a rule of the form `B = vAw`, then
                     find_terms_containing_rule(rule_a, term, &mut |w_terms| {
                         let first_terminals =
-                            get_first_terminals_of_concatenation(w_terms, &grammar);
+                            get_first_terminals_of_concatenation(w_terms, &grammar, rule_a);
                         // if `empty` is in Fi(w), then add Fo(B) to Fo(A)
                         if first_terminals.contains(&None) {
                             if let Some(follow_set_of_b) = follow_terminals.get(rule_b) {
@@ -502,23 +502,25 @@ where
 fn get_first_terminals_of_alternation(
     terms: &[Term],
     grammar: &Grammar,
+    original_rule: &RuleId
 ) -> HashSet<Option<Terminal>> {
     terms
         .iter()
-        .flat_map(|t| get_first_terminals_of_term(t, grammar))
+        .flat_map(|t| get_first_terminals_of_term(t, grammar, original_rule))
         .collect()
 }
 
-fn get_first_terminals_of_term(term: &Term, grammar: &Grammar) -> HashSet<Option<Terminal>> {
+fn get_first_terminals_of_term(term: &Term, grammar: &Grammar, original_rule: &RuleId) -> HashSet<Option<Terminal>> {
     match term {
-        Term::Concatenation(terms) => get_first_terminals_of_concatenation(terms, grammar),
-        Term::Alternation(terms) => get_first_terminals_of_alternation(terms, grammar),
+        Term::Concatenation(terms) => get_first_terminals_of_concatenation(terms, grammar, original_rule),
+        Term::Alternation(terms) => get_first_terminals_of_alternation(terms, grammar, original_rule),
         Term::Identifier(id) => {
+            assert!(id != original_rule, "the grammar contains left-recursion");
             let rule_patterns = grammar
                 .rules
                 .get(id)
                 .expect("Rule refers to a rule that does not exist");
-            get_first_terminals_of_alternation(rule_patterns, grammar)
+            get_first_terminals_of_alternation(rule_patterns, grammar, original_rule)
         },
         Term::Terminal(t) => HashSet::from([Some(t.clone())]),
         Term::Empty => HashSet::from([None]),
@@ -528,15 +530,16 @@ fn get_first_terminals_of_term(term: &Term, grammar: &Grammar) -> HashSet<Option
 fn get_first_terminals_of_concatenation(
     terms: &[Term],
     grammar: &Grammar,
+    original_rule: &RuleId
 ) -> HashSet<Option<Terminal>> {
     if terms.is_empty() {
         return HashSet::from([None]);
     }
 
-    let mut first_terminals = get_first_terminals_of_term(&terms[0], grammar);
+    let mut first_terminals = get_first_terminals_of_term(&terms[0], grammar, original_rule);
     let did_have_none = first_terminals.remove(&None);
     if did_have_none {
-        first_terminals.extend(get_first_terminals_of_concatenation(&terms[1..], grammar))
+        first_terminals.extend(get_first_terminals_of_concatenation(&terms[1..], grammar, original_rule))
     }
     first_terminals
 }
