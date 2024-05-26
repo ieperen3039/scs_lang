@@ -8,7 +8,7 @@ type_ref                = ( base_type_ref | result_type_ref | optional_type_ref 
 base_type_ref           = identifier;
 result_type_ref         = type_ref, "!", type_ref;
 optional_type_ref       = type_ref, "?";
-flag_type_ref           = "flag";
+flag_type_ref           = _keyword_flag;
 tuple_type_ref          = "[", type_ref, { ",", type_ref }, "]";
 fn_type                 = _keyword_fn, "<", [ "(", unnamed_parameter_list, ")" ], return_type, ">";
 
@@ -79,4 +79,5 @@ _keyword_extern = "extern";
 _keyword_const = "const";
 _keyword_this = "this";
 _keyword_use = "use";
+_keyword_flag = "flag";
 _keyword_start_implementation = "impl";

@@ -133,7 +133,7 @@ impl<'c> Parser {
                 .get_expected(rule_name)
                 .into_iter()
                 .map(|expected| Failure::UnexpectedToken {
-                    char_idx: token_index,
+                    char_idx: next_token.char_idx,
                     expected,
                 })
                 .collect());

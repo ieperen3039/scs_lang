@@ -10,7 +10,7 @@ use crate::parsing::{
 fn simple_lexer() {
     let formula = "1+2";
 
-    let tokens = Lexer::read(&formula)
+    let tokens = Lexer::default().read(&formula)
         .map_err(|err| {
             SimpleError::new(Failure::LexerError { char_idx: err }.error_string(formula))
         })
@@ -41,7 +41,7 @@ fn simple_lexer() {
 #[test]
 fn simple_parser_with_simple_ignore() {
     let formula = r#"1 + 2"#;
-    let tokens = Lexer::read(&formula)
+    let tokens = Lexer::default().read(&formula)
         .map_err(|err| {
             SimpleError::new(Failure::LexerError { char_idx: err }.error_string(formula))
         })
@@ -83,7 +83,7 @@ fn simple_parser_with_simple_ignore() {
 fn simple_parser_with_token_usage() {
     let formula = r#"1 + 2"#;
 
-    let tokens = Lexer::read(&formula)
+    let tokens = Lexer::default().read(&formula)
         .map_err(|err| {
             SimpleError::new(Failure::LexerError { char_idx: err }.error_string(formula))
         })
@@ -125,7 +125,7 @@ fn simple_parser_with_token_usage() {
 fn complex_parser_with_complex_ignore() {
     let formula = r#" you must go there, and I come with you! "#;
 
-    let tokens = Lexer::read(&formula)
+    let tokens = Lexer::default().read(&formula)
         .map_err(|err| {
             SimpleError::new(Failure::LexerError { char_idx: err }.error_string(formula))
         })
@@ -260,7 +260,7 @@ fn complex_parser_with_complex_ignore() {
 fn shebang_is_ignored() {
     let formula = "#! bin/null\n1+2";
 
-    let tokens = Lexer::read(&formula)
+    let tokens = Lexer::default().read(&formula)
         .map_err(|err| {
             SimpleError::new(Failure::LexerError { char_idx: err }.error_string(formula))
         })
@@ -298,7 +298,7 @@ fn shebang_is_ignored() {
 fn try_parse_example_faux() {
     let program = include_str!("../../examples/example.faux");
 
-    Lexer{ ignore_whitespace: true }.read_all(&program)
+    Lexer::new_faux_lexer().read(&program)
         .map_err(|err| {
             SimpleError::new(Failure::LexerError { char_idx: err }.error_string(program))
         })

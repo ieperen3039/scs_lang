@@ -1,23 +1,45 @@
 use super::token::{Token, TokenClass};
 
-// dot is illegal, because it makes them indistinguishable from method calls and scope references
-// slash is illegal, because operators may be chained to produce a start-of-comment
-// assignment is illegal, because the assignment operation is handled specially in the language
-const SPECIAL_SYMBOLS: &[char] = &['(', ')', '[', ']', '{', '}', ';', '.', '=', '/'];
-
 pub struct Lexer {
+    // if true, no WHITESPACE tokens are emitted
     pub ignore_whitespace: bool,
+    // any symbol that must be marked 'special'
+    // must be a single char, and is considered after comments, but before literals
+    pub symbols: Vec<char>,
+    // any identifier that must be marked 'special'
+    // is only considerd for tokens matching the 'IDENTIFIER' class
+    pub keywords: Vec<&'static str>,
 }
 
 impl Lexer {
-    pub fn read<'prog>(string: &'prog str) -> Result<Vec<Token<'prog>>, usize> {
+    pub fn default() -> Lexer {
         Lexer {
             ignore_whitespace: false,
+            symbols: Vec::new(),
+            keywords: Vec::new(),
         }
-        .read_all(string)
     }
 
-    pub fn read_all<'prog>(&self, string: &'prog str) -> Result<Vec<Token<'prog>>, usize> {
+    pub fn new_faux_lexer() -> Lexer {
+        Lexer {
+            ignore_whitespace: true,
+            // any symbol here cannot be used as an operator.
+            // dot is illegal, because it makes them indistinguishable from method calls and scope references.
+            // slash is illegal, because operators may be chained to produce a start-of-comment.
+            // assignment is illegal, because the assignment operation is a special case in the language.
+            symbols: vec!['(', ')', '[', ']', '{', '}', ';', '.', '=', '/'],
+            keywords: vec![
+                "version", "type", "fn", "enum", "variant", "extern", "const", "this", "use",
+                "impl",
+            ],
+        }
+    }
+
+    pub fn read_faux<'prog>(string: &'prog str) -> Result<Vec<Token<'prog>>, usize> {
+        Self::new_faux_lexer().read(string)
+    }
+
+    pub fn read<'prog>(&self, string: &'prog str) -> Result<Vec<Token<'prog>>, usize> {
         let mut cursor = 0;
         let mut tokens = Vec::new();
 
@@ -63,6 +85,11 @@ impl Lexer {
             // else continue
         }
 
+        // all symbols with special meaning (= not part of any group)
+        if self.symbols.contains(&first_char) {
+            return Some((TokenClass::SPECIAL, 1));
+        }
+
         if first_char == '\"' {
             let num_chars = Lexer::count_string_chars(chars);
             return Some((TokenClass::STRING, num_chars));
@@ -77,12 +104,14 @@ impl Lexer {
         // identifier: [a-zA-Z_][a-zA-Z0-9_]*
         if first_char == '_' || first_char.is_alphabetic() {
             let num_chars = Lexer::count(chars, |c| c == '_' || c.is_alphanumeric());
-            return Some((TokenClass::IDENTIFIER, num_chars));
-        }
 
-        // all symbols with special meaning (= not part of any group)
-        if SPECIAL_SYMBOLS.contains(&first_char) {
-            return Some((TokenClass::SPECIAL, 1));
+            for &keyword in &self.keywords {
+                if &program_slice[..num_chars] == keyword {
+                    return Some((TokenClass::SPECIAL, num_chars));
+                }
+            }
+
+            return Some((TokenClass::IDENTIFIER, num_chars));
         }
 
         if first_char.is_ascii_punctuation() {
@@ -174,9 +203,9 @@ pub struct StreamLexer {
 }
 
 impl StreamLexer {
-    pub fn new(ignore_whitespace: bool) -> StreamLexer {
+    pub fn new() -> StreamLexer {
         StreamLexer {
-            base: Lexer { ignore_whitespace },
+            base: Lexer::new_faux_lexer(),
             buffer: String::new(),
             cursor: 0,
         }

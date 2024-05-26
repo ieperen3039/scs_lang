@@ -23,7 +23,7 @@ fn simple_lexer_and_parser() {
         })
         .unwrap();
 
-    let tokens = Lexer::read(&formula)
+    let tokens = Lexer::default().read(&formula)
         .map_err(|err| {
             SimpleError::new(parser::Failure::LexerError { char_idx: err }.error_string(definition))
         })
@@ -69,7 +69,7 @@ fn simple_parser_with_simple_ignore() {
         })
         .unwrap();
 
-    let tokens = Lexer::read(&formula)
+    let tokens = Lexer::default().read(&formula)
         .map_err(|err| {
             SimpleError::new(parser::Failure::LexerError { char_idx: err }.error_string(definition))
         })
@@ -115,7 +115,7 @@ fn simple_parser_with_token_usage() {
         })
         .unwrap();
 
-    let tokens = Lexer::read(&formula)
+    let tokens = Lexer::default().read(&formula)
         .map_err(|err| {
             SimpleError::new(parser::Failure::LexerError { char_idx: err }.error_string(definition))
         })
@@ -167,7 +167,7 @@ fn complex_parser_with_complex_ignore() {
         })
         .unwrap();
 
-    let tokens = Lexer::read(&formula)
+    let tokens = Lexer::default().read(&formula)
         .map_err(|err| {
             SimpleError::new(parser::Failure::LexerError { char_idx: err }.error_string(definition))
         })

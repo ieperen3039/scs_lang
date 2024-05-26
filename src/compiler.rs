@@ -43,9 +43,7 @@ impl FauxCompiler {
             file_cache: HashMap::new(),
             parse_stack: Vec::new(),
             type_collector: TypeCollector::new(),
-            lexer: Lexer {
-                ignore_whitespace: true,
-            },
+            lexer: Lexer::new_faux_lexer(),
         })
     }
 
@@ -65,7 +63,7 @@ impl FauxCompiler {
         let file_contents = std::fs::read_to_string(source_file).map_err(SimpleError::from)?;
         let program_string = file_contents.replace("\r\n", "\n");
 
-        let tokens = self.lexer.read_all(&program_string).map_err(|char_idx| {
+        let tokens = self.lexer.read(&program_string).map_err(|char_idx| {
             SimpleError::new(parser::Failure::LexerError { char_idx }.error_string(&program_string))
         })?;
 
