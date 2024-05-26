@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::rc::Rc;
 
 use simple_error::{SimpleError, SimpleResult};
@@ -11,7 +11,7 @@ use crate::parsing::{
 };
 use crate::symbolization::ast::Namespace;
 use crate::symbolization::{
-    ast, meta_program, semantic_result::SemanticError, symbolizer, type_collector::TypeCollector,
+    ast, meta_program, symbolizer, type_collector::TypeCollector,
 };
 use crate::transformation::grammatificator;
 

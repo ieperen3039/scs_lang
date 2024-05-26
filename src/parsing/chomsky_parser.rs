@@ -1,10 +1,7 @@
-use std::{
-    collections::{hash_map::Keys, HashMap, HashSet},
-    io::Write,
-};
+use std::{io::Write, collections::HashMap};
 
 use crate::transformation::{
-    chomsker::{Chomsky, ChomskyPattern, ChomskyRule},
+    chomsker::{Chomsky, ChomskyPattern},
     grammar::{Grammar, RuleId, Terminal},
 };
 

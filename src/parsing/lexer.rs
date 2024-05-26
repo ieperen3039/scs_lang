@@ -186,7 +186,7 @@ impl StreamLexer {
         loop {
             if self.cursor >= self.buffer.len() {
                 self.buffer.clear();
-                std::io::stdin().read_line(&mut self.buffer);
+                std::io::stdin().read_line(&mut self.buffer).ok();
 
                 if self.buffer.is_empty() {
                     return Err((0, &self.buffer));

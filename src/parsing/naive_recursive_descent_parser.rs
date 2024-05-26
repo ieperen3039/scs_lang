@@ -14,6 +14,7 @@ pub type ParseResult<'prog, 'bnf> =
 
 pub struct Parser {
     grammar: ebnf_ast::EbnfAst,
+    #[allow(dead_code)]
     xml_out: Option<std::fs::File>,
 }
 
@@ -22,6 +23,7 @@ impl<'bnf> Parser {
         Parser { grammar, xml_out }
     }
 
+    #[allow(dead_code)]
     fn log(&'bnf self, string: &str) {
         if let Some(mut file) = self.xml_out.as_ref() {
             let _ = write!(file, "{string}");

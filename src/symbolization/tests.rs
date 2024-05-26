@@ -47,7 +47,7 @@ fn parse_simple_derived_type() {
     );
 }
 
-fn parse_implicit() {
-    let definition = include_str!("../../doc/definition.ebnf");
-    let program = include_str!("../../doc/implicit_impl.faux");
-}
+// fn parse_implicit() {
+//     let definition = include_str!("../../doc/definition.ebnf");
+//     let program = include_str!("../../doc/implicit_impl.faux");
+// }

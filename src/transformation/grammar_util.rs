@@ -1,5 +1,3 @@
-use crate::parsing::token::Token;
-
 use super::grammar::*;
 
 pub fn transform_top_down<Transformation>(term: &mut Term, transformation: &Transformation)

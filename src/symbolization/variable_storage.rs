@@ -94,12 +94,12 @@ impl VarStorage {
         Ok(())
     }
 
-    pub fn insert_from_param(&mut self, param: &Parameter) {
+    pub fn insert_from_param(&mut self, param: &Parameter) -> SemanticResult<()> {
         self.insert_raw(Rc::from(VariableDeclaration {
             var_type: param.par_type.to_owned(),
             name: param.name().to_owned(),
             id: param.id,
-        }));
+        }))
     }
 
     pub fn contains(&self, var: &VariableDeclaration) -> bool {

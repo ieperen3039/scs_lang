@@ -2,12 +2,14 @@ use std::io::Write;
 
 use crate::parsing::ebnf_ast;
 
+#[allow(dead_code)]
 struct XmlParseLogger {
     xml_out: std::fs::File,
     parse_stack: Vec<String>,
     printed_depth: usize,
 }
 
+#[allow(dead_code)]
 impl XmlParseLogger {
     fn log(&mut self, string: String) {
         // write all rule tags that we haven't written yet

@@ -18,6 +18,7 @@ pub enum Value {
 
 pub type NativeFunction = fn(Vec<Value>) -> InterpResult<Value>;
 
+#[derive(Debug)]
 pub enum InterpretationError {
     TypeError { expected: TypeRef, found: TypeRef },
     ArgumentRequiredError(Parameter),

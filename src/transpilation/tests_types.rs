@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use super::test_util::create_file_from_text;
 use crate::{compiler::FauxCompiler, transpilation::generator_c::GeneratorC};
 

@@ -109,6 +109,7 @@ impl<'prog, 'bnf> ParseNode<'prog, 'bnf> {
 }
 
 // ok < err, see compare_ok_result and compare_err_result
+#[allow(dead_code)]
 fn compare_result(
     a: &Result<Interpretation<'_, '_>, Failure<'_>>,
     b: &Result<Interpretation<'_, '_>, Failure<'_>>,

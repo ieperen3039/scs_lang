@@ -137,6 +137,7 @@ impl<'c> Parser {
         return Err(furthest_failures);
     }
 
+    #[allow(dead_code)]
     fn apply_rule_with_log<'prog: 'c>(
         &'c self,
         tokens: &'prog [Token<'prog>],

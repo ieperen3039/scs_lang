@@ -65,9 +65,9 @@ fn main() {
 
         let compile_result = compiler
             .compile(&base_directory.join(script_file))
-            .expect("compilation failed");
+            .expect("Compilation failed");
 
-        Interpreter::new(compile_result).execute_by_name("main");
+        Interpreter::new(compile_result).execute_by_name("main").expect("Runtime error");
     } else {
         println!(
             "Faux version {} interactive mode (try `help()` for more information)",

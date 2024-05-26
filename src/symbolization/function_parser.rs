@@ -101,7 +101,7 @@ impl FunctionParser<'_, '_> {
         let mut variables = VarStorage::new();
 
         for param in &function_declaration.parameters {
-            variables.insert_from_param(param);
+            variables.insert_from_param(param)?;
         }
 
         let function_block = self.read_function_block(node, this_scope, &mut variables)?;
@@ -320,7 +320,7 @@ impl FunctionParser<'_, '_> {
                     Ok(integer_value) => {
                         Ok(ValueExpression::Literal(Literal::Number(integer_value)))
                     },
-                    Err(err) => Err(SemanticError::InternalError(
+                    Err(_) => Err(SemanticError::InternalError(
                         "Could not parse integer literal",
                     )),
                 }
