@@ -1,13 +1,14 @@
-faux_script             = { function_definition }, statement, { statement_separator, statement }, end_symbol;
+faux_script             = { function_definition }, statement, { statement_separator, statement }, end_symbol, { function_definition };
 
 (* scopes and definitions *)
 identifier              = ? IDENTIFIER ?;
 (* reference to existing type *)
-type_ref                = ( base_type_ref | result_type_ref | optional_type_ref | flag_type_ref | tuple_type_ref | fn_type ), { stream_symbol };
+type_ref                = (result_type_ref | optional_type_ref | _singular_type_ref), { stream_symbol };
+result_type_ref         = _singular_type_ref, "!", _singular_type_ref;
+optional_type_ref       = _singular_type_ref, "?";
 (* reference to existing base type, enum or variant. *)
+_singular_type_ref      = ( base_type_ref | flag_type_ref | tuple_type_ref | fn_type );
 base_type_ref           = identifier;
-result_type_ref         = type_ref, "!", type_ref;
-optional_type_ref       = type_ref, "?";
 flag_type_ref           = _keyword_flag;
 tuple_type_ref          = "[", type_ref, { ",", type_ref }, "]";
 fn_type                 = _keyword_fn, "<", [ "(", unnamed_parameter_list, ")" ], return_type, ">";
