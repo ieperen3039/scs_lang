@@ -10,7 +10,9 @@ use crate::parsing::{
     parser,
 };
 use crate::symbolization::ast::Namespace;
-use crate::symbolization::{ast, meta_program, symbolizer, type_collector::TypeCollector};
+use crate::symbolization::{
+    ast, meta_program, semantic_result::SemanticError, symbolizer, type_collector::TypeCollector,
+};
 use crate::transformation::grammatificator;
 
 pub struct FauxCompiler {
@@ -108,7 +110,8 @@ impl FauxCompiler {
         // we have resolved and compiled all includes.
         // now we can start parsing this file
         let program =
-            symbolizer::parse_symbols(syntax_tree, &included_scope, &mut self.type_collector)?;
+            symbolizer::parse_symbols(syntax_tree, &included_scope, &mut self.type_collector)
+                .map_err(SimpleError::from)?;
         Ok(program)
     }
 }

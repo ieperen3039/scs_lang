@@ -1,6 +1,6 @@
 use std::hash::Hash;
 
-use crate::symbolization::{ast::Identifier, parse_result::{SemanticError, SemanticResult}};
+use crate::symbolization::{ast::Identifier, semantic_result::{SemanticError, SemanticResult}};
 use super::token::Token;
 
 // the entire resulting syntax tree consists of these nodes

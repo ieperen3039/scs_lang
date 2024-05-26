@@ -1,6 +1,6 @@
 use std::{borrow::BorrowMut, rc::Rc};
 
-use super::{ast::*, parse_result::{SemanticError, SemanticResult}};
+use super::{ast::*, semantic_result::{SemanticError, SemanticResult}};
 
 pub struct TypeResolver<'ext, 'int> {
     pub external_scope: &'ext Namespace,

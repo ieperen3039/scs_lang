@@ -9,4 +9,5 @@ pub mod type_resolver;
 #[cfg(test)]
 mod tests;
 pub mod function_collector;
-pub mod parse_result;
+pub mod semantic_result;
+pub mod variable_storage;

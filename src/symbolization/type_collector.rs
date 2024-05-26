@@ -2,7 +2,7 @@ use crate::parsing::{rule_nodes::RuleNode, FIRST_CUSTOM_TYPE_ID};
 
 use super::{
     ast::*,
-    parse_result::{SemanticError, SemanticResult},
+    semantic_result::{SemanticError, SemanticResult},
 };
 
 pub struct TypeCollector {

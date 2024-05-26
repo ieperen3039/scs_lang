@@ -11,7 +11,7 @@ use crate::{
     },
 };
 
-use super::parse_result::SemanticResult;
+use super::semantic_result::SemanticResult;
 
 pub fn parse_symbols(
     tree: RuleNode,

@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use crate::{
     parsing::rule_nodes::RuleNode,
-    symbolization::{ast::Namespace, parse_result::SemanticError, type_collector::TypeCollector},
+    symbolization::{ast::Namespace, semantic_result::SemanticError, type_collector::TypeCollector},
 };
 
-use super::{ast::*, parse_result::SemanticResult};
+use super::{ast::*, semantic_result::SemanticResult};
 
 pub struct FunctionCollector<'tc> {
     next_id: u32,
