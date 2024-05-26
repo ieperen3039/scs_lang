@@ -8,7 +8,7 @@ pub mod symbolization;
 pub mod built_in;
 pub mod interpretation;
 pub mod transformation;
-pub mod transpilation;
+// pub mod transpilation;
 
 mod xml_logger;
 

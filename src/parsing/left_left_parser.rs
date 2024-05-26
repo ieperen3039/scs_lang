@@ -389,13 +389,17 @@ fn construct_parse_table(grammar: Grammar) -> ParseTable {
             }
         }
     }
-    println!("");
-    println!("first_sets = {:?}", first_terminal_map_copy);
-    println!("");
-    println!("follow_sets = {:?}", follow_sets);
-    println!("");
-    println!("lookup_table = {:?}", lookup_table);
-    println!("");
+    
+    if false
+    {
+        println!("");
+        println!("first_sets = {:?}", first_terminal_map_copy);
+        println!("");
+        println!("follow_sets = {:?}", follow_sets);
+        println!("");
+        println!("lookup_table = {:?}", lookup_table);
+        println!("");
+    }
 
     // note that the original grammar is destroyed
     ParseTable {
