@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, rc::Rc, vec};
 
 use crate::parsing::rule_nodes::RuleNode;
 
@@ -33,19 +33,34 @@ impl FunctionParser<'_, '_> {
         }
     }
 
-    // function_block = statement, { statement_separator, statement }, [ statement_separator ]
+    // statement, { statement_separator, statement }, [ statement_separator ]
     pub fn read_statements(
         &self,
-        node: &RuleNode,
+        nodes: &[RuleNode],
         this_scope: &Namespace,
         mut variables: &mut VarStorage,
     ) -> SemanticResult<FunctionBody> {
-        let parameters = variables.get_var_ids();
+        if nodes.is_empty() {
+            return Err(SemanticError::NodeNotFound {
+                expected: "statment",
+                parent_node: String::from("function_body"),
+            });
+        }
 
+        debug_assert_eq!(nodes.first().map(|n| n.rule_name), Some("statement"));
+
+        let parameters = variables.get_var_ids();
         let mut statements = Vec::new();
 
-        for ele in node.sub_rules.chunks(2) {
-            let statement_node = ele[0].expect_node("statement")?;
+        for ele in nodes.chunks(2) {
+            let statement_node = &ele[0];
+            if statement_node.rule_name != "statement" {
+                return Err(SemanticError::UnexpectedNode {
+                    found: Identifier::from(statement_node.rule_name),
+                    parent_node: "function_body",
+                });
+            };
+
             let mut statement = self
                 .read_statement(statement_node, this_scope, &mut variables)
                 .map_err(|e| SemanticError::WhileParsing {
@@ -55,7 +70,12 @@ impl FunctionParser<'_, '_> {
                 })?;
 
             if ele.len() == 2 {
-                ele[1].expect_node("statement_separator")?;
+                if ele[1].rule_name != "statement_separator" {
+                    return Err(SemanticError::UnexpectedNode {
+                        found: Identifier::from(statement_node.rule_name),
+                        parent_node: "function_body",
+                    });
+                };
             } else if let Some(last_mutation) = statement.mutations.last() {
                 // this is an implicit return
                 if let FunctionExpression::Assignment(_) = last_mutation {
@@ -101,7 +121,7 @@ impl FunctionParser<'_, '_> {
         node: &RuleNode,
         this_scope: &Namespace,
     ) -> SemanticResult<FunctionBody> {
-        debug_assert_eq!(node.rule_name, "function_block");
+        debug_assert_eq!(node.rule_name, "function_body");
         let function_declaration = self.functions.get(&id).unwrap();
 
         let mut variables = VarStorage::new();
@@ -110,11 +130,11 @@ impl FunctionParser<'_, '_> {
             variables.insert_from_param(param)?;
         }
 
-        let function_block = self.read_statements(node, this_scope, &mut variables)?;
+        let function_body = self.read_statements(&node.sub_rules, this_scope, &mut variables)?;
 
-        if &function_block.return_var.var_type != &function_declaration.return_type {
+        if &function_body.return_var.var_type != &function_declaration.return_type {
             return Err(SemanticError::TypeMismatchError {
-                expected: function_block.return_var.var_type.clone(),
+                expected: function_body.return_var.var_type.clone(),
                 found: function_declaration.return_type.clone(),
             });
         }
@@ -126,7 +146,7 @@ impl FunctionParser<'_, '_> {
             )
         }
 
-        Ok(function_block)
+        Ok(function_body)
     }
 
     // statement = value_expression, { { operator }, function_expression };
@@ -138,7 +158,15 @@ impl FunctionParser<'_, '_> {
     ) -> SemanticResult<Statement> {
         debug_assert_eq!(node.rule_name, "statement");
 
-        let expression_node = node.expect_node("value_expression")?;
+        let mut node_iter: std::slice::Iter<RuleNode> = node.sub_rules.iter();
+
+        let expression_node = node_iter.next();
+        if expression_node.map(|n| n.rule_name) != Some("value_expression")
+        {
+            return Err(SemanticError::NodeNotFound { expected: "value_expression", parent_node: String::from(node.rule_name) });
+        }
+        let expression_node = expression_node.unwrap();
+
         let expression = self
             .read_value_expression(expression_node, this_scope, variables)
             .map_err(|e| SemanticError::WhileParsing {
@@ -148,14 +176,12 @@ impl FunctionParser<'_, '_> {
             })?;
 
         let mut expression_type = expression.get_type();
-
         let mut mutations = Vec::new();
-        let mut mutator_iter: std::slice::Iter<RuleNode> = node.sub_rules.iter();
 
-        while let Some(mutator_node) = mutator_iter.next() {
+        while let Some(mutator_node) = node_iter.next() {
             let mutator = self.read_mutator(
                 mutator_node,
-                &mut mutator_iter,
+                &mut node_iter,
                 expression_type,
                 this_scope,
                 variables,
@@ -211,7 +237,8 @@ impl FunctionParser<'_, '_> {
                     }))
                 } else {
                     Err(SemanticError::NodeNotFound {
-                        expected: "function_expression",
+                        expected: "function_expression or operator",
+                        parent_node: String::from(mutator_node.rule_name),
                     })
                 }
             },
@@ -301,6 +328,7 @@ impl FunctionParser<'_, '_> {
             } else {
                 return Err(SemanticError::NodeNotFound {
                     expected: "value_expression or function_expression",
+                    parent_node: String::from(super_node.rule_name),
                 });
             }
         };
@@ -315,9 +343,15 @@ impl FunctionParser<'_, '_> {
         variables: &mut VarStorage,
     ) -> SemanticResult<ValueExpression> {
         debug_assert!(node.rule_name == "value_expression");
-        match node.rule_name {
+
+        let sub_node = node
+            .sub_rules
+            .first()
+            .expect("function_expression must have subnodes");
+
+        match sub_node.rule_name {
             "variable_name" => {
-                let var_name = node.as_identifier();
+                let var_name = sub_node.as_identifier();
                 let variable = variables.use_var_by_name(&var_name).ok_or_else(|| {
                     SemanticError::SymbolNotFound {
                         kind: "variable",
@@ -328,18 +362,18 @@ impl FunctionParser<'_, '_> {
             },
             "tuple_construction" => {
                 let mut tuple_elements = Vec::new();
-                for subnode in &node.sub_rules {
-                    tuple_elements.push(self.read_value_expression(subnode, this_scope, variables)?)
+                for tuple_elt_node in &sub_node.sub_rules {
+                    tuple_elements.push(self.read_value_expression(tuple_elt_node, this_scope, variables)?)
                 }
 
                 Ok(ValueExpression::Tuple(tuple_elements))
             },
             "string_literal" => {
-                let string_value = extract_string(node);
+                let string_value = extract_string(sub_node);
                 Ok(ValueExpression::Literal(Literal::String(string_value)))
             },
             "integer_literal" => {
-                let as_string = node.tokens_as_string();
+                let as_string = sub_node.tokens_as_string();
                 let parse_result = as_string.parse::<i32>();
 
                 match parse_result {
@@ -356,7 +390,7 @@ impl FunctionParser<'_, '_> {
             unknown => {
                 return Err(SemanticError::UnexpectedNode {
                     found: Identifier::from(unknown),
-                    parent_node: "type_ref",
+                    parent_node: "value_expression",
                 })
             },
         }
@@ -381,7 +415,7 @@ impl FunctionParser<'_, '_> {
         match sub_node.rule_name {
             "function_call" => {
                 let function_call = self
-                    .read_function_call(node, this_scope, variables)
+                    .read_function_call(sub_node, this_scope, variables)
                     .map_err(|e| SemanticError::WhileParsing {
                         rule_name: "function_call",
                         char_idx: sub_node.first_char(),
@@ -398,7 +432,7 @@ impl FunctionParser<'_, '_> {
                     });
                 }
                 self.read_implicit_parameter_lamda(
-                    node,
+                    sub_node,
                     variables,
                     this_scope,
                     argument_types.first().unwrap().clone(),
@@ -409,26 +443,25 @@ impl FunctionParser<'_, '_> {
                     cause: Box::from(e),
                 })
             },
-            "explicit_par_lambda" => {
-                self.read_explicit_parameter_lamda(node, variables, this_scope, argument_types)
+            "explicit_par_lambda" => self
+                .read_explicit_parameter_lamda(sub_node, variables, this_scope, argument_types)
                 .map_err(|e| SemanticError::WhileParsing {
                     rule_name: "explicit_par_lambda",
                     char_idx: sub_node.first_char(),
                     cause: Box::from(e),
-                })
-            },
+                }),
             "mutator_cast" => unimplemented!("{}", node.rule_name),
             "mutator_assign" => unimplemented!("{}", node.rule_name),
             unknown => {
                 return Err(SemanticError::UnexpectedNode {
                     found: Identifier::from(unknown),
-                    parent_node: "type_ref",
+                    parent_node: "function_expression",
                 })
             },
         }
     }
 
-    // explicit_par_lambda     = [ untyped_parameter_list ], [ return_type ], function_block;
+    // explicit_par_lambda     = [ untyped_parameter_list ], [ return_type ], function_body;
     fn read_explicit_parameter_lamda(
         &self,
         node: &RuleNode,
@@ -440,7 +473,7 @@ impl FunctionParser<'_, '_> {
 
         let parameter_node = node.find_node("untyped_parameter_list");
         let return_type_node = node.find_node("return_type");
-        let function_node = node.expect_node("function_block")?;
+        let function_node = node.expect_node("function_body")?;
 
         let untyped_parameter_list = match parameter_node {
             Some(p_node) => self
@@ -463,11 +496,11 @@ impl FunctionParser<'_, '_> {
             inner_variables.insert(n.to_owned(), t.to_owned())?;
         }
 
-        let function_block =
-            self.read_statements(function_node, this_scope, &mut inner_variables)?;
+        let function_body =
+            self.read_statements(&function_node.sub_rules, this_scope, &mut inner_variables)?;
 
         // check return type if possible
-        self.check_type_node(return_type_node, &function_block.return_var.var_type)?;
+        self.check_type_node(return_type_node, &function_body.return_var.var_type)?;
 
         let mut capture = Vec::new();
         for var in inner_variables.get_used_vars() {
@@ -478,7 +511,7 @@ impl FunctionParser<'_, '_> {
 
         Ok(FunctionExpression::Lamda(Lamda {
             parameters: untyped_parameter_list,
-            body: function_block,
+            body: function_body,
             capture,
         }))
     }
@@ -504,9 +537,15 @@ impl FunctionParser<'_, '_> {
         // handle the first statement separately
         let mut expression_type = argument_type.clone();
         let mut mutations = Vec::new();
-        let mut mutator_iter: std::slice::Iter<RuleNode> = node.sub_rules.iter();
 
+        let mut mutator_iter: std::slice::Iter<RuleNode> = node.sub_rules.iter();
         while let Some(mutator_node) = mutator_iter.next() {
+            if mutator_node.rule_name == "statement_separator" {
+                // if there is another statement, then there must be a statement_separator
+                // in between the mutators and this statement
+                break;
+            }
+
             let mutator = self.read_mutator(
                 mutator_node,
                 &mut mutator_iter,
@@ -518,16 +557,43 @@ impl FunctionParser<'_, '_> {
             mutations.push(mutator);
         }
 
-        // this works because the first part contains no "statement" nodes
-        let mut function_block = self.read_statements(node, this_scope, &mut inner_variables)?;
-        // now add the first statement
-        function_block.statements.insert(
-            0,
-            Statement {
-                base_element: ValueExpression::Variable(implicit_par),
-                mutations,
-            },
-        );
+        let initial_statement = Statement {
+            base_element: ValueExpression::Variable(implicit_par),
+            mutations,
+        };
+
+        let num_elements_left = node.sub_rules.len() - mutator_iter.count();
+        let function_body = if num_elements_left > 0 {
+            let mut function_body = self
+                .read_statements(
+                    &node.sub_rules[num_elements_left..],
+                    this_scope,
+                    &mut inner_variables,
+                )
+                .map_err(|e| SemanticError::WhileParsing {
+                    rule_name: "implicit_par_lambda",
+                    char_idx: node.first_char(),
+                    cause: Box::from(e),
+                })?;
+
+            // now add the first statement
+            function_body.statements.insert(0, initial_statement);
+            function_body
+        } else {
+            let parameters = inner_variables.get_var_ids();
+            let return_var = inner_variables.use_var_by_name("return").ok_or_else(|| {
+                SemanticError::SymbolNotFound {
+                    kind: "variable",
+                    symbol: Identifier::from("return"),
+                }
+            })?;
+
+            FunctionBody {
+                parameters,
+                statements: vec![initial_statement],
+                return_var,
+            }
+        };
 
         let mut capture = Vec::new();
         for var in inner_variables.get_used_vars() {
@@ -538,7 +604,7 @@ impl FunctionParser<'_, '_> {
 
         Ok(FunctionExpression::Lamda(Lamda {
             parameters: vec![implicit_par_name],
-            body: function_block,
+            body: function_body,
             capture,
         }))
     }
@@ -562,7 +628,8 @@ impl FunctionParser<'_, '_> {
         Ok(())
     }
 
-    // function_call           = function_name, "(", [ _argument_list ], ")";
+    // function_call = function_name, [ _argument_list ];
+    // _argument_list = argument, { argument };
     fn read_function_call(
         &self,
         node: &RuleNode,
@@ -611,6 +678,10 @@ impl FunctionParser<'_, '_> {
         this_scope: &Namespace,
         variables: &mut VarStorage,
     ) -> SemanticResult<Vec<Option<Expression>>> {
+        if argument_nodes.is_empty() {
+            return Ok(Vec::new());
+        }
+
         let mut remaining_parameters = function_decl.parameters.clone();
         // maps the current parameters to the corresponding indices in the original parameters vec
         let mut indices: Vec<usize> = (0..function_decl.parameters.len()).collect();
@@ -647,6 +718,8 @@ impl FunctionParser<'_, '_> {
         this_scope: &Namespace,
         variables: &mut VarStorage,
     ) -> SemanticResult<(usize, Expression)> {
+        debug_assert_eq!(node.rule_name, "argument");
+
         match node.rule_name {
             "named_argument" => {
                 let arg_name = node.expect_node("identifier")?.as_identifier();
@@ -713,7 +786,7 @@ impl FunctionParser<'_, '_> {
             unknown => {
                 return Err(SemanticError::UnexpectedNode {
                     found: Identifier::from(unknown),
-                    parent_node: "type_ref",
+                    parent_node: "argument",
                 })
             },
         }

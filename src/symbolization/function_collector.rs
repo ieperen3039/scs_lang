@@ -76,7 +76,7 @@ impl<'a> FunctionCollector<'a> {
     }
 
     // we only read the declaration part of the definition
-    // function_definition     = function_name, [ parameter_list ], return_type, function_block;
+    // function_definition     = function_name, [ parameter_list ], return_type, function_body;
     pub fn read_function_declaration(
         &mut self,
         node: &RuleNode<'_, '_>,
@@ -107,14 +107,14 @@ impl<'a> FunctionCollector<'a> {
         };
 
         // we only check whether it exists. We can't parse it before we have collected all function declarations
-        let function_block_node = node.find_node("function_block");
+        let function_body_node = node.find_node("function_body");
 
         Ok(FunctionDeclaration {
             id: self.new_id(),
             name: name_node.as_identifier(),
             parameters,
             // technically, only when the "native_decl" node is found
-            is_external: function_block_node.is_none(),
+            is_external: function_body_node.is_none(),
             return_type,
         })
     }

@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use simple_error::SimpleError;
-
 use crate::{
     built_in,
     parsing::rule_nodes::RuleNode,
@@ -24,7 +22,7 @@ pub fn parse_faux_program(
     type_collector: &mut TypeCollector,
 ) -> SemanticResult<ast::Program> {
     debug_assert_eq!(ast.rule_name, "faux_program");
-    // faux_program = [ version_declaration ], { include_declaration }, { _definition }, [ program_interface, function_block ];
+    // faux_program = [ version_declaration ], { include_declaration }, { _definition }, [ program_interface, function_body ];
     // _definition = constant_def | scope | type_definition | enum_definition | variant_definition | implementation | function_definition;
 
     let mut proto_scope = Namespace::new("", None);
@@ -82,9 +80,7 @@ pub fn parse_faux_program(
         function_map
             .get("main")
             .cloned()
-            .ok_or_else(|| SemanticError::NodeNotFound {
-                expected: "main function",
-            })?;
+            .ok_or_else(|| SemanticError::SymbolNotFound { kind: "function", symbol: Identifier::from("main") })?;
 
     Ok(ast::Program {
         namespaces: root_scope,
@@ -144,7 +140,7 @@ pub fn parse_faux_script(
         })?;
 
     let entry_function = function_parser
-        .read_statements(&ast, &root_scope, &mut VarStorage::new())
+        .read_statements(&ast.sub_rules[..], &root_scope, &mut VarStorage::new())
         .map_err(|e| SemanticError::WhileParsing {
             rule_name: "faux_script (read_statements)",
             char_idx: ast.first_char(),
@@ -191,12 +187,16 @@ fn parse_function_definitions(
                 let function_name = node.expect_node("function_name")?;
                 let id = function_map.get(&function_name.as_identifier()).unwrap();
 
-                let function_body_node = node.expect_node("function_block")?;
+                let function_body_node = node.expect_node("function_body")?;
                 let function_body = function_parser.read_function_body(
                     *id,
                     function_body_node,
                     function_parser.root_namespace,
-                )?;
+                ).map_err(|e| SemanticError::WhileParsing {
+                    rule_name: "function_definition",
+                    char_idx: function_body_node.first_char(),
+                    cause: Box::from(e),
+                })?;
 
                 function_definitions.insert(*id, function_body);
             },

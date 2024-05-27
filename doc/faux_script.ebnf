@@ -1,4 +1,4 @@
-faux_script             = { function_definition }, statement, { statement_separator, statement }, end_symbol, { function_definition };
+faux_script             = statement, { statement_separator, statement }, end_symbol, { function_definition };
 
 (* scopes and definitions *)
 identifier              = ? IDENTIFIER ?;
@@ -14,7 +14,7 @@ tuple_type_ref          = "[", type_ref, { ",", type_ref }, "]";
 fn_type                 = _keyword_fn, "<", [ "(", unnamed_parameter_list, ")" ], return_type, ">";
 
 (* function definitions and parameters *)
-function_definition     = _keyword_fn, function_name, _function_interface, function_block;
+function_definition     = _keyword_fn, function_name, _function_interface, "{", function_body, "}";
 function_name           = ? IDENTIFIER ?;
 _function_interface     = "(", [ parameter_list ], ")", ":", return_type;
 parameter_list          = parameter, { ",", parameter };
@@ -26,11 +26,11 @@ return_type             = type_ref | no_return_type_ref;
 no_return_type_ref      = "!";
 
 (* statements *)
-function_block          = "{", statement, { statement_separator, statement }, [ statement_separator ], "}";
+function_body           = statement, { statement_separator, statement }, [ statement_separator ];
 statement               = value_expression, { { operator }, function_expression }; 
 _expression             = value_expression | function_expression;
-value_expression       = variable_name | tuple_construction | _literal; 
-function_expression    = implicit_par_lambda | explicit_par_lambda | function_call | mutator_cast | mutator_assign;
+value_expression        = variable_name | tuple_construction | _literal; 
+function_expression     = implicit_par_lambda | explicit_par_lambda | function_call | mutator_cast | mutator_assign;
 statement_separator     = ";";
 variable_name           = ? IDENTIFIER ?;
 
@@ -51,7 +51,7 @@ mutator_assign          = _usage_assign, ( [ type_ref ], variable_name);
 (* the first statement of a implicit parameter lamdas starts with a function expression *)
 implicit_par_lambda     = "{", { { operator }, function_expression }, { statement_separator, statement }, [ statement_separator ], "}";
 (* a lamda with zero parameters must have parenthesis, otherwise it is near-indistinguishable from implicit parameter lamdas *)
-explicit_par_lambda     = "(", [ untyped_parameter_list ], ")", [ ":", return_type ], function_block;
+explicit_par_lambda     = "(", [ untyped_parameter_list ], ")", [ ":", return_type ], "{", function_body, "}";
 
 (* other statements *)
 tuple_construction      = "[", value_expression, { ",", value_expression }, "]";

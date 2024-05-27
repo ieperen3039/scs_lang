@@ -110,7 +110,7 @@ impl<'prog, 'bnf> RuleNode<'prog, 'bnf> {
 
     pub fn expect_node<'r>(&'r self, expected: &'static str) -> SemanticResult<&'r RuleNode> {
         self.find_node(expected)
-            .ok_or_else(|| SemanticError::NodeNotFound { expected })
+            .ok_or_else(|| SemanticError::NodeNotFound { expected, parent_node: String::from(self.rule_name) })
     }
 
     pub fn find_node<'r>(&'r self, expected: &str) -> Option<&'r RuleNode> {

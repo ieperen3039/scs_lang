@@ -134,6 +134,7 @@ impl TypeCollector {
                 .find_node("tuple_ref")
                 .ok_or_else(|| SemanticError::NodeNotFound {
                     expected: "either a base_type_ref or a tuple_ref",
+                    parent_node: String::from(derived_node.rule_name),
                 })?;
 
         self.read_tuple_inst(tuple_inst_node)

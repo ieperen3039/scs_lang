@@ -180,7 +180,7 @@ pub struct Lamda {
 
 impl PartialEq for TypeDefinition {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id && self.type_class == other.type_class
+        self.id == other.id
     }
 }
 
