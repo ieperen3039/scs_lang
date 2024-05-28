@@ -1,12 +1,12 @@
 use std::fmt::Display;
 
-use super::ast::{self, Identifier};
+use super::ast::{self};
 
 #[derive(Debug)]
 pub enum SemanticError {
     NodeNotFound {
         expected: &'static str,
-        parent_node: String,
+        parent_node: ast::Identifier,
     },
     UnexpectedNode {
         found: ast::Identifier,
@@ -21,12 +21,12 @@ pub enum SemanticError {
         name: ast::Identifier,
     },
     ArgumentRequired {
-        par: Identifier,
-        function: Identifier,
+        par: ast::Identifier,
+        function: ast::Identifier,
     },
     ArgumentInvalid {
-        arg: Identifier,
-        function: Identifier,
+        arg: ast::Identifier,
+        function: ast::Identifier,
     },
     InvalidNumerOfParameters {
         what: &'static str,
@@ -40,7 +40,7 @@ pub enum SemanticError {
     SymbolNotFoundInScope {
         kind: &'static str,
         symbol: ast::Identifier,
-        scope: Vec<Identifier>,
+        scope: Vec<ast::Identifier>,
     },
     WhileParsing {
         rule_name: &'static str,

@@ -4,16 +4,17 @@ use std::rc::Rc;
 
 use simple_error::{SimpleError, SimpleResult};
 
-use crate::parsing::{
-    ebnf_parser, left_left_parser,
-    lexer::{self, Lexer},
-    parser,
-};
 use crate::symbolization::ast::Namespace;
-use crate::symbolization::{
-    ast, meta_program, symbolizer, type_collector::TypeCollector,
-};
+use crate::symbolization::{ast, meta_program, symbolizer, type_collector::TypeCollector};
 use crate::transformation::grammatificator;
+use crate::{
+    parsing::{
+        ebnf_parser, left_left_parser,
+        lexer::{self, Lexer},
+        parser,
+    },
+    symbolization::function_collector::FunctionCollector,
+};
 
 pub struct FauxCompiler {
     parser: Rc<left_left_parser::Parser>,
@@ -21,6 +22,7 @@ pub struct FauxCompiler {
     parse_stack: Vec<Box<Path>>,
     file_cache: HashMap<Box<Path>, Rc<ast::Program>>,
     type_collector: TypeCollector,
+    function_collector: FunctionCollector,
 }
 
 impl FauxCompiler {
@@ -43,6 +45,7 @@ impl FauxCompiler {
             file_cache: HashMap::new(),
             parse_stack: Vec::new(),
             type_collector: TypeCollector::new(),
+            function_collector: FunctionCollector::new(),
             lexer: Lexer::new_faux_lexer(),
         })
     }
@@ -107,9 +110,14 @@ impl FauxCompiler {
 
         // we have resolved and compiled all includes.
         // now we can start parsing this file
-        let program =
-            symbolizer::parse_faux_program(syntax_tree, &included_scope, &mut self.type_collector)
-                .map_err(SimpleError::from)?;
+        let program = symbolizer::parse_faux_program(
+            syntax_tree,
+            &included_scope,
+            &mut self.type_collector,
+            &mut self.function_collector,
+        )
+        .map_err(SimpleError::from)?;
+    
         Ok(program)
     }
 }

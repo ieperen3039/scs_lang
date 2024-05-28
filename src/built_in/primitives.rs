@@ -52,12 +52,12 @@ pub fn build_result(
     type_1: &TypeRef,
     type_2: &TypeRef,
 ) -> TypeDefinition {
-    build_variant("result", id, vec![("Pos", type_1), ("Neg", type_2)])
+    build_variant(&format!("{:?}!{:?}", type_1, type_2), id, vec![("Pos", type_1), ("Neg", type_2)])
 }
 
 pub fn build_optional(id: TypeId, opt_type: &TypeRef) -> TypeDefinition {
     build_variant(
-        "optional",
+        &format!("{:?}?", opt_type),
         id,
         vec![("Some", opt_type), ("None", &TypeRef::Void)],
     )

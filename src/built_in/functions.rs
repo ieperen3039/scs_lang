@@ -9,7 +9,7 @@ pub fn get_functions(collector: &mut FunctionCollector) -> Vec<FunctionDeclarati
     ]
 }
 
-struct FunctionProto {
+pub struct FunctionProto {
     fn_id: FunctionId,
     var_id: VariableId,
     name: Identifier,
@@ -32,7 +32,7 @@ impl FunctionProto {
         id
     }
 
-    fn flag(
+    pub fn flag(
         mut self,
         long_name: Option<&str>,
         short_name: Option<&str>,
@@ -47,7 +47,7 @@ impl FunctionProto {
         self
     }
 
-    fn opt_par(
+    pub fn opt_par(
         mut self,
         long_name: &str,
         short_name: Option<&str>,
@@ -63,7 +63,7 @@ impl FunctionProto {
         self
     }
 
-    fn req_par(
+    pub fn req_par(
         mut self,
         long_name: &str,
         short_name: Option<&str>,
@@ -79,7 +79,7 @@ impl FunctionProto {
         self
     }
 
-    fn returns(self, type_ref: &TypeRef) -> FunctionDeclaration {
+    pub fn returns(self, type_ref: &TypeRef) -> FunctionDeclaration {
         FunctionDeclaration {
             id: self.fn_id,
             name: self.name,

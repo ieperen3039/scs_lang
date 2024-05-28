@@ -74,11 +74,11 @@ impl TypeCollector {
                 Ok(Definition::Type(type_def))
             },
             "enum_definition" => {
-                let enum_def = self.read_enum(node, scope)?;
+                let enum_def = self.read_enum_definition(node, scope)?;
                 Ok(Definition::Type(enum_def))
             },
             "variant_definition" => {
-                let variant_def = self.read_variant(node, scope)?;
+                let variant_def = self.read_variant_definition(node, scope)?;
                 Ok(Definition::Type(variant_def))
             },
             _ => Ok(Definition::Other),
@@ -103,7 +103,7 @@ impl TypeCollector {
         let derived_from = {
             let derived_type_node = node.find_node("derived_type");
             if let Some(derived_type_node) = derived_type_node {
-                let derived_name = self.read_derived_type(derived_type_node)?;
+                let derived_name = TypeCollector::read_derived_type(derived_type_node)?;
                 Some(Box::from(derived_name))
             } else {
                 None
@@ -120,12 +120,11 @@ impl TypeCollector {
         })
     }
 
-    pub fn read_derived_type(&self, derived_node: &RuleNode) -> SemanticResult<TypeRef> {
+    pub fn read_derived_type(derived_node: &RuleNode) -> SemanticResult<TypeRef> {
         let maybe_base_type_node = derived_node.find_node("base_type_ref");
 
         if let Some(base_type_node) = maybe_base_type_node {
-            return self
-                .read_scoped_base_type(derived_node, base_type_node)
+            return TypeCollector::read_scoped_base_type(derived_node, base_type_node)
                 .map(TypeRef::UnresolvedName);
         }
 
@@ -134,24 +133,23 @@ impl TypeCollector {
                 .find_node("tuple_ref")
                 .ok_or_else(|| SemanticError::NodeNotFound {
                     expected: "either a base_type_ref or a tuple_ref",
-                    parent_node: String::from(derived_node.rule_name),
+                    parent_node: Identifier::from(derived_node.rule_name),
                 })?;
 
-        self.read_tuple_inst(tuple_inst_node)
+                TypeCollector::read_tuple_inst(tuple_inst_node)
             .map(TypeRef::UnamedTuple)
     }
 
-    pub fn read_tuple_inst(&self, tuple_inst_node: &RuleNode) -> SemanticResult<Vec<TypeRef>> {
+    pub fn read_tuple_inst(tuple_inst_node: &RuleNode) -> SemanticResult<Vec<TypeRef>> {
         let mut types = Vec::new();
         for node in tuple_inst_node.find_nodes("type_ref") {
-            types.push(self.read_type_ref(node)?)
+            types.push(TypeCollector::read_type_ref(node)?)
         }
 
         Ok(types)
     }
 
     pub fn read_scoped_base_type(
-        &self,
         derived_node: &RuleNode,
         base_type_node: &RuleNode,
     ) -> SemanticResult<UnresolvedName> {
@@ -170,7 +168,7 @@ impl TypeCollector {
     }
 
     // enum_definition = identifier, { identifier };
-    pub fn read_enum(
+    pub fn read_enum_definition(
         &mut self,
         node: &RuleNode,
         scope: &Namespace,
@@ -196,7 +194,7 @@ impl TypeCollector {
     }
 
     // variant_definition = identifier, variant_value_decl, { variant_value_decl };
-    pub fn read_variant(
+    pub fn read_variant_definition(
         &mut self,
         node: &RuleNode,
         scope: &Namespace,
@@ -225,7 +223,7 @@ impl TypeCollector {
     pub fn read_variant_value(&self, node: &RuleNode) -> SemanticResult<VariantValue> {
         let name_node = node.expect_node("identifier")?;
         let type_node = node.expect_node("type_ref")?;
-        let type_name = self.read_type_ref(type_node)?;
+        let type_name = TypeCollector::read_type_ref(type_node)?;
 
         Ok(VariantValue {
             name: name_node.as_identifier(),
@@ -234,7 +232,7 @@ impl TypeCollector {
     }
 
     // type_ref = ( base_type_ref | result_type_ref | optional_type_ref | flag_type_ref | tuple_type_ref | fn_type ), { stream_symbol };
-    pub fn read_type_ref(&self, node: &RuleNode) -> SemanticResult<TypeRef> {
+    pub fn read_type_ref(node: &RuleNode) -> SemanticResult<TypeRef> {
         debug_assert_eq!(node.rule_name, "type_ref");
         let mut stream_depth = node.find_nodes("stream_symbol").len();
 
@@ -245,15 +243,15 @@ impl TypeCollector {
 
         let mut base = match type_node.rule_name {
             "base_type_ref" => {
-                let unresolved_name = self.read_scoped_base_type(node, type_node)?;
+                let unresolved_name = Self::read_scoped_base_type(node, type_node)?;
                 TypeRef::UnresolvedName(unresolved_name)
             },
             "flag_type_ref" => TypeRef::Flag,
-            "tuple_type_ref" => TypeRef::UnamedTuple(self.read_tuple_inst(type_node)?),
-            "fn_type" => TypeRef::Function(self.read_fn_type(type_node)?),
+            "tuple_type_ref" => TypeRef::UnamedTuple(TypeCollector::read_tuple_inst(type_node)?),
+            "fn_type" => TypeRef::Function(TypeCollector::read_fn_type(type_node)?),
             "optional_type_ref" => {
                 let sub_type = node.find_node("type_ref").unwrap();
-                TypeRef::Optional(Box::new(self.read_type_ref(sub_type)?))
+                TypeRef::Optional(Box::new(TypeCollector::read_type_ref(sub_type)?))
             },
             "result_type_ref" => {
                 let types = type_node.find_nodes("type_ref");
@@ -261,8 +259,8 @@ impl TypeCollector {
                 let first = types.first().unwrap();
                 let second = types.last().unwrap();
                 TypeRef::Result(
-                    Box::new(self.read_type_ref(first)?),
-                    Box::new(self.read_type_ref(second)?),
+                    Box::new(TypeCollector::read_type_ref(first)?),
+                    Box::new(TypeCollector::read_type_ref(second)?),
                 )
             },
             unknown => {
@@ -283,19 +281,19 @@ impl TypeCollector {
 
     // fn_type = [ unnamed_parameter_list ], return_type;
     // unnamed_parameter_list = type_ref, { type_ref };
-    pub fn read_fn_type(&self, fn_type_node: &RuleNode<'_, '_>) -> SemanticResult<FunctionType> {
+    pub fn read_fn_type(fn_type_node: &RuleNode<'_, '_>) -> SemanticResult<FunctionType> {
         let parameters = {
             let mut parameters = Vec::new();
             let parameter_list_node = fn_type_node.find_node("unnamed_parameter_list");
             if let Some(parameter_list_node) = parameter_list_node {
                 for parameter_node in &parameter_list_node.sub_rules {
-                    parameters.push(self.read_type_ref(parameter_node)?);
+                    parameters.push(Self::read_type_ref(parameter_node)?);
                 }
             }
             parameters
         };
         let return_type_node = fn_type_node.expect_node("return_type")?;
-        let return_type = self.read_type_ref(return_type_node)?;
+        let return_type = Self::read_type_ref(return_type_node)?;
 
         Ok(FunctionType {
             parameters,

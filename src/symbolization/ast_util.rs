@@ -8,7 +8,7 @@ impl TypeDefinition {}
 
 impl TypeRef {
     pub const STRING: TypeRef = Self::from(TYPE_ID_STRING);
-    pub const NUMBER: TypeRef = Self::from(TYPE_ID_INT);
+    pub const INT: TypeRef = Self::from(TYPE_ID_INT);
     pub const FLOAT: TypeRef = Self::from(TYPE_ID_FLOAT);
     pub const BOOLEAN: TypeRef = Self::from(TYPE_ID_BOOLEAN);
 
@@ -56,7 +56,7 @@ impl ValueExpression {
                 TypeRef::UnamedTuple(elements.iter().map(|ex| ex.get_type()).collect())
             },
             ValueExpression::Literal(Literal::String(_)) => TypeRef::STRING.clone(),
-            ValueExpression::Literal(Literal::Number(_)) => TypeRef::NUMBER.clone(),
+            ValueExpression::Literal(Literal::Number(_)) => TypeRef::INT.clone(),
             ValueExpression::Literal(Literal::Boolean(_)) => TypeRef::BOOLEAN.clone(),
             ValueExpression::Variable(var) => var.var_type.clone(),
         }

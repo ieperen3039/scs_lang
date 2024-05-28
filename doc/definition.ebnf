@@ -60,7 +60,7 @@ function_block          = "{", statement, { statement_separator, statement }, [ 
 statement               = _value_expression, { { operator }, _function_expression }; 
 _expression             = _value_expression | _function_expression;
 _value_expression       = variable_name | tuple_construction | _literal; 
-_function_expression    = implicit_par_lambda | explicit_par_lambda | function_call | method_call | mutator_cast | mutator_assign;
+_function_expression    = implicit_par_lamda | explicit_par_lamda | function_call | method_call | mutator_cast | mutator_assign;
 statement_separator     = ";";
 variable_name           = ? IDENTIFIER ?;
 
@@ -78,9 +78,9 @@ mutator_assign          = _usage_assign, ( [ type_ref ], variable_name);
 
 (* lamdas *)
 (* the first statement of a implicit parameter lamdas starts with a function expression *)
-implicit_par_lambda     = "{", { { operator }, _function_expression }, { statement_separator, statement }, [ statement_separator ], "}";
+implicit_par_lamda     = "{", { { operator }, _function_expression }, { statement_separator, statement }, [ statement_separator ], "}";
 (* a lamda with zero parameters must have parenthesis, otherwise it is near-indistinguishable from implicit parameter lamdas *)
-explicit_par_lambda     = "(", [ untyped_parameter_list ], ")", [ ":", return_type ], function_block;
+explicit_par_lamda     = "(", [ untyped_parameter_list ], ")", [ ":", return_type ], function_block;
 
 (* other statements *)
 tuple_construction      = "[", _value_expression, { ",", _value_expression }, "]";

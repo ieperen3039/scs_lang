@@ -1,11 +1,19 @@
 use simple_error::SimpleError;
 
 use crate::{
-    parsing::{ebnf_parser, left_left_parser, lexer::Lexer, parser},
-    transformation::{grammar::Grammar, grammatificator},
+    built_in,
+    parsing::{ebnf_parser, left_left_parser, lexer::Lexer},
+    symbolization::semantic_result::SemanticError,
+    transformation::grammatificator,
 };
 
-use super::{ast::Namespace, symbolizer, type_collector::TypeCollector};
+use super::{
+    ast::{self, TypeRef},
+    function_collector::FunctionCollector,
+    semantic_result::SemanticResult,
+    symbolizer,
+    type_collector::TypeCollector,
+};
 
 // #[test]
 // fn parse_simple_derived_type() {
@@ -63,7 +71,37 @@ fn parse_convoluted_statements() {
             write("data.csv);
     "#;
 
-    let program_result = do_the_magic(definition, program);
+    let mut function_collector = FunctionCollector::new();
+    let functions = vec![
+        built_in::functions::FunctionProto::new("cat", &mut function_collector)
+            .req_par("file", None, &ast::TypeRef::STRING)
+            .returns(&ast::TypeRef::Stream(Box::from(TypeRef::STRING.clone()))),
+    ];
+
+    let grammar = ebnf_parser::parse_ebnf(definition)
+        .map(grammatificator::convert_to_grammar)
+        .unwrap();
+    let tokens = Lexer::read_faux(&program).unwrap();
+    let parser = left_left_parser::Parser::new(grammar, None);
+    let syntax_tree = parser.parse_program(&tokens);
+
+    if let Err(error) = syntax_tree {
+        println!(
+            "{}",
+            error
+                .iter()
+                .map(|e| e.error_string(program))
+                .fold(String::new(), |a, s| a + "\n" + &s)
+        );
+        return;
+    }
+
+    let program_result = symbolizer::parse_faux_script(
+        syntax_tree.unwrap(),
+        &ast::Namespace::new("", None),
+        &mut TypeCollector::new(),
+        &mut function_collector,
+    );
 
     if let Err(error) = program_result {
         panic!("Error parsing program: \n{error}");
@@ -73,38 +111,66 @@ fn parse_convoluted_statements() {
 #[test]
 fn parse_function_definition() {
     let definition = include_str!("../../doc/faux_script.ebnf");
-    // it should be noted that floating point arithmatic is (probably) not supported
+    // it should be noted that floating point arithmatic is (probably) not going to be supported
     let program = r#"
-        5 inc();
-        
-        fn inc(int number) : int {
-            number
-                add(1)
+        10
+            invsqrt()
+            less_than(1)
+            = return;
+
+        fn invsqrt(int n) : int {
+            n
+                sqrt() 
+                (n_sq) {
+                    1 div(n_sq)
+                }
         }
     "#;
 
-    let program_result = do_the_magic(definition, program);
+    let mut function_collector = FunctionCollector::new();
+
+    let mut namespace = ast::Namespace::new("", None);
+    namespace.add_function(
+        &built_in::functions::FunctionProto::new("sqrt", &mut function_collector)
+            .req_par("n", None, &ast::TypeRef::INT)
+            .returns(&ast::TypeRef::INT),
+    );
+    namespace.add_function(
+        &built_in::functions::FunctionProto::new("div", &mut function_collector)
+            .req_par("a", None, &ast::TypeRef::INT)
+            .req_par("b", None, &ast::TypeRef::INT)
+            .returns(&ast::TypeRef::INT),
+    );
+    for type_def in built_in::primitives::get_primitives() {
+        namespace.add_type(&type_def);
+    }
+
+    let grammar = ebnf_parser::parse_ebnf(definition)
+        .map(grammatificator::convert_to_grammar)
+        .unwrap();
+    let tokens = Lexer::read_faux(&program).unwrap();
+    let parser = left_left_parser::Parser::new(grammar, None);
+    let syntax_tree = parser.parse_program(&tokens);
+
+    if let Err(error) = syntax_tree {
+        println!(
+            "{}",
+            error
+                .iter()
+                .map(|e| e.error_string(program))
+                .fold(String::new(), |a, s| a + "\n" + &s)
+        );
+        return;
+    }
+
+    let program_result = symbolizer::parse_faux_script(
+        syntax_tree.unwrap(),
+        &namespace,
+        &mut TypeCollector::new(),
+        &mut function_collector,
+    );
 
     if let Err(error) = program_result {
         panic!("Error parsing program: \n{error}");
     }
-}
-
-fn do_the_magic(
-    definition: &str,
-    program: &str,
-) -> Result<super::ast::Program, super::semantic_result::SemanticError> {
-    let grammar = ebnf_parser::parse_ebnf(definition)
-        .map(grammatificator::convert_to_grammar)
-        .unwrap();
-
-    let tokens = Lexer::read_faux(&program).unwrap();
-    let parser = left_left_parser::Parser::new(grammar, None);
-    let syntax_tree = parser.parse_program(&tokens).unwrap();
-    let root_namespace = Namespace::new("root", None);
-    let mut type_collector = TypeCollector::new();
-
-    let program_result =
-        symbolizer::parse_faux_script(syntax_tree, &root_namespace, &mut type_collector);
-    program_result
 }

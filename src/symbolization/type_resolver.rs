@@ -2,53 +2,42 @@ use std::{borrow::BorrowMut, rc::Rc};
 
 use super::{ast::*, semantic_result::{SemanticError, SemanticResult}};
 
-pub struct TypeResolver<'ext, 'int> {
-    pub external_namespace: &'ext Namespace,
-    pub root_namespace: &'int Namespace,
+pub struct TypeResolver<'ns> {
+    pub root_namespace: &'ns Namespace,
 }
 
 pub fn resolve_type_definitions(
     types_to_resolve: Vec<TypeDefinition>,
-    external_namespace: &Namespace,
-    internal_namespace: &Namespace,
+    root_namespace: &Namespace,
 ) -> SemanticResult<Vec<TypeDefinition>> {
     let resolver = TypeResolver {
-        external_namespace,
-        root_namespace: internal_namespace,
+        root_namespace
     };
 
     resolver.resolve_types(types_to_resolve)
 }
 
 pub fn resolve_type_name(
-    type_to_resolve: &UnresolvedName,
+    mut type_to_resolve: TypeRef,
     root_namespace: &Namespace,
     local_namespace: &Namespace,
-) -> SemanticResult<TypeId> {
+) -> SemanticResult<TypeRef> {
     let resolver = TypeResolver {
-        external_namespace: root_namespace,
         root_namespace,
     };
 
-    let resolved_namespace = resolver.resolve_namespace_reference(&type_to_resolve.scope, local_namespace)?;
+    resolver.resolve_type_ref(&mut type_to_resolve, local_namespace)?;
 
-    resolved_namespace
-        .types
-        .get(&type_to_resolve.name)
-        .map(u32::clone)
-        .ok_or_else(|| {
-            SemanticError::SymbolNotFoundInScope { kind: "type", symbol: type_to_resolve.name.clone(), scope: resolved_namespace.full_name.clone() }
-        })
+    Ok(type_to_resolve)
 }
 
-pub fn resolve_function_name<'s>(
+pub fn resolve_function_name(
     name: Identifier,
     namespace: &[Identifier],
     root_namespace: &Namespace,
-    local_namespace: &'s Namespace,
+    local_namespace: &Namespace,
 ) -> SemanticResult<FunctionId> {
     let resolver = TypeResolver {
-        external_namespace: root_namespace,
         root_namespace,
     };
 
@@ -63,7 +52,7 @@ pub fn resolve_function_name<'s>(
         })
 }
 
-impl<'ext, 'int> TypeResolver<'ext, 'int> {
+impl<'ns> TypeResolver<'ns> {
     fn resolve_types(
         &self,
         types_to_resolve: Vec<TypeDefinition>,
@@ -79,11 +68,11 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
         Ok(new_types)
     }
 
-    fn resolve_namespace_reference<'a>(
-        &'a self,
+    fn resolve_namespace_reference(
+        &'ns self,
         namespace_to_resolve: &[Identifier],
-        current: &'a Namespace,
-    ) -> SemanticResult<&'a Namespace> {
+        current: &'ns Namespace,
+    ) -> SemanticResult<&'ns Namespace> {
         match namespace_to_resolve.first() {
             None => Ok(current),
             Some(first) => {
@@ -94,8 +83,6 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
                     self.resolve_local_namespace_reference(&namespace_to_resolve[1..], local_namespace)
                 } else if let Some(local_namespace) = current.namespaces.get(first) {
                     self.resolve_local_namespace_reference(&namespace_to_resolve[1..], local_namespace)
-                } else if let Some(top_namespace) = self.external_namespace.namespaces.get(first) {
-                    Ok(top_namespace)
                 } else {
                     Err(SemanticError::SymbolNotFoundInScope { kind: "namespace", symbol: first.clone(), scope: current.full_name.clone() })
                 }
@@ -108,7 +95,7 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
         namespace: &Namespace,
         first_of_partial: &Rc<str>,
     ) -> &Namespace {
-        let mut local_namespace = self.external_namespace;
+        let mut local_namespace = self.root_namespace;
 
         for name in &namespace.full_name {
             if name == first_of_partial {
@@ -121,11 +108,11 @@ impl<'ext, 'int> TypeResolver<'ext, 'int> {
         local_namespace
     }
 
-    fn resolve_local_namespace_reference<'a>(
-        &'a self,
+    fn resolve_local_namespace_reference(
+        &'ns self,
         namespace: &[Identifier],
-        current: &'a Namespace,
-    ) -> SemanticResult<&'a Namespace> {
+        current: &'ns Namespace,
+    ) -> SemanticResult<&'ns Namespace> {
         match namespace.first() {
             None => Ok(current),
             Some(first) => {
