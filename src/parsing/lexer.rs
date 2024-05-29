@@ -30,7 +30,7 @@ impl Lexer {
             symbols: vec!['(', ')', '[', ']', '{', '}', ';', '.', '=', '/'],
             keywords: vec![
                 "version", "type", "fn", "enum", "variant", "extern", "const", "this", "use", "as",
-                "impl", "flag", "script_end"
+                "impl", "flag"
             ],
         }
     }
