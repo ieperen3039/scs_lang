@@ -96,6 +96,7 @@ impl Namespace {
     pub fn extend(&mut self, other: Namespace) {
         self.namespaces.extend(other.namespaces);
         self.types.extend(other.types);
+        self.functions.extend(other.functions);
     }
 
     pub fn combined_with(&self, other: Namespace) -> Namespace {

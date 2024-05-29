@@ -1,4 +1,4 @@
-faux_script             = statement, { statement_separator, statement }, end_symbol, { function_definition };
+faux_script             = statement, { statement_separator, statement }, statement_separator, { function_definition };
 
 (* scopes and definitions *)
 identifier              = ? IDENTIFIER ?;
@@ -65,7 +65,6 @@ raw_string_literal      = "r#", ? STRING ?, "#";
 integer_literal         = ? NUMBER ?;
 
 (* symbol definitions *)
-end_symbol = ";";
 _usage_assign = "=";
 _usage_cast = "as";
 stream_symbol = "[]";

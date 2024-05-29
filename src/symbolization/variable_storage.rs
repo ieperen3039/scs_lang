@@ -38,19 +38,27 @@ impl VarStorage {
     }
 
     pub fn use_var_by_name(&mut self, identifier: &str) -> Option<Rc<VariableDeclaration>> {
-        self.data
-            .iter()
-            .find(|var| var.rc.name.as_ref() == identifier)
-            .map(|v| v.rc.clone())
+        let found = self
+            .data
+            .iter_mut()
+            .find(|var| var.rc.name.as_ref() == identifier);
+
+        if let Some(var) = found {
+            var.used = true;
+            Some(var.rc.clone())
+        } else {
+            None
+        }
     }
 
     pub fn use_var(&mut self, identifier: VariableId) -> Rc<VariableDeclaration> {
-        self.data
-            .iter()
+        let var = self.data
+            .iter_mut()
             .find(|var| var.rc.id == identifier)
-            .expect("ids given to use_var should always exist")
-            .rc
-            .clone()
+            .expect("ids given to use_var should always exist");
+
+        var.used = true;
+        var.rc.clone()
     }
 
     pub fn get_unused_vars(&self) -> Vec<Rc<VariableDeclaration>> {
@@ -83,7 +91,9 @@ impl VarStorage {
 
     pub fn insert_raw(&mut self, var: Rc<VariableDeclaration>) -> SemanticResult<()> {
         if self.contains(&var) {
-            return Err(SemanticError::VariableExists { name: var.name.clone() });
+            return Err(SemanticError::VariableExists {
+                name: var.name.clone(),
+            });
         }
 
         self.data.push(Var {
@@ -106,7 +116,7 @@ impl VarStorage {
         // TODO shadowing
         self.data.iter().any(|inner| inner.rc.name == var.name)
     }
-    
+
     pub fn get_var_ids(&self) -> Vec<VariableId> {
         self.data.iter().map(|v| v.rc.id).collect()
     }

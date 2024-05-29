@@ -98,7 +98,7 @@ impl FunctionCollector {
             let maybe_type_node = return_type_node.find_node("type_ref");
 
             if let Some(type_node) = maybe_type_node {
-                let type_ref = TypeCollector::read_type_ref(node)?;
+                let type_ref = TypeCollector::read_type_ref(type_node)?;
                 type_resolver::resolve_type_name(type_ref, root_namespace, local_namespace)?
             } else {
                 return_type_node.expect_node("no_return_type_ref")?;

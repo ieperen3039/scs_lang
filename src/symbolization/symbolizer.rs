@@ -93,7 +93,7 @@ pub fn parse_faux_program(
 pub fn parse_faux_script(
     ast: RuleNode,
     external_namespace: &Namespace,
-    type_collector: &mut TypeCollector,
+    external_functions: &[ast::FunctionDeclaration],
     function_collector: &mut FunctionCollector,
 ) -> SemanticResult<ast::Program> {
     debug_assert_eq!(ast.rule_name, "faux_script");
@@ -118,6 +118,7 @@ pub fn parse_faux_script(
 
     let function_declarations: HashMap<FunctionId, ast::FunctionDeclaration> = local_functions
         .into_iter()
+        .chain(external_functions.iter().cloned())
         .map(|f| (f.id, f))
         .collect();
 
@@ -140,8 +141,10 @@ pub fn parse_faux_script(
             }
         })?;
 
+    let start_of_functions = ast.sub_rules.iter().position(|n| n.rule_name == "function_definition").unwrap_or(ast.sub_rules.len());
+
     let entry_function = function_parser
-        .read_statements(&ast.sub_rules[..], &combined_namespace, &mut VarStorage::new())
+        .read_statements(&ast.sub_rules[..start_of_functions], &combined_namespace, &mut VarStorage::new())
         .map_err(|e| SemanticError::WhileParsing {
             rule_name: "faux_script (read_statements)",
             char_idx: ast.first_char(),

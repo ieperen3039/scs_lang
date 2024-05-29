@@ -3,11 +3,7 @@ use std::{collections::HashMap, rc::Rc, vec};
 use crate::parsing::rule_nodes::RuleNode;
 
 use super::{
-    ast::*,
-    function_collector::FunctionCollector,
-    semantic_result::{SemanticError, SemanticResult},
-    type_resolver,
-    variable_storage::VarStorage,
+    ast::*, function_collector::FunctionCollector, semantic_result::{SemanticError, SemanticResult}, type_collector::{self, TypeCollector}, type_resolver, variable_storage::VarStorage
 };
 
 pub struct FunctionParser<'ns, 'fc> {
@@ -76,10 +72,12 @@ impl FunctionParser<'_, '_> {
                 // this is an implicit return
                 if let FunctionExpression::Assignment(_) = last_mutation {
                     return Err(SemanticError::BrokenControl(
-                        "Function ended with an assignment, but no semicolon. This implied that we should return the result of the assignment, but that is always void",
+                        "Function ended with an assignment, but no semicolon. \
+                        Assignments do not return a result, but the missing semicolon implies that we wnat to return this result",
                     ));
                 }
                 let last_expression_type = last_mutation.get_result_type(&self.functions);
+                // TODO check whether last_expression_type is TypeRef::NoReturn
 
                 let return_var = match variables.use_var_by_name("return") {
                     Some(var) => {
@@ -381,8 +379,8 @@ impl FunctionParser<'_, '_> {
                     )),
                 }
             },
-            "dollar_string_literal" => unimplemented!("{}", node.rule_name),
-            "raw_string_literal" => unimplemented!("{}", node.rule_name),
+            "dollar_string_literal" => unimplemented!("{}", sub_node.rule_name),
+            "raw_string_literal" => unimplemented!("{}", sub_node.rule_name),
             unknown => {
                 return Err(SemanticError::UnexpectedNode {
                     found: Identifier::from(unknown),
@@ -446,8 +444,18 @@ impl FunctionParser<'_, '_> {
                     char_idx: sub_node.first_char(),
                     cause: Box::from(e),
                 }),
-            "mutator_cast" => unimplemented!("{}", node.rule_name),
-            "mutator_assign" => unimplemented!("{}", node.rule_name),
+            "mutator_assign" => {
+                if argument_types.len() != 1 {
+                    return Err(SemanticError::InvalidNumerOfParameters {
+                        what: "mutator_assign",
+                        num_found: argument_types.len(),
+                        expected: String::from("1 argument"),
+                    });
+                }
+
+                self.read_assignment(sub_node, argument_types.first().unwrap(), variables)
+            },
+            "mutator_cast" => unimplemented!("{}", sub_node.rule_name),
             unknown => {
                 return Err(SemanticError::UnexpectedNode {
                     found: Identifier::from(unknown),
@@ -457,7 +465,31 @@ impl FunctionParser<'_, '_> {
         }
     }
 
-    // explicit_par_lamda     = [ untyped_parameter_list ], [ return_type ], function_body;
+    // mutator_assign = [ type_ref ], variable_name;
+    fn read_assignment(
+        &self,
+        node: &RuleNode,
+        value_type: &TypeRef,
+        variables: &mut VarStorage,
+    ) -> Result<FunctionExpression, SemanticError> {
+
+        let variable_name_node = node.expect_node("variable_name")?;
+        let variable_name = variable_name_node.as_identifier();
+    
+        let type_ref_node = node.find_node("type_ref");
+        if let Some(type_ref_node) = type_ref_node {
+            let declared_type = TypeCollector::read_type_ref(type_ref_node)?;
+            if &declared_type != value_type {
+                return Err(SemanticError::TypeMismatchError { expected: declared_type, found: value_type.clone() })
+            }
+        }
+    
+        let var_decl = variables.insert(variable_name, value_type.clone())?;
+        Ok(FunctionExpression::Assignment(var_decl))
+    }
+    
+
+    // explicit_par_lamda     = [ untyped_parameter_list ], function_body;
     fn read_explicit_parameter_lamda(
         &self,
         node: &RuleNode,
@@ -468,7 +500,6 @@ impl FunctionParser<'_, '_> {
         debug_assert!(node.rule_name == "explicit_par_lamda");
 
         let parameter_node = node.find_node("untyped_parameter_list");
-        let return_type_node = node.find_node("return_type");
         let function_node = node.expect_node("function_body")?;
 
         let untyped_parameter_list = match parameter_node {

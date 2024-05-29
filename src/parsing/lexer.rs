@@ -29,8 +29,8 @@ impl Lexer {
             // assignment is illegal, because the assignment operation is a special case in the language.
             symbols: vec!['(', ')', '[', ']', '{', '}', ';', '.', '=', '/'],
             keywords: vec![
-                "version", "type", "fn", "enum", "variant", "extern", "const", "this", "use",
-                "impl",
+                "version", "type", "fn", "enum", "variant", "extern", "const", "this", "use", "as",
+                "impl", "flag", "script_end"
             ],
         }
     }

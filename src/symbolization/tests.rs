@@ -99,7 +99,7 @@ fn parse_convoluted_statements() {
     let program_result = symbolizer::parse_faux_script(
         syntax_tree.unwrap(),
         &ast::Namespace::new("", None),
-        &mut TypeCollector::new(),
+        &functions,
         &mut function_collector,
     );
 
@@ -129,20 +129,26 @@ fn parse_function_definition() {
 
     let mut function_collector = FunctionCollector::new();
 
-    let mut namespace = ast::Namespace::new("", None);
-    namespace.add_function(
-        &built_in::functions::FunctionProto::new("sqrt", &mut function_collector)
+    let functions = vec![
+        built_in::functions::FunctionProto::new("sqrt", &mut function_collector)
             .req_par("n", None, &ast::TypeRef::INT)
             .returns(&ast::TypeRef::INT),
-    );
-    namespace.add_function(
-        &built_in::functions::FunctionProto::new("div", &mut function_collector)
+        built_in::functions::FunctionProto::new("div", &mut function_collector)
             .req_par("a", None, &ast::TypeRef::INT)
             .req_par("b", None, &ast::TypeRef::INT)
             .returns(&ast::TypeRef::INT),
-    );
-    for type_def in built_in::primitives::get_primitives() {
-        namespace.add_type(&type_def);
+        built_in::functions::FunctionProto::new("less_than", &mut function_collector)
+            .req_par("a", None, &ast::TypeRef::INT)
+            .req_par("b", None, &ast::TypeRef::INT)
+            .returns(&ast::TypeRef::BOOLEAN),
+    ];
+
+    let mut namespace = ast::Namespace::new("", None);
+    for fn_def in &functions {
+        namespace.add_function(fn_def);
+    }
+    for type_def in &built_in::primitives::get_primitives() {
+        namespace.add_type(type_def);
     }
 
     let grammar = ebnf_parser::parse_ebnf(definition)
@@ -166,11 +172,23 @@ fn parse_function_definition() {
     let program_result = symbolizer::parse_faux_script(
         syntax_tree.unwrap(),
         &namespace,
-        &mut TypeCollector::new(),
+        &functions,
         &mut function_collector,
     );
 
-    if let Err(error) = program_result {
-        panic!("Error parsing program: \n{error}");
+    match program_result {
+        Err(error) => {
+            panic!("Error parsing program: \n{error}");
+        }
+        Ok(program) => {
+            // both the script function and the defined function should be here
+            assert_eq!(program.function_definitions.len(), 2);
+            let entry_fn = program.function_definitions.get(&program.entry_function);
+            let Some(entry_fn) = entry_fn else {
+                panic!("program.entry_function not found")
+            };
+
+            assert_eq!(entry_fn.return_var.var_type, ast::TypeRef::BOOLEAN);
+        }
     }
 }
