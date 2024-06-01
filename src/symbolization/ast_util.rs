@@ -15,9 +15,11 @@ impl TypeRef {
     pub const fn from(id: TypeId) -> TypeRef {
         TypeRef::Defined(DefinedRef { id })
     }
+}
 
-    pub fn from_fn_decl(fun: &FunctionDeclaration) -> TypeRef {
-        TypeRef::Function(FunctionType {
+impl FunctionType {
+    pub fn from_decl(fun: &FunctionDeclaration) -> FunctionType {
+        FunctionType {
             parameters: fun
                 .parameters
                 .iter()
@@ -25,26 +27,42 @@ impl TypeRef {
                 .cloned()
                 .collect(),
             return_type: Box::new(fun.return_type.clone()),
-        })
+        }
     }
 }
 
 impl FunctionExpression {
-    pub fn get_result_type(
-        &self,
-        functions: &HashMap<FunctionId, FunctionDeclaration>,
-    ) -> TypeRef {
+    // the type of the expression as it appears in the code
+    pub fn get_type(&self) -> TypeRef {
         match &self {
-            FunctionExpression::FunctionCall(fc) => functions
-                .get(&fc.id)
-                .map(|f| f.return_type.clone())
-                .expect("Broken function call"), // TODO: unknown function: is this an error?
-            FunctionExpression::Assignment(_) => TypeRef::Void,
+            FunctionExpression::FunctionCall(fc) => {
+                if fc.value_type.parameters.is_empty() {
+                    // function calls that evaluate to fn<()T> are evaluated to T
+                    // explicit lamdas can be used to create fn<()T>
+                    *fc.value_type.return_type
+                } else {
+                    TypeRef::Function(fc.value_type)
+                }
+            },
+            FunctionExpression::Assignment(_) => TypeRef::NoReturn,
+            FunctionExpression::Lamda(lamda) => TypeRef::Function(FunctionType {
+                parameters: lamda.parameters,
+                return_type: Box::from(lamda.body.return_var.var_type),
+            }),
+            FunctionExpression::Operator(op) => TypeRef::Function(FunctionType {
+                parameters: vec![op.arg.get_type()],
+                return_type: Box::from(op.return_type),
+            }),
+        }
+    }
+
+    // the type that this expression returns after completing all its arguments and evaluating it
+    pub fn get_return_type(&self) -> TypeRef {
+        match &self {
+            FunctionExpression::FunctionCall(fc) => *fc.value_type.return_type,
+            FunctionExpression::Assignment(_) => TypeRef::NoReturn,
             FunctionExpression::Lamda(lamda) => lamda.body.return_var.var_type.clone(),
-            FunctionExpression::Operator(op) => functions
-                .get(&op.id)
-                .map(|f| f.return_type.clone())
-                .expect("Broken function call"), // TODO: unknown function: is this an error?
+            FunctionExpression::Operator(op) => op.return_type.clone()
         }
     }
 }
@@ -59,6 +77,7 @@ impl ValueExpression {
             ValueExpression::Literal(Literal::Number(_)) => TypeRef::INT.clone(),
             ValueExpression::Literal(Literal::Boolean(_)) => TypeRef::BOOLEAN.clone(),
             ValueExpression::Variable(var) => var.var_type.clone(),
+            ValueExpression::FunctionAsValue(fn_expr) => fn_expr.get_type(),
         }
     }
 }

@@ -27,7 +27,8 @@ impl Lexer {
             // dot is illegal, because it makes them indistinguishable from method calls and scope references.
             // slash is illegal, because operators may be chained to produce a start-of-comment.
             // assignment is illegal, because the assignment operation is a special case in the language.
-            symbols: vec!['(', ')', '[', ']', '{', '}', ';', '.', '=', '/'],
+            // dollar is kept as a reserve
+            symbols: vec!['(', ')', '[', ']', '{', '}', ';', '.', '=', '/', '$'],
             keywords: vec![
                 "version", "type", "fn", "enum", "variant", "extern", "const", "this", "use", "as",
                 "impl", "flag"

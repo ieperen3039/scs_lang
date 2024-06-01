@@ -30,8 +30,8 @@ pub enum SemanticError {
     },
     InvalidNumerOfParameters {
         what: &'static str,
-        num_found: usize,
-        expected: String,
+        num_target: usize,
+        num_this: usize,
     },
     SymbolNotFound {
         kind: &'static str,
@@ -60,7 +60,7 @@ impl Display for SemanticError {
             SemanticError::VariableExists { name } => f.write_fmt(format_args!("a variable with the name \"{name}\" already exists in this scope")),
             SemanticError::ArgumentRequired { par, function } => f.write_fmt(format_args!("parameter \"{par}\" of function \"{function}\" is required")),
             SemanticError::ArgumentInvalid { arg, function } => f.write_fmt(format_args!("argument \"{arg}\" of function \"{function}\" is invalid")),
-            SemanticError::InvalidNumerOfParameters { what, num_found, expected, } => f.write_fmt(format_args!("invalid number of parameters for {what}: found {num_found}, but expected {expected}")),
+            SemanticError::InvalidNumerOfParameters { what, num_target: num_found, num_this: expected, } => f.write_fmt(format_args!("invalid number of parameters for {what}: found {num_found}, but expected {expected}")),
             SemanticError::SymbolNotFound { kind, symbol } => f.write_fmt(format_args!("could not find {kind} \"{symbol}\"")),
             SemanticError::SymbolNotFoundInScope { kind, symbol, scope, } => f.write_fmt(format_args!("could not find {kind} \"{symbol}\" in namespace {:?}", scope)),
             SemanticError::InternalError(what) => f.write_fmt(format_args!("internal compiler error: {what}")),

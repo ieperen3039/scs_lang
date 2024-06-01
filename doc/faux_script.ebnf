@@ -3,7 +3,7 @@ faux_script             = statement, { statement_separator, statement }, stateme
 (* scopes and definitions *)
 identifier              = ? IDENTIFIER ?;
 (* reference to existing type *)
-type_ref                = (result_type_ref | optional_type_ref | _singular_type_ref), { stream_symbol };
+type_ref                = ( result_type_ref | optional_type_ref | _singular_type_ref ), { stream_symbol };
 result_type_ref         = _singular_type_ref, "!", _singular_type_ref;
 optional_type_ref       = _singular_type_ref, "?";
 (* reference to existing base type, enum or variant. *)
@@ -27,10 +27,11 @@ no_return_type_ref      = "!";
 
 (* statements *)
 function_body           = statement, { statement_separator, statement }, [ statement_separator ];
-statement               = value_expression, { { operator }, function_expression }; 
-_expression             = value_expression | function_expression;
-value_expression        = variable_name | tuple_construction | _literal; 
-function_expression     = implicit_par_lamda | explicit_par_lamda | function_call | mutator_cast | mutator_assign;
+statement               = value_expression, { function_expression }; 
+value_expression        = function_call | variable_name | tuple_construction | _literal | function_as_value; 
+function_expression     = function_call | implicit_par_lamda | explicit_par_lamda | mutator_cast | mutator_assign | operator_expression;
+operator_expression     = operator, function_expression;
+function_as_value       = "$", function_expression;
 statement_separator     = ";";
 variable_name           = ? IDENTIFIER ?;
 
@@ -40,7 +41,7 @@ _argument_list          = argument, { ",", argument };
 argument                = named_argument | unnamed_argument | flag_argument;
 unnamed_argument        = value_expression;
 flag_argument           = ? IDENTIFIER ?;
-named_argument          = identifier, "=", _expression;
+named_argument          = identifier, "=", value_expression;
 
 (* mutators, selectors and usage indicators *)
 operator                = ? OPERATOR ?;
@@ -49,7 +50,7 @@ mutator_assign          = _usage_assign, ( [ type_ref ], variable_name);
 
 (* lamdas *)
 (* the first statement of a implicit parameter lamdas starts with a function expression *)
-implicit_par_lamda      = "{", { { operator }, function_expression }, { statement_separator, statement }, [ statement_separator ], "}";
+implicit_par_lamda      = "{", function_expression, { function_expression }, { statement_separator, statement }, [ statement_separator ], "}";
 (* a lamda with zero parameters must have parenthesis, otherwise it is near-indistinguishable from implicit parameter lamdas *)
 explicit_par_lamda      = "(", [ untyped_parameter_list ], ")", "{", function_body, "}";
 

@@ -127,13 +127,8 @@ pub struct Statement {
 }
 
 #[derive(Clone)]
-pub enum Expression {
-    Value(ValueExpression),
-    Functional(FunctionExpression),
-}
-
-#[derive(Clone)]
 pub enum ValueExpression {
+    FunctionAsValue(FunctionExpression),
     Tuple(Vec<ValueExpression>),
     Literal(Literal),
     // a _reference_ to a variable is an expression
@@ -156,24 +151,29 @@ pub enum FunctionExpression {
     Assignment(Rc<VariableDeclaration>),
 }
 
+// effectively a more efficient FunctionCall:
+// there is always 1 argument, and it is always a FunctionExpression
 #[derive(Clone)]
 pub struct Operator {
     pub id: FunctionId, 
-    pub arg: Box<FunctionExpression>
+    pub arg: Box<FunctionExpression>,
+    pub return_type: TypeRef,
 }
 
 #[derive(Clone)]
 pub struct FunctionCall {
     pub id: FunctionId,
+    // the remaining / result type of this function call
+    pub value_type: FunctionType,
     // indices in this vector correspond to the parameter of the called function
     // (the argument vector and parameter vector should have the same len)
     // Option::None indicates that this is itself a fn expression accepting all missing arguments in order
-    pub arguments: Vec<Option<Expression>>,
+    pub arguments: Vec<Option<ValueExpression>>,
 }
 
 #[derive(Clone)]
 pub struct Lamda {
-    pub parameters: Vec<Rc<str>>,
+    pub parameters: Vec<TypeRef>,
     pub body: FunctionBody,
     pub capture: Vec<Rc<VariableDeclaration>>,
 }

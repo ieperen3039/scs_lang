@@ -111,6 +111,7 @@ impl Interpreter {
                 // syntactially the variable exists in this scope.
                 // If we do not have a value stored, then the variable is conditionally (not) assigned
                 .unwrap_or(Value::Nothing)),
+            ast::ValueExpression::FunctionAsValue(fn_value) => self.evaluate_expression(expr, stack),
         }
     }
 
@@ -141,9 +142,5 @@ impl Interpreter {
             kind: "function",
             symbol: Identifier::from(function_name),
         })
-    }
-    
-    fn evaluate_expression(&self, expr: &ast::Expression, stack: &mut StackFrame) -> InterpResult<Value> {
-        todo!()
     }
 }
