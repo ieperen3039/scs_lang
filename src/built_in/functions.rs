@@ -1,91 +1,125 @@
-use crate::symbolization::{ast::*, function_collector::FunctionCollector};
+use crate::{
+    interpretation::meta_structures::{InterpResult, InterpretationError, Value},
+    symbolization::{ast::*, function_collector::FunctionCollector},
+};
 
-pub fn get_functions(collector: &mut FunctionCollector) -> Vec<FunctionDeclaration> {
-    vec![
-        FunctionProto::new("echo", collector)
-            .req_par("in", None, &TypeRef::STRING)
-            .flag(Some("error"), Some("e"))
-            .returns(&TypeRef::STRING)
-    ]
+pub mod echo;
+
+pub trait InternalFunction {
+    fn new(collector: &mut FunctionCollector) -> Self;
+
+    fn get_declaration(&self) -> FunctionDeclaration;
+
+    fn call(&self, arguments: Vec<Value>) -> InterpResult<Value>;
 }
 
-pub struct FunctionProto {
-    fn_id: FunctionId,
+pub struct FunctionBuilder {
     var_id: VariableId,
-    name: Identifier,
-    parameters: Vec<Parameter>,
 }
 
-impl FunctionProto {
-    pub fn new(name: &str, collector: &mut FunctionCollector) -> FunctionProto {
-        FunctionProto {
-            fn_id: collector.new_id(),
-            var_id: 0,
-            name: Identifier::from(name),
-            parameters: Vec::new(),
-        }
+impl FunctionBuilder {
+    pub fn new() -> FunctionBuilder {
+        FunctionBuilder { var_id: 0 }
     }
 
-    fn new_id(&mut self) -> u32 {
+    pub fn new_id(&mut self) -> VariableId {
         let id = self.var_id;
         self.var_id = id + 1;
         id
     }
 
-    pub fn flag(
-        mut self,
-        long_name: Option<&str>,
-        short_name: Option<&str>,
-    ) -> FunctionProto {
-        let new_par = Parameter {
+    pub fn flag(&mut self, long_name: Option<&str>, short_name: Option<&str>) -> Parameter {
+        Parameter {
             id: self.new_id(),
             par_type: TypeRef::Flag,
             long_name: long_name.map(Identifier::from),
             short_name: short_name.map(Identifier::from),
-        };
-        self.parameters.push(new_par);
-        self
+        }
     }
 
-    pub fn opt_par(
-        mut self,
-        long_name: &str,
-        short_name: Option<&str>,
-        t: &TypeRef,
-    ) -> FunctionProto {
-        let new_par = Parameter {
+    pub fn opt_par(&mut self, long_name: &str, short_name: Option<&str>, t: &TypeRef) -> Parameter {
+        Parameter {
             id: self.new_id(),
             par_type: TypeRef::Optional(Box::from(t.clone())),
             long_name: Some(Identifier::from(long_name)),
             short_name: short_name.map(Identifier::from),
-        };
-        self.parameters.push(new_par);
-        self
+        }
     }
 
-    pub fn req_par(
-        mut self,
-        long_name: &str,
-        short_name: Option<&str>,
-        t: &TypeRef,
-    ) -> FunctionProto {
-        let new_par = Parameter {
+    pub fn req_par(&mut self, long_name: &str, short_name: Option<&str>, t: &TypeRef) -> Parameter {
+        Parameter {
             id: self.new_id(),
             par_type: t.clone(),
             long_name: Some(Identifier::from(long_name)),
             short_name: short_name.map(Identifier::from),
-        };
-        self.parameters.push(new_par);
-        self
+        }
     }
 
-    pub fn returns(self, type_ref: &TypeRef) -> FunctionDeclaration {
-        FunctionDeclaration {
-            id: self.fn_id,
-            name: self.name,
-            parameters: self.parameters,
-            return_type: type_ref.clone(),
-            is_external: true,
+    pub fn get_string(
+        arguments: &mut Vec<Value>,
+        par: &Parameter,
+    ) -> InterpResult<std::rc::Rc<str>> {
+        let arg = std::mem::replace(&mut arguments[par.id], Value::Nothing);
+
+        if let Value::String(value) = arg {
+            Ok(value)
+        } else {
+            Err(InterpretationError::ArgumentTypeMismatch {
+                par: par.clone(),
+                args: arguments.clone(),
+            })
+        }
+    }
+
+    pub fn get_boolean(arguments: &mut Vec<Value>, par: &Parameter) -> InterpResult<bool> {
+        let arg = std::mem::replace(&mut arguments[par.id], Value::Nothing);
+
+        if let Value::Boolean(value) = arg {
+            Ok(value)
+        } else {
+            Err(InterpretationError::ArgumentTypeMismatch {
+                par: par.clone(),
+                args: arguments.clone(),
+            })
+        }
+    }
+
+    pub fn get_int(arguments: &mut Vec<Value>, par: &Parameter) -> InterpResult<i32> {
+        let arg = std::mem::replace(&mut arguments[par.id], Value::Nothing);
+
+        if let Value::Int(value) = arg {
+            Ok(value)
+        } else {
+            Err(InterpretationError::ArgumentTypeMismatch {
+                par: par.clone(),
+                args: arguments.clone(),
+            })
+        }
+    }
+
+    pub fn get_fn(arguments: &mut Vec<Value>, par: &Parameter) -> InterpResult<FunctionBody> {
+        let arg = std::mem::replace(&mut arguments[par.id], Value::Nothing);
+
+        if let Value::Function(value) = arg {
+            Ok(value)
+        } else {
+            Err(InterpretationError::ArgumentTypeMismatch {
+                par: par.clone(),
+                args: arguments.clone(),
+            })
+        }
+    }
+
+    pub fn get_tuple(arguments: &mut Vec<Value>, par: &Parameter) -> InterpResult<Vec<Value>> {
+        let arg = std::mem::replace(&mut arguments[par.id], Value::Nothing);
+
+        if let Value::Tuple(value) = arg {
+            Ok(value)
+        } else {
+            Err(InterpretationError::ArgumentTypeMismatch {
+                par: par.clone(),
+                args: arguments.clone(),
+            })
         }
     }
 }

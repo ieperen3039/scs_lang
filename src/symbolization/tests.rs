@@ -1,19 +1,10 @@
-use simple_error::SimpleError;
-
 use crate::{
     built_in,
     parsing::{ebnf_parser, left_left_parser, lexer::Lexer},
-    symbolization::semantic_result::SemanticError,
     transformation::grammatificator,
 };
 
-use super::{
-    ast::{self, TypeRef},
-    function_collector::FunctionCollector,
-    semantic_result::SemanticResult,
-    symbolizer,
-    type_collector::TypeCollector,
-};
+use super::{ast, function_collector::FunctionCollector, symbolizer};
 
 // #[test]
 // fn parse_simple_derived_type() {
@@ -55,14 +46,13 @@ use super::{
 #[test]
 fn parse_convoluted_statements() {
     let definition = include_str!("../../doc/faux_script.ebnf");
-    // it should be noted that floating point arithmatic is (probably) not supported
     let program = r#"
         cat("data.csv")
             = data; // string[]
 
         data
             tail(from_begin=2)
-            split(separator=";", n=3)
+            > select(separator=";", n=3)
             > git.log(pattern="%s;%h")
             = extra_columns; // string[]
 
@@ -71,12 +61,85 @@ fn parse_convoluted_statements() {
             write("data.csv);
     "#;
 
+    let type_string_stream = ast::TypeRef::Stream(Box::new(ast::TypeRef::STRING.clone()));
+
     let mut function_collector = FunctionCollector::new();
-    let functions = vec![
-        built_in::functions::FunctionProto::new("cat", &mut function_collector)
-            .req_par("file", None, &ast::TypeRef::STRING)
-            .returns(&ast::TypeRef::Stream(Box::from(TypeRef::STRING.clone()))),
-    ];
+    
+    let fn_cat = {
+        let mut builder = built_in::functions::FunctionBuilder::new();
+        ast::FunctionDeclaration {
+            id: function_collector.new_id(),
+            name: ast::Identifier::from("cat"),
+            parameters: vec![builder.req_par("file", None, &ast::TypeRef::STRING)],
+            return_type: type_string_stream.clone(),
+            is_external: true,
+        }
+    };
+    let fn_tail = {
+        let mut builder = built_in::functions::FunctionBuilder::new();
+        ast::FunctionDeclaration {
+            id: function_collector.new_id(),
+            name: ast::Identifier::from("tail"),
+            parameters: vec![builder.req_par("input", None, &type_string_stream)],
+            return_type: type_string_stream.clone(),
+            is_external: true,
+        }
+    };
+    let fn_select = {
+        let mut builder = built_in::functions::FunctionBuilder::new();
+        ast::FunctionDeclaration {
+            id: function_collector.new_id(),
+            name: ast::Identifier::from("select"),
+            parameters: vec![
+                builder.req_par("input", None, &ast::TypeRef::STRING),
+                builder.req_par("separator", None, &ast::TypeRef::STRING),
+                builder.req_par("n", None, &ast::TypeRef::INT),
+            ],
+            return_type: ast::TypeRef::STRING.clone(),
+            is_external: true,
+        }
+    };
+    let fn_zip = {
+        let mut builder = built_in::functions::FunctionBuilder::new();
+        ast::FunctionDeclaration {
+            id: function_collector.new_id(),
+            name: ast::Identifier::from("zip"),
+            parameters: vec![
+                builder.req_par("a", None, &type_string_stream.clone()),
+                builder.req_par("b", None, &type_string_stream.clone()),
+            ],
+            return_type: ast::TypeRef::UnamedTuple(vec![
+                type_string_stream.clone(),
+                type_string_stream.clone(),
+            ]),
+            is_external: true,
+        }
+    };
+
+    let fn_git_log = {
+        let mut builder = built_in::functions::FunctionBuilder::new();
+        ast::FunctionDeclaration {
+            id: function_collector.new_id(),
+            name: ast::Identifier::from("log"),
+            parameters: vec![builder.req_par("pattern", None, &ast::TypeRef::STRING)],
+            return_type: ast::TypeRef::STRING.clone(),
+            is_external: true,
+        }
+    };
+
+    let functions = vec![fn_cat, fn_tail, fn_select, fn_zip];
+
+    let mut namespace = ast::Namespace::new("", None);
+    for fn_def in &functions {
+        namespace.add_function(fn_def);
+    }
+
+    {
+        let mut git_ns = ast::Namespace::new("git", Some(&namespace));
+        git_ns.add_function(&fn_git_log);
+
+        namespace.add_sub_scope(git_ns);
+    }
 
     let grammar = ebnf_parser::parse_ebnf(definition)
         .map(grammatificator::convert_to_grammar)
@@ -129,19 +192,44 @@ fn parse_function_definition() {
 
     let mut function_collector = FunctionCollector::new();
 
-    let functions = vec![
-        built_in::functions::FunctionProto::new("sqrt", &mut function_collector)
-            .req_par("n", None, &ast::TypeRef::INT)
-            .returns(&ast::TypeRef::INT),
-        built_in::functions::FunctionProto::new("div", &mut function_collector)
-            .req_par("a", None, &ast::TypeRef::INT)
-            .req_par("b", None, &ast::TypeRef::INT)
-            .returns(&ast::TypeRef::INT),
-        built_in::functions::FunctionProto::new("less_than", &mut function_collector)
-            .req_par("a", None, &ast::TypeRef::INT)
-            .req_par("b", None, &ast::TypeRef::INT)
-            .returns(&ast::TypeRef::BOOLEAN),
-    ];
+    let fn_sqrt = {
+        let mut builder = built_in::functions::FunctionBuilder::new();
+        ast::FunctionDeclaration {
+            id: function_collector.new_id(),
+            name: ast::Identifier::from("sqrt"),
+            parameters: vec![builder.req_par("n", None, &ast::TypeRef::INT)],
+            return_type: ast::TypeRef::INT.clone(),
+            is_external: true,
+        }
+    };
+    let fn_div = {
+        let mut builder = built_in::functions::FunctionBuilder::new();
+        ast::FunctionDeclaration {
+            id: function_collector.new_id(),
+            name: ast::Identifier::from("div"),
+            parameters: vec![
+                builder.req_par("a", None, &ast::TypeRef::INT),
+                builder.req_par("b", None, &ast::TypeRef::INT),
+            ],
+            return_type: ast::TypeRef::INT.clone(),
+            is_external: true,
+        }
+    };
+    let fn_lt = {
+        let mut builder = built_in::functions::FunctionBuilder::new();
+        ast::FunctionDeclaration {
+            id: function_collector.new_id(),
+            name: ast::Identifier::from("less_than"),
+            parameters: vec![
+                builder.req_par("a", None, &ast::TypeRef::INT),
+                builder.req_par("b", None, &ast::TypeRef::INT),
+            ],
+            return_type: ast::TypeRef::BOOLEAN.clone(),
+            is_external: true,
+        }
+    };
+
+    let functions = vec![fn_sqrt, fn_div, fn_lt];
 
     let mut namespace = ast::Namespace::new("", None);
     for fn_def in &functions {
@@ -179,7 +267,7 @@ fn parse_function_definition() {
     match program_result {
         Err(error) => {
             panic!("Error parsing program: \n{error}");
-        }
+        },
         Ok(program) => {
             // both the script function and the defined function should be here
             assert_eq!(program.function_definitions.len(), 2);
@@ -189,6 +277,6 @@ fn parse_function_definition() {
             };
 
             assert_eq!(entry_fn.return_var.var_type, ast::TypeRef::BOOLEAN);
-        }
+        },
     }
 }

@@ -12,7 +12,6 @@ pub enum Value {
     Int(i32),
     String(Rc<str>),
     Function(FunctionBody),
-    InternalFunction(NativeFunction),
     Tuple(Vec<Value>),
 }
 
@@ -23,5 +22,6 @@ pub enum InterpretationError {
     TypeError { expected: TypeRef, found: TypeRef },
     ArgumentRequiredError(Parameter),
     SymbolNotFound { kind: &'static str, symbol: Identifier },
+    ArgumentTypeMismatch{ par: Parameter, args: Vec<Value> },
     InternalError(&'static str),
 }

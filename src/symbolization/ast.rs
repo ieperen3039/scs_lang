@@ -3,7 +3,7 @@ use std::{collections::HashMap, hash::Hash, rc::Rc};
 pub type Identifier = Rc<str>;
 pub type TypeId = u32;
 pub type FunctionId = u32;
-pub type VariableId = u32;
+pub type VariableId = usize; // this one is used for indexing
 
 pub struct Program {
     pub namespaces: Namespace,
