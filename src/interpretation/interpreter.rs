@@ -47,7 +47,7 @@ impl Interpreter {
                         let mut var_id = 0;
                         for ele in &call.arguments {
                             let arg_value = match ele {
-                                Some(expr) => self.evaluate_expression(expr, &mut stack)?,
+                                Some(expr) => self.evaluate_value_expression(expr, &mut stack)?,
                                 None => {
                                     debug_assert!(!matches!(expr_value, Value::Nothing));
                                     std::mem::replace(&mut expr_value, Value::Nothing)
@@ -111,7 +111,7 @@ impl Interpreter {
                 // syntactially the variable exists in this scope.
                 // If we do not have a value stored, then the variable is conditionally (not) assigned
                 .unwrap_or(Value::Nothing)),
-            ast::ValueExpression::FunctionAsValue(fn_value) => self.evaluate_expression(expr, stack),
+            ast::ValueExpression::FunctionAsValue(fn_value) => todo!(),
         }
     }
 

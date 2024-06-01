@@ -39,19 +39,19 @@ impl FunctionExpression {
                 if fc.value_type.parameters.is_empty() {
                     // function calls that evaluate to fn<()T> are evaluated to T
                     // explicit lamdas can be used to create fn<()T>
-                    *fc.value_type.return_type
+                    *fc.value_type.return_type.clone()
                 } else {
-                    TypeRef::Function(fc.value_type)
+                    TypeRef::Function(fc.value_type.clone())
                 }
             },
             FunctionExpression::Assignment(_) => TypeRef::NoReturn,
             FunctionExpression::Lamda(lamda) => TypeRef::Function(FunctionType {
-                parameters: lamda.parameters,
-                return_type: Box::from(lamda.body.return_var.var_type),
+                parameters: lamda.parameters.clone(),
+                return_type: Box::from(lamda.body.return_var.var_type.clone()),
             }),
             FunctionExpression::Operator(op) => TypeRef::Function(FunctionType {
                 parameters: vec![op.arg.get_type()],
-                return_type: Box::from(op.return_type),
+                return_type: Box::from(op.return_type.clone()),
             }),
         }
     }
@@ -59,7 +59,7 @@ impl FunctionExpression {
     // the type that this expression returns after completing all its arguments and evaluating it
     pub fn get_return_type(&self) -> TypeRef {
         match &self {
-            FunctionExpression::FunctionCall(fc) => *fc.value_type.return_type,
+            FunctionExpression::FunctionCall(fc) => *fc.value_type.return_type.clone(),
             FunctionExpression::Assignment(_) => TypeRef::NoReturn,
             FunctionExpression::Lamda(lamda) => lamda.body.return_var.var_type.clone(),
             FunctionExpression::Operator(op) => op.return_type.clone()
