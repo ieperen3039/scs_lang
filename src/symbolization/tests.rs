@@ -64,7 +64,7 @@ fn parse_convoluted_statements() {
     let type_string_stream = ast::TypeRef::Stream(Box::new(ast::TypeRef::STRING.clone()));
 
     let mut function_collector = FunctionCollector::new();
-    
+
     let fn_cat = {
         let mut builder = built_in::functions::FunctionBuilder::new();
         ast::FunctionDeclaration {
@@ -149,14 +149,13 @@ fn parse_convoluted_statements() {
     let syntax_tree = parser.parse_program(&tokens);
 
     if let Err(error) = syntax_tree {
-        println!(
+        panic!(
             "{}",
             error
                 .iter()
                 .map(|e| e.error_string(program))
                 .fold(String::new(), |a, s| a + "\n" + &s)
         );
-        return;
     }
 
     let program_result = symbolizer::parse_faux_script(
@@ -247,14 +246,13 @@ fn parse_function_definition() {
     let syntax_tree = parser.parse_program(&tokens);
 
     if let Err(error) = syntax_tree {
-        println!(
+        panic!(
             "{}",
             error
                 .iter()
                 .map(|e| e.error_string(program))
                 .fold(String::new(), |a, s| a + "\n" + &s)
         );
-        return;
     }
 
     let program_result = symbolizer::parse_faux_script(
