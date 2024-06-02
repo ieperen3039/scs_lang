@@ -102,8 +102,8 @@ impl Namespace {
             .insert(scope_to_add.get_name(), scope_to_add);
     }
 
-    pub fn add_function(&mut self, fn_to_add: &FunctionDeclaration) {
-        self.functions.insert(fn_to_add.name.clone(), fn_to_add.id);
+    pub fn add_function(&mut self, fn_to_add: FunctionDeclaration) {
+        self.functions.insert(fn_to_add.name.clone(), fn_to_add);
     }
 
     pub fn add_type(&mut self, type_to_add: &TypeDefinition) {

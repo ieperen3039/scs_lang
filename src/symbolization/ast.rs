@@ -23,7 +23,7 @@ pub struct Namespace {
     pub namespaces: HashMap<Identifier, Namespace>,
     pub types: HashMap<Identifier, TypeId>,
     // only static functions are defined here
-    pub functions: HashMap<Identifier, FunctionId>,
+    pub functions: HashMap<Identifier, FunctionDeclaration>,
 }
 
 // -- references to types --

@@ -1,18 +1,19 @@
 use std::{borrow::BorrowMut, rc::Rc};
 
-use super::{ast::*, semantic_result::{SemanticError, SemanticResult}};
+use super::{
+    ast::*,
+    semantic_result::{SemanticError, SemanticResult},
+};
 
-pub struct TypeResolver<'ns> {
-    pub root_namespace: &'ns Namespace,
+pub struct TypeResolver<'rns> {
+    pub root_namespace: &'rns Namespace,
 }
 
 pub fn resolve_type_definitions(
     types_to_resolve: Vec<TypeDefinition>,
     root_namespace: &Namespace,
 ) -> SemanticResult<Vec<TypeDefinition>> {
-    let resolver = TypeResolver {
-        root_namespace
-    };
+    let resolver = TypeResolver { root_namespace };
 
     resolver.resolve_types(types_to_resolve)
 }
@@ -22,9 +23,7 @@ pub fn resolve_type_name(
     root_namespace: &Namespace,
     local_namespace: &Namespace,
 ) -> SemanticResult<TypeRef> {
-    let resolver = TypeResolver {
-        root_namespace,
-    };
+    let resolver = TypeResolver { root_namespace };
 
     resolver.resolve_type_ref(&mut type_to_resolve, local_namespace)?;
 
@@ -36,23 +35,23 @@ pub fn resolve_function_name(
     namespace: &[Identifier],
     root_namespace: &Namespace,
     local_namespace: &Namespace,
-) -> SemanticResult<FunctionId> {
-    let resolver = TypeResolver {
-        root_namespace,
-    };
+) -> SemanticResult<FunctionDeclaration> {
+    let resolver = TypeResolver { root_namespace };
 
     let resolved_namespace = resolver.resolve_namespace_reference(namespace, local_namespace)?;
 
     resolved_namespace
         .functions
         .get(&name)
-        .map(u32::clone)
-        .ok_or_else(|| {
-            SemanticError::SymbolNotFoundInScope { kind: "function", symbol: name, scope: resolved_namespace.full_name.clone() }
+        .map(FunctionDeclaration::clone)
+        .ok_or_else(|| SemanticError::SymbolNotFoundInScope {
+            kind: "function",
+            symbol: name,
+            scope: resolved_namespace.full_name.clone(),
         })
 }
 
-impl<'ns> TypeResolver<'ns> {
+impl<'rns> TypeResolver<'rns> {
     fn resolve_types(
         &self,
         types_to_resolve: Vec<TypeDefinition>,
@@ -69,10 +68,10 @@ impl<'ns> TypeResolver<'ns> {
     }
 
     fn resolve_namespace_reference(
-        &'ns self,
+        &'rns self,
         namespace_to_resolve: &[Identifier],
-        current: &'ns Namespace,
-    ) -> SemanticResult<&'ns Namespace> {
+        current: &'rns Namespace,
+    ) -> SemanticResult<&'rns Namespace> {
         match namespace_to_resolve.first() {
             None => Ok(current),
             Some(first) => {
@@ -80,11 +79,21 @@ impl<'ns> TypeResolver<'ns> {
                     Ok(top_namespace)
                 } else if current.full_name.contains(first) {
                     let local_namespace = self.resolve_partial_namespace_name(current, first);
-                    self.resolve_local_namespace_reference(&namespace_to_resolve[1..], local_namespace)
+                    self.resolve_local_namespace_reference(
+                        &namespace_to_resolve[1..],
+                        local_namespace,
+                    )
                 } else if let Some(local_namespace) = current.namespaces.get(first) {
-                    self.resolve_local_namespace_reference(&namespace_to_resolve[1..], local_namespace)
+                    self.resolve_local_namespace_reference(
+                        &namespace_to_resolve[1..],
+                        local_namespace,
+                    )
                 } else {
-                    Err(SemanticError::SymbolNotFoundInScope { kind: "namespace", symbol: first.clone(), scope: current.full_name.clone() })
+                    Err(SemanticError::SymbolNotFoundInScope {
+                        kind: "namespace",
+                        symbol: first.clone(),
+                        scope: current.full_name.clone(),
+                    })
                 }
             },
         }
@@ -109,17 +118,21 @@ impl<'ns> TypeResolver<'ns> {
     }
 
     fn resolve_local_namespace_reference(
-        &'ns self,
+        &'rns self,
         namespace: &[Identifier],
-        current: &'ns Namespace,
-    ) -> SemanticResult<&'ns Namespace> {
+        current: &'rns Namespace,
+    ) -> SemanticResult<&'rns Namespace> {
         match namespace.first() {
             None => Ok(current),
             Some(first) => {
                 if let Some(child_namespace) = current.namespaces.get(first) {
                     self.resolve_local_namespace_reference(&namespace[1..], child_namespace)
                 } else {
-                    Err(SemanticError::SymbolNotFoundInScope { kind: "namespace", symbol: first.clone(), scope: current.full_name.clone() })
+                    Err(SemanticError::SymbolNotFoundInScope {
+                        kind: "namespace",
+                        symbol: first.clone(),
+                        scope: current.full_name.clone(),
+                    })
                 }
             },
         }
@@ -160,7 +173,8 @@ impl<'ns> TypeResolver<'ns> {
     ) -> SemanticResult<()> {
         match type_to_resolve {
             TypeRef::UnresolvedName(name_to_resolve) => {
-                let defined_type_ref = self.resolve_defined_name(name_to_resolve, local_namespace)?;
+                let defined_type_ref =
+                    self.resolve_defined_name(name_to_resolve, local_namespace)?;
                 *type_to_resolve = TypeRef::Defined(defined_type_ref);
             },
             _ => {},
@@ -173,12 +187,15 @@ impl<'ns> TypeResolver<'ns> {
         type_to_resolve: &UnresolvedName,
         local_namespace: &Namespace,
     ) -> SemanticResult<DefinedRef> {
-        let resolved_namespace = self.resolve_namespace_reference(&type_to_resolve.scope, local_namespace)?;
+        let resolved_namespace =
+            self.resolve_namespace_reference(&type_to_resolve.scope, local_namespace)?;
         let &resolved_type = resolved_namespace
             .types
             .get(&type_to_resolve.name)
-            .ok_or_else(|| {
-                SemanticError::SymbolNotFoundInScope { kind: "type", symbol: type_to_resolve.name.clone(), scope: resolved_namespace.full_name.clone() }
+            .ok_or_else(|| SemanticError::SymbolNotFoundInScope {
+                kind: "type",
+                symbol: type_to_resolve.name.clone(),
+                scope: resolved_namespace.full_name.clone(),
             })?;
 
         Ok(DefinedRef { id: resolved_type })

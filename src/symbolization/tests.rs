@@ -131,12 +131,12 @@ fn parse_convoluted_statements() {
 
     let mut namespace = ast::Namespace::new("", None);
     for fn_def in &functions {
-        namespace.add_function(fn_def);
+        namespace.add_function(fn_def.clone());
     }
 
     {
         let mut git_ns = ast::Namespace::new("git", Some(&namespace));
-        git_ns.add_function(&fn_git_log);
+        git_ns.add_function(fn_git_log);
 
         namespace.add_sub_scope(git_ns);
     }
@@ -161,7 +161,6 @@ fn parse_convoluted_statements() {
     let program_result = symbolizer::parse_faux_script(
         syntax_tree.unwrap(),
         &ast::Namespace::new("", None),
-        &functions,
         &mut function_collector,
     );
 
@@ -232,7 +231,7 @@ fn parse_function_definition() {
 
     let mut namespace = ast::Namespace::new("", None);
     for fn_def in &functions {
-        namespace.add_function(fn_def);
+        namespace.add_function(fn_def.clone());
     }
     for type_def in &built_in::primitives::get_primitives() {
         namespace.add_type(type_def);
@@ -258,7 +257,6 @@ fn parse_function_definition() {
     let program_result = symbolizer::parse_faux_script(
         syntax_tree.unwrap(),
         &namespace,
-        &functions,
         &mut function_collector,
     );
 

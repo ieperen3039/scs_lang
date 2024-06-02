@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc, vec};
+use std::rc::Rc;
 
 use crate::parsing::rule_nodes::RuleNode;
 
@@ -6,7 +6,7 @@ use super::{
     ast::*,
     function_collector::FunctionCollector,
     semantic_result::{SemanticError, SemanticResult},
-    type_collector::{self, TypeCollector},
+    type_collector::TypeCollector,
     type_resolver,
     variable_storage::VarStorage,
 };
@@ -14,18 +14,15 @@ use super::{
 pub struct FunctionParser<'ns, 'fc> {
     pub root_namespace: &'ns Namespace,
     pub function_collector: &'fc mut FunctionCollector,
-    pub functions: HashMap<FunctionId, FunctionDeclaration>,
 }
 
 impl FunctionParser<'_, '_> {
     pub fn new<'ns, 'fc>(
         root_namespace: &'ns Namespace,
-        functions: HashMap<FunctionId, FunctionDeclaration>,
         function_collector: &'fc mut FunctionCollector,
     ) -> FunctionParser<'ns, 'fc> {
         FunctionParser {
             root_namespace,
-            functions,
             function_collector,
         }
     }
@@ -116,13 +113,11 @@ impl FunctionParser<'_, '_> {
 
     pub fn read_function_body(
         &self,
-        id: FunctionId,
+        function_declaration: &FunctionDeclaration,
         node: &RuleNode,
         this_scope: &Namespace,
     ) -> SemanticResult<FunctionBody> {
         debug_assert_eq!(node.rule_name, "function_body");
-        let function_declaration = self.functions.get(&id).unwrap();
-
         let mut variables = VarStorage::new();
 
         for param in &function_declaration.parameters {
@@ -329,7 +324,7 @@ impl FunctionParser<'_, '_> {
                         this_scope,
                         variables,
                     )?;
-                    Self::verify_value_type(&fn_expr.get_type(), target_type);
+                    Self::verify_value_type(&fn_expr.get_type(), target_type)?;
                     Ok(ValueExpression::FunctionAsValue(fn_expr))
                 }
             },
@@ -444,7 +439,7 @@ impl FunctionParser<'_, '_> {
 
                 let mutator_node = sub_node.expect_node("operator")?;
                 let operator_str = mutator_node.as_identifier();
-                let function_id = self
+                let function_decl = self
                     .root_namespace
                     .functions
                     .get(&operator_str)
@@ -452,11 +447,6 @@ impl FunctionParser<'_, '_> {
                         kind: "operator",
                         symbol: operator_str,
                     })?;
-
-                let function_decl = self
-                    .functions
-                    .get(function_id)
-                    .expect("Broken function call");
 
                 // operators must have (exactly) 2 parameters:
                 // 0: the generic input value
@@ -481,7 +471,7 @@ impl FunctionParser<'_, '_> {
                 )?;
                 
                 Ok(FunctionExpression::Operator(Operator {
-                    id: *function_id,
+                    id: function_decl.id,
                     arg: Box::from(sub_expression),
                     return_type: function_decl.return_type.clone(),
                 }))
@@ -679,28 +669,21 @@ impl FunctionParser<'_, '_> {
         let function_name_node = node.expect_node("function_name")?;
         let function_name = function_name_node.as_identifier();
 
-        // all function declarations are read now
-        let function_id = type_resolver::resolve_function_name(
+        let function_decl = type_resolver::resolve_function_name(
             function_name,
             &scope,
             &self.root_namespace,
             this_scope,
         )?;
 
-        let function_decl = {
-            let this = &self;
-            this.functions.get(&function_id)
-        }
-        .expect("function id exist, but function is not found");
-
         let argument_nodes = node.find_nodes("argument");
         let arguments =
-            self.read_arguments(argument_nodes, function_decl, this_scope, variables)?;
+            self.read_arguments(argument_nodes, &function_decl, this_scope, variables)?;
 
         Ok(FunctionCall {
-            id: function_id,
+            id: function_decl.id,
             arguments,
-            value_type: FunctionType::from_decl(function_decl),
+            value_type: FunctionType::from_decl(&function_decl),
         })
     }
 

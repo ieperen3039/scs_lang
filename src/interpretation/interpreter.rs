@@ -130,14 +130,14 @@ impl Interpreter {
                 }
             })?;
         }
-        let function_id = target_scope.functions.get(function_name).ok_or_else(|| {
+        let function_decl = target_scope.functions.get(function_name).ok_or_else(|| {
             InterpretationError::SymbolNotFound {
                 kind: "function",
                 symbol: Identifier::from(function_name),
             }
         })?;
 
-        let to_execute = self.program.function_definitions.get(function_id);
+        let to_execute = self.program.function_definitions.get(&function_decl.id);
 
         to_execute.ok_or_else(|| InterpretationError::SymbolNotFound {
             kind: "function",
