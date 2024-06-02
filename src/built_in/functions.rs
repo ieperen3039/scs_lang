@@ -31,7 +31,8 @@ impl FunctionBuilder {
     pub fn flag(&mut self, long_name: Option<&str>, short_name: Option<&str>) -> Parameter {
         Parameter {
             id: self.new_id(),
-            par_type: TypeRef::Flag,
+            par_type: TypeRef::BOOLEAN.clone(),
+            is_optional: true,
             long_name: long_name.map(Identifier::from),
             short_name: short_name.map(Identifier::from),
         }
@@ -40,7 +41,8 @@ impl FunctionBuilder {
     pub fn opt_par(&mut self, long_name: &str, short_name: Option<&str>, t: &TypeRef) -> Parameter {
         Parameter {
             id: self.new_id(),
-            par_type: TypeRef::Optional(Box::from(t.clone())),
+            par_type: t.clone(),
+            is_optional: true,
             long_name: Some(Identifier::from(long_name)),
             short_name: short_name.map(Identifier::from),
         }
@@ -50,6 +52,7 @@ impl FunctionBuilder {
         Parameter {
             id: self.new_id(),
             par_type: t.clone(),
+            is_optional: false,
             long_name: Some(Identifier::from(long_name)),
             short_name: short_name.map(Identifier::from),
         }

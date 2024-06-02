@@ -1,4 +1,5 @@
 use crate::{
+    built_in::primitives::TYPE_ID_BOOLEAN,
     parsing::rule_nodes::RuleNode,
     symbolization::{
         ast::Namespace, semantic_result::SemanticError, type_collector::TypeCollector,
@@ -9,14 +10,12 @@ use crate::{
 use super::{ast::*, semantic_result::SemanticResult};
 
 pub struct FunctionCollector {
-    next_id: u32
+    next_id: u32,
 }
 
 impl FunctionCollector {
     pub fn new() -> Self {
-        FunctionCollector {
-            next_id: 0
-        }
+        FunctionCollector { next_id: 0 }
     }
 
     pub fn new_id(&mut self) -> u32 {
@@ -40,13 +39,12 @@ impl FunctionCollector {
                     cause: Box::from(e),
                 }),
             "implementation" => {
-                let (impl_type, functions) =
-                    self.read_implementation(node, root_namespace, local_namespace).map_err(|e| {
-                        SemanticError::WhileParsing {
-                            rule_name: "implementation",
-                            char_idx: node.first_char(),
-                            cause: Box::from(e),
-                        }
+                let (impl_type, functions) = self
+                    .read_implementation(node, root_namespace, local_namespace)
+                    .map_err(|e| SemanticError::WhileParsing {
+                        rule_name: "implementation",
+                        char_idx: node.first_char(),
+                        cause: Box::from(e),
                     })?;
                 Ok(functions)
             },
@@ -79,13 +77,12 @@ impl FunctionCollector {
         let parameters = {
             let parameter_node = node.find_node("parameter_list");
             if let Some(parameter_node) = parameter_node {
-                self.read_parameter_list(parameter_node, root_namespace, local_namespace).map_err(|e| {
-                    SemanticError::WhileParsing {
+                self.read_parameter_list(parameter_node, root_namespace, local_namespace)
+                    .map_err(|e| SemanticError::WhileParsing {
                         rule_name: "parameter_list",
                         char_idx: node.first_char(),
                         cause: Box::from(e),
-                    }
-                })?
+                    })?
             } else {
                 Vec::new()
             }
@@ -135,19 +132,38 @@ impl FunctionCollector {
         for parameter_node in parameter_nodes {
             let type_node = parameter_node.expect_node("type_ref")?;
             let unresolved_type_ref = TypeCollector::read_type_ref(type_node)?;
-            let type_name = type_resolver::resolve_type_name(
+            let raw_type = type_resolver::resolve_type_name(
                 unresolved_type_ref,
                 root_namespace,
                 local_namespace,
             )?;
             let name_node = parameter_node.expect_node("identifier")?;
 
-            parameters.push(Parameter {
-                par_type: type_name,
-                long_name: Some(name_node.as_identifier()),
-                short_name: None,
-                id: next_id,
-            });
+            let value = match raw_type {
+                TypeRef::Optional(inner_type) => Parameter {
+                    par_type: *inner_type,
+                    long_name: Some(name_node.as_identifier()),
+                    short_name: None,
+                    id: next_id,
+                    is_optional: true,
+                },
+                TypeRef::Defined(bool_type) if bool_type.id == TYPE_ID_BOOLEAN => Parameter {
+                    par_type: TypeRef::Defined(bool_type),
+                    long_name: Some(name_node.as_identifier()),
+                    short_name: None,
+                    id: next_id,
+                    is_optional: true,
+                },
+                other_type => Parameter {
+                    par_type: other_type,
+                    long_name: Some(name_node.as_identifier()),
+                    short_name: None,
+                    id: next_id,
+                    is_optional: true,
+                },
+            };
+
+            parameters.push(value);
             next_id += 1;
         }
 
@@ -194,7 +210,8 @@ impl FunctionCollector {
 
         let mut scope_function_declarations = Vec::new();
         for node in &node.sub_rules {
-            let function_declarations = self.read_function_declarations(node, root_namespace, local_namespace)?;
+            let function_declarations =
+                self.read_function_declarations(node, root_namespace, local_namespace)?;
             scope_function_declarations.extend(function_declarations);
         }
 
@@ -213,7 +230,11 @@ impl FunctionCollector {
 
         let mut function_definitions = Vec::new();
         for func_node in node.find_nodes("function_definition") {
-            function_definitions.push(self.read_function_declaration(func_node, root_namespace, local_namespace)?);
+            function_definitions.push(self.read_function_declaration(
+                func_node,
+                root_namespace,
+                local_namespace,
+            )?);
         }
 
         Ok((impl_type, function_definitions))

@@ -450,7 +450,7 @@ impl FunctionParser<'_, '_> {
 
                 let mutator_node = sub_node.expect_node("operator")?;
                 let operator_str = mutator_node.as_identifier();
-                let function_decl = self
+                let operator_fn_decl = self
                     .root_namespace
                     .functions
                     .get(&operator_str)
@@ -462,9 +462,9 @@ impl FunctionParser<'_, '_> {
                 // operators must have (exactly) 2 parameters:
                 // 0: the generic input value
                 // 1: the function with which to transform the input
-                debug_assert_eq!(function_decl.parameters.len(), 2);
+                debug_assert_eq!(operator_fn_decl.parameters.len(), 2);
 
-                let first_par_type = function_decl.parameters[0].to_type();
+                let first_par_type = operator_fn_decl.parameters[0].to_type();
                 if &argument_types[0] != first_par_type {
                     return Err(SemanticError::TypeMismatchError {
                         expected: argument_types[0].clone(),
@@ -472,19 +472,31 @@ impl FunctionParser<'_, '_> {
                     });
                 }
 
-                let inner_type = function_decl.parameters[1].to_type();
+                let inner_type = operator_fn_decl.parameters[1].to_type();
+                let TypeRef::Function(inner_fn_type) = inner_type else {
+                    panic!("second parameter of operator must be of function type, but found {:?}", inner_type);
+                };
 
-                let sub_expression = self.read_function_expression(
-                    mutator_node.expect_node("function_expression")?,
-                    &vec![inner_type.clone()],
+                let found_inner = self.read_function_expression(
+                    sub_node.expect_node("function_expression")?,
+                    &inner_fn_type.parameters,
                     this_scope,
                     variables,
                 )?;
 
+                let found_return_type = found_inner.get_return_type();
+
+                if found_return_type != *inner_fn_type.return_type {
+                    return Err(SemanticError::TypeMismatchError {
+                        expected: *inner_fn_type.return_type.clone(),
+                        found: found_return_type,
+                    });
+                }
+
                 Ok(FunctionExpression::Operator(Operator {
-                    id: function_decl.id,
-                    arg: Box::from(sub_expression),
-                    return_type: function_decl.return_type.clone(),
+                    id: operator_fn_decl.id,
+                    arg: Box::from(found_inner),
+                    return_type: operator_fn_decl.return_type.clone(),
                 }))
             },
             unknown => {
@@ -662,7 +674,7 @@ impl FunctionParser<'_, '_> {
         }))
     }
 
-    // function_call = function_name, [ _argument_list ];
+    // function_call = { namespace_name }, function_name, [ _argument_list ];
     // _argument_list = argument, { argument };
     fn read_function_call(
         &self,
@@ -672,7 +684,7 @@ impl FunctionParser<'_, '_> {
     ) -> SemanticResult<FunctionCall> {
         assert_eq!(node.rule_name, "function_call");
         let scope: Vec<Identifier> = node
-            .find_nodes("scope_name")
+            .find_nodes("namespace_name")
             .into_iter()
             .map(RuleNode::as_identifier)
             .collect();
@@ -688,13 +700,14 @@ impl FunctionParser<'_, '_> {
         )?;
 
         let argument_nodes = node.find_nodes("argument");
-        let ArgumentsResult {
-            arguments,
-            remaining_parameters,
-        } = self.read_arguments(argument_nodes, &function_decl, this_scope, variables)?;
+        let arguments_result =
+            self.read_arguments(argument_nodes, &function_decl, this_scope, variables)?;
 
-        let parameters = remaining_parameters
+        let arguments = arguments_result.arguments;
+        let parameters = arguments_result
+            .remaining_parameters
             .into_iter()
+            .filter(|p| !p.is_optional)
             .map(|p| p.par_type)
             .collect();
 
@@ -703,7 +716,7 @@ impl FunctionParser<'_, '_> {
             arguments,
             value_type: FunctionType {
                 parameters,
-                return_type: Box::new(function_decl.return_type)
+                return_type: Box::new(function_decl.return_type),
             },
         })
     }
@@ -776,18 +789,16 @@ impl FunctionParser<'_, '_> {
                 let some_arg_name = Some(arg_name.clone());
                 let target_parameter_idx = remaining_parameters
                     .iter()
-                    .position(|p| p.long_name == some_arg_name);
-
-                let Some(target_parameter_idx) = target_parameter_idx else {
-                    return Err(SemanticError::ArgumentInvalid {
+                    .position(|p| p.long_name == some_arg_name)
+                    .ok_or_else(|| SemanticError::ArgumentInvalid {
                         arg: arg_name,
                         function: function_name.clone(),
-                    });
-                };
+                    })?;
 
+                let value_expression_node = sub_node.expect_node("value_expression")?;
                 let expected_type = &remaining_parameters[target_parameter_idx].par_type;
                 let arg_value = self.read_value_expression(
-                    sub_node,
+                    value_expression_node,
                     this_scope,
                     variables,
                     Some(expected_type),
@@ -798,19 +809,16 @@ impl FunctionParser<'_, '_> {
             "unnamed_argument" => {
                 let first_non_optional = remaining_parameters
                     .iter()
-                    .position(|p| !matches!(p.par_type, TypeRef::Flag | TypeRef::Optional(_)));
-
-                let Some(first_non_optional) = first_non_optional else {
-                    return Err(SemanticError::ArgumentInvalid {
+                    .position(|p| !p.is_optional)
+                    .ok_or_else(|| SemanticError::ArgumentInvalid {
                         arg: sub_node.as_identifier(),
                         function: function_name.clone(),
-                    });
-                };
+                    })?;
 
                 let expected_type = &remaining_parameters[first_non_optional].par_type;
-                debug_assert_eq!(sub_node.sub_rules.len(), 1);
+                let value_expression_node = sub_node.expect_node("value_expression")?;
                 let arg_value = self.read_value_expression(
-                    &sub_node.sub_rules[0],
+                    value_expression_node,
                     this_scope,
                     variables,
                     Some(expected_type),

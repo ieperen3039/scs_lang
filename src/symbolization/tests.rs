@@ -4,7 +4,11 @@ use crate::{
     transformation::grammatificator,
 };
 
-use super::{ast, function_collector::FunctionCollector, symbolizer};
+use super::{
+    ast::{self, FunctionType},
+    function_collector::FunctionCollector,
+    symbolizer,
+};
 
 // #[test]
 // fn parse_simple_derived_type() {
@@ -58,34 +62,62 @@ fn parse_convoluted_statements() {
 
         data
             zip(extra_columns)
-            write("data.csv);
+            cat("data.csv", out);
     "#;
 
     let type_string_stream = ast::TypeRef::Stream(Box::new(ast::TypeRef::STRING.clone()));
 
     let mut function_collector = FunctionCollector::new();
 
-    let fn_cat = {
+    let mut namespace = ast::Namespace::new("", None);
+    namespace.add_function({
         let mut builder = built_in::functions::FunctionBuilder::new();
         ast::FunctionDeclaration {
             id: function_collector.new_id(),
             name: ast::Identifier::from("cat"),
-            parameters: vec![builder.req_par("file", None, &ast::TypeRef::STRING)],
+            parameters: vec![
+                builder.req_par("file", None, &ast::TypeRef::STRING),
+                builder.flag(Some("out"), None),
+            ],
             return_type: type_string_stream.clone(),
             is_external: true,
         }
-    };
-    let fn_tail = {
+    });
+    namespace.add_function({
+        let mut builder = built_in::functions::FunctionBuilder::new();
+        ast::FunctionDeclaration {
+            id: function_collector.new_id(),
+            name: ast::Identifier::from(">"),
+            parameters: vec![
+                builder.req_par("in", None, &type_string_stream),
+                builder.req_par(
+                    "fn",
+                    None,
+                    &ast::TypeRef::Function(FunctionType {
+                        parameters: vec![ast::TypeRef::STRING.clone()],
+                        return_type: Box::new(ast::TypeRef::STRING),
+                    }),
+                ),
+            ],
+            return_type: type_string_stream.clone(),
+            is_external: true,
+        }
+    });
+    namespace.add_function({
         let mut builder = built_in::functions::FunctionBuilder::new();
         ast::FunctionDeclaration {
             id: function_collector.new_id(),
             name: ast::Identifier::from("tail"),
-            parameters: vec![builder.req_par("input", None, &type_string_stream)],
+            parameters: vec![
+                builder.req_par("input", None, &type_string_stream),
+                builder.opt_par("from_begin", None, &ast::TypeRef::INT),
+                builder.opt_par("from_end", None, &ast::TypeRef::INT),
+            ],
             return_type: type_string_stream.clone(),
             is_external: true,
         }
-    };
-    let fn_select = {
+    });
+    namespace.add_function({
         let mut builder = built_in::functions::FunctionBuilder::new();
         ast::FunctionDeclaration {
             id: function_collector.new_id(),
@@ -98,8 +130,8 @@ fn parse_convoluted_statements() {
             return_type: ast::TypeRef::STRING.clone(),
             is_external: true,
         }
-    };
-    let fn_zip = {
+    });
+    namespace.add_function({
         let mut builder = built_in::functions::FunctionBuilder::new();
         ast::FunctionDeclaration {
             id: function_collector.new_id(),
@@ -114,30 +146,20 @@ fn parse_convoluted_statements() {
             ]),
             is_external: true,
         }
-    };
-
-    let fn_git_log = {
-        let mut builder = built_in::functions::FunctionBuilder::new();
-        ast::FunctionDeclaration {
-            id: function_collector.new_id(),
-            name: ast::Identifier::from("log"),
-            parameters: vec![builder.req_par("pattern", None, &ast::TypeRef::STRING)],
-            return_type: ast::TypeRef::STRING.clone(),
-            is_external: true,
-        }
-    };
-
-    let functions = vec![fn_cat, fn_tail, fn_select, fn_zip];
-
-    let mut namespace = ast::Namespace::new("", None);
-    for fn_def in &functions {
-        namespace.add_function(fn_def.clone());
-    }
+    });
 
     {
         let mut git_ns = ast::Namespace::new("git", Some(&namespace));
-        git_ns.add_function(fn_git_log);
-
+        git_ns.add_function({
+            let mut builder = built_in::functions::FunctionBuilder::new();
+            ast::FunctionDeclaration {
+                id: function_collector.new_id(),
+                name: ast::Identifier::from("log"),
+                parameters: vec![builder.req_par("pattern", None, &ast::TypeRef::STRING)],
+                return_type: ast::TypeRef::STRING.clone(),
+                is_external: true,
+            }
+        });
         namespace.add_sub_scope(git_ns);
     }
 
@@ -158,11 +180,8 @@ fn parse_convoluted_statements() {
         );
     }
 
-    let program_result = symbolizer::parse_faux_script(
-        syntax_tree.unwrap(),
-        &ast::Namespace::new("", None),
-        &mut function_collector,
-    );
+    let program_result =
+        symbolizer::parse_faux_script(syntax_tree.unwrap(), &namespace, &mut function_collector);
 
     if let Err(error) = program_result {
         panic!("Error parsing program: \n{error}");
@@ -254,11 +273,8 @@ fn parse_function_definition() {
         );
     }
 
-    let program_result = symbolizer::parse_faux_script(
-        syntax_tree.unwrap(),
-        &namespace,
-        &mut function_collector,
-    );
+    let program_result =
+        symbolizer::parse_faux_script(syntax_tree.unwrap(), &namespace, &mut function_collector);
 
     match program_result {
         Err(error) => {

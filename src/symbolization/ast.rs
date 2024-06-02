@@ -34,7 +34,6 @@ pub enum TypeRef {
     Defined(DefinedRef),
     Optional(Box<TypeRef>),
     Result(Box<TypeRef>, Box<TypeRef>),
-    Flag,
     UnamedTuple(Vec<TypeRef>),
     Stream(Box<TypeRef>),
     Function(FunctionType),
@@ -91,6 +90,7 @@ pub struct VariantValue {
 pub struct Parameter {
     pub id: VariableId,
     pub par_type: TypeRef,
+    pub is_optional: bool,
     pub long_name: Option<Identifier>,
     pub short_name: Option<Identifier>,
 }

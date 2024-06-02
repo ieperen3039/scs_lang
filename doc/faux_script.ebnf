@@ -1,7 +1,8 @@
 faux_script             = statement, { statement_separator, statement }, statement_separator, { function_definition };
 
-(* scopes and definitions *)
+(* namespaces and definitions *)
 identifier              = ? IDENTIFIER ?;
+namespace_name          = ? IDENTIFIER ?;
 (* reference to existing type *)
 type_ref                = ( result_type_ref | optional_type_ref | _singular_type_ref ), { stream_symbol };
 result_type_ref         = _singular_type_ref, "!", _singular_type_ref;
@@ -36,7 +37,7 @@ statement_separator     = ";";
 variable_name           = ? IDENTIFIER ?;
 
 (* function call statements *)
-function_call           = function_name, "(", [ _argument_list ], ")";
+function_call           = { namespace_name, "." }, function_name, "(", [ _argument_list ], ")";
 _argument_list          = argument, { ",", argument };
 argument                = named_argument | unnamed_argument | flag_argument;
 unnamed_argument        = value_expression;
