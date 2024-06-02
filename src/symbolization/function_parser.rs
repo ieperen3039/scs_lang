@@ -428,7 +428,11 @@ impl FunctionParser<'_, '_> {
 
                 self.read_assignment(sub_node, argument_types.first().unwrap(), variables)
             },
-            "mutator_cast" => unimplemented!("{}", sub_node.rule_name),
+            "mutator_cast" => {
+                let type_node = sub_node.expect_node("type_ref")?;
+                let type_ref = TypeCollector::read_type_ref(type_node)?;
+                Ok(FunctionExpression::Cast(type_ref))
+            },
             "operator_expression" => {
                 if argument_types.len() != 1 {
                     return Err(SemanticError::InvalidNumerOfParameters {

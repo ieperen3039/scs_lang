@@ -77,6 +77,7 @@ impl Interpreter {
 
                         self.evaluate_fn_body(&lamda.body, actual_arguments)?
                     }
+                    ast::FunctionExpression::Cast(_) => { expr_value /* nothing to do */ },
                 }
             }
 

@@ -149,6 +149,7 @@ pub enum FunctionExpression {
     Operator(Operator),
     Lamda(Lamda),
     Assignment(Rc<VariableDeclaration>),
+    Cast(TypeRef)
 }
 
 // effectively a more efficient FunctionCall:

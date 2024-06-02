@@ -53,6 +53,7 @@ impl FunctionExpression {
                 parameters: vec![op.arg.get_type()],
                 return_type: Box::from(op.return_type.clone()),
             }),
+            FunctionExpression::Cast(t) => t.clone(),
         }
     }
 
@@ -62,7 +63,8 @@ impl FunctionExpression {
             FunctionExpression::FunctionCall(fc) => *fc.value_type.return_type.clone(),
             FunctionExpression::Assignment(_) => TypeRef::NoReturn,
             FunctionExpression::Lamda(lamda) => lamda.body.return_var.var_type.clone(),
-            FunctionExpression::Operator(op) => op.return_type.clone()
+            FunctionExpression::Operator(op) => op.return_type.clone(),
+            FunctionExpression::Cast(t) => t.clone(),
         }
     }
 }
