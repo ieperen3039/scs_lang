@@ -16,6 +16,11 @@ pub struct FunctionParser<'ns, 'fc> {
     pub function_collector: &'fc mut FunctionCollector,
 }
 
+struct ArgumentsResult {
+    pub arguments: Vec<Option<ValueExpression>>,
+    pub remaining_parameters: Vec<Parameter>,
+}
+
 impl FunctionParser<'_, '_> {
     pub fn new<'ns, 'fc>(
         root_namespace: &'ns Namespace,
@@ -166,12 +171,18 @@ impl FunctionParser<'_, '_> {
         let mut mutations = Vec::new();
 
         for mutator_node in node.find_nodes("function_expression") {
-            let mutator = self.read_function_expression(
-                mutator_node,
-                &vec![expression_type],
-                this_scope,
-                variables,
-            )?;
+            let mutator = self
+                .read_function_expression(
+                    mutator_node,
+                    &vec![expression_type],
+                    this_scope,
+                    variables,
+                )
+                .map_err(|e| SemanticError::WhileParsing {
+                    rule_name: "function_expression",
+                    char_idx: mutator_node.first_char(),
+                    cause: Box::from(e),
+                })?;
 
             expression_type = mutator.get_return_type();
             mutations.push(mutator);
@@ -228,7 +239,7 @@ impl FunctionParser<'_, '_> {
         variables: &mut VarStorage,
         target_type: Option<&TypeRef>,
     ) -> SemanticResult<ValueExpression> {
-        debug_assert!(node.rule_name == "value_expression");
+        debug_assert_eq!(node.rule_name, "value_expression");
 
         let sub_node = node
             .sub_rules
@@ -469,7 +480,7 @@ impl FunctionParser<'_, '_> {
                     this_scope,
                     variables,
                 )?;
-                
+
                 Ok(FunctionExpression::Operator(Operator {
                     id: function_decl.id,
                     arg: Box::from(sub_expression),
@@ -677,13 +688,23 @@ impl FunctionParser<'_, '_> {
         )?;
 
         let argument_nodes = node.find_nodes("argument");
-        let arguments =
-            self.read_arguments(argument_nodes, &function_decl, this_scope, variables)?;
+        let ArgumentsResult {
+            arguments,
+            remaining_parameters,
+        } = self.read_arguments(argument_nodes, &function_decl, this_scope, variables)?;
+
+        let parameters = remaining_parameters
+            .into_iter()
+            .map(|p| p.par_type)
+            .collect();
 
         Ok(FunctionCall {
             id: function_decl.id,
             arguments,
-            value_type: FunctionType::from_decl(&function_decl),
+            value_type: FunctionType {
+                parameters,
+                return_type: Box::new(function_decl.return_type)
+            },
         })
     }
 
@@ -694,12 +715,15 @@ impl FunctionParser<'_, '_> {
         function_decl: &FunctionDeclaration,
         this_scope: &Namespace,
         variables: &mut VarStorage,
-    ) -> SemanticResult<Vec<Option<ValueExpression>>> {
+    ) -> SemanticResult<ArgumentsResult> {
         if argument_nodes.is_empty() {
-            return Ok(Vec::new());
+            return Ok(ArgumentsResult {
+                arguments: Vec::new(),
+                remaining_parameters: function_decl.parameters.clone(),
+            });
         }
 
-        let mut remaining_parameters = function_decl.parameters.clone();
+        let mut remaining_parameters: Vec<Parameter> = function_decl.parameters.clone();
         // maps the current parameters to the corresponding indices in the original parameters vec
         let mut indices: Vec<usize> = (0..function_decl.parameters.len()).collect();
 
@@ -714,12 +738,15 @@ impl FunctionParser<'_, '_> {
                 this_scope,
                 variables,
             )?;
-            let target_par = remaining_parameters.remove(par_idx);
+            let _target_par = remaining_parameters.remove(par_idx);
             let target_idx = indices.remove(par_idx);
 
             arguments[target_idx] = Some(expr);
         }
-        Ok(arguments)
+        Ok(ArgumentsResult {
+            arguments,
+            remaining_parameters,
+        })
     }
 
     // argument                = named_argument | unnamed_argument | flag_argument;
@@ -781,8 +808,9 @@ impl FunctionParser<'_, '_> {
                 };
 
                 let expected_type = &remaining_parameters[first_non_optional].par_type;
+                debug_assert_eq!(sub_node.sub_rules.len(), 1);
                 let arg_value = self.read_value_expression(
-                    sub_node,
+                    &sub_node.sub_rules[0],
                     this_scope,
                     variables,
                     Some(expected_type),
