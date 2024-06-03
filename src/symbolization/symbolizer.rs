@@ -100,26 +100,14 @@ pub fn parse_faux_script(
         function_collector,
         external_namespace,
         &mut internal_namespace,
-    )
-    .map_err(|e| SemanticError::WhileParsing {
-        rule_name: "faux_script (parse_function_declarations)",
-        char_idx: ast.first_char(),
-        cause: Box::from(e),
-    })?;
+    )?;
 
     // update combined namespace with the newly parsed functions
     let combined_namespace = internal_namespace.combined_with(external_namespace.clone());
     let entry_function_id = function_collector.new_id();
     let function_parser = FunctionParser::new(&combined_namespace, function_collector);
 
-    let mut function_definitions =
-        parse_function_definitions(&ast, &function_parser).map_err(|e| {
-            SemanticError::WhileParsing {
-                rule_name: "faux_script (parse_function_definitions)",
-                char_idx: ast.first_char(),
-                cause: Box::from(e),
-            }
-        })?;
+    let mut function_definitions = parse_function_definitions(&ast, &function_parser)?;
 
     let start_of_functions = ast
         .sub_rules
@@ -127,17 +115,11 @@ pub fn parse_faux_script(
         .position(|n| n.rule_name == "function_definition")
         .unwrap_or(ast.sub_rules.len());
 
-    let entry_function = function_parser
-        .read_statements(
-            &ast.sub_rules[..start_of_functions],
-            &combined_namespace,
-            &mut VarStorage::new(),
-        )
-        .map_err(|e| SemanticError::WhileParsing {
-            rule_name: "faux_script (read_statements)",
-            char_idx: ast.first_char(),
-            cause: Box::from(e),
-        })?;
+    let entry_function = function_parser.read_statements(
+        &ast.sub_rules[..start_of_functions],
+        &combined_namespace,
+        &mut VarStorage::new(),
+    )?;
 
     function_definitions.insert(entry_function_id, entry_function);
 
@@ -187,17 +169,11 @@ fn parse_function_definitions(
                     .unwrap();
 
                 let function_body_node = node.expect_node("function_body")?;
-                let function_body = function_parser
-                    .read_function_body(
-                        function_declaration,
-                        function_body_node,
-                        function_parser.root_namespace,
-                    )
-                    .map_err(|e| SemanticError::WhileParsing {
-                        rule_name: "function_definition",
-                        char_idx: function_body_node.first_char(),
-                        cause: Box::from(e),
-                    })?;
+                let function_body = function_parser.read_function_body(
+                    function_declaration,
+                    function_body_node,
+                    function_parser.root_namespace,
+                )?;
 
                 function_definitions.insert(function_declaration.id, function_body);
             },

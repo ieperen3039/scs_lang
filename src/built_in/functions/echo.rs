@@ -16,7 +16,7 @@ impl InternalFunction for FnEcho {
 
         FnEcho {
             fn_id: collector.new_id(),
-            par_in: builder.req_par("in", None, &TypeRef::STRING),
+            par_in: builder.req_par("in", &TypeRef::STRING),
             par_error: builder.flag(Some("error"), Some("e")),
         }
     }

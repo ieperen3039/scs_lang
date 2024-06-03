@@ -38,23 +38,43 @@ impl FunctionBuilder {
         }
     }
 
-    pub fn opt_par(&mut self, long_name: &str, short_name: Option<&str>, t: &TypeRef) -> Parameter {
+    pub fn opt_par(&mut self, long_name: &str, t: &TypeRef) -> Parameter {
         Parameter {
             id: self.new_id(),
             par_type: t.clone(),
             is_optional: true,
             long_name: Some(Identifier::from(long_name)),
-            short_name: short_name.map(Identifier::from),
+            short_name: None,
         }
     }
 
-    pub fn req_par(&mut self, long_name: &str, short_name: Option<&str>, t: &TypeRef) -> Parameter {
+    pub fn req_par(&mut self, long_name: &str, t: &TypeRef) -> Parameter {
         Parameter {
             id: self.new_id(),
             par_type: t.clone(),
             is_optional: false,
             long_name: Some(Identifier::from(long_name)),
-            short_name: short_name.map(Identifier::from),
+            short_name: None,
+        }
+    }
+
+    pub fn opt_par_s(&mut self, long_name: &str, short_name: &str, t: &TypeRef) -> Parameter {
+        Parameter {
+            id: self.new_id(),
+            par_type: t.clone(),
+            is_optional: true,
+            long_name: Some(Identifier::from(long_name)),
+            short_name: Some(Identifier::from(short_name)),
+        }
+    }
+
+    pub fn req_par_s(&mut self, long_name: &str, short_name: &str, t: &TypeRef) -> Parameter {
+        Parameter {
+            id: self.new_id(),
+            par_type: t.clone(),
+            is_optional: false,
+            long_name: Some(Identifier::from(long_name)),
+            short_name: Some(Identifier::from(short_name)),
         }
     }
 

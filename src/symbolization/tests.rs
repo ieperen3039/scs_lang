@@ -61,7 +61,7 @@ fn parse_convoluted_statements() {
             = extra_columns; // string[]
 
         data
-            zip(extra_columns)
+            zip(with=extra_columns)
             cat("data.csv", out);
     "#;
 
@@ -76,7 +76,7 @@ fn parse_convoluted_statements() {
             id: function_collector.new_id(),
             name: ast::Identifier::from("cat"),
             parameters: vec![
-                builder.req_par("file", None, &ast::TypeRef::STRING),
+                builder.req_par("file", &ast::TypeRef::STRING),
                 builder.flag(Some("out"), None),
             ],
             return_type: type_string_stream.clone(),
@@ -89,10 +89,9 @@ fn parse_convoluted_statements() {
             id: function_collector.new_id(),
             name: ast::Identifier::from(">"),
             parameters: vec![
-                builder.req_par("in", None, &type_string_stream),
+                builder.req_par("in", &type_string_stream),
                 builder.req_par(
                     "fn",
-                    None,
                     &ast::TypeRef::Function(FunctionType {
                         parameters: vec![ast::TypeRef::STRING.clone()],
                         return_type: Box::new(ast::TypeRef::STRING),
@@ -109,9 +108,9 @@ fn parse_convoluted_statements() {
             id: function_collector.new_id(),
             name: ast::Identifier::from("tail"),
             parameters: vec![
-                builder.req_par("input", None, &type_string_stream),
-                builder.opt_par("from_begin", None, &ast::TypeRef::INT),
-                builder.opt_par("from_end", None, &ast::TypeRef::INT),
+                builder.req_par("input", &type_string_stream),
+                builder.opt_par("from_begin", &ast::TypeRef::INT),
+                builder.opt_par("from_end", &ast::TypeRef::INT),
             ],
             return_type: type_string_stream.clone(),
             is_external: true,
@@ -123,9 +122,9 @@ fn parse_convoluted_statements() {
             id: function_collector.new_id(),
             name: ast::Identifier::from("select"),
             parameters: vec![
-                builder.req_par("input", None, &ast::TypeRef::STRING),
-                builder.req_par("separator", None, &ast::TypeRef::STRING),
-                builder.req_par("n", None, &ast::TypeRef::INT),
+                builder.req_par("input", &ast::TypeRef::STRING),
+                builder.req_par("separator", &ast::TypeRef::STRING),
+                builder.req_par("n", &ast::TypeRef::INT),
             ],
             return_type: ast::TypeRef::STRING.clone(),
             is_external: true,
@@ -137,8 +136,8 @@ fn parse_convoluted_statements() {
             id: function_collector.new_id(),
             name: ast::Identifier::from("zip"),
             parameters: vec![
-                builder.req_par("a", None, &type_string_stream.clone()),
-                builder.req_par("b", None, &type_string_stream.clone()),
+                builder.req_par("stdin", &type_string_stream.clone()),
+                builder.req_par("with", &type_string_stream.clone()),
             ],
             return_type: ast::TypeRef::UnamedTuple(vec![
                 type_string_stream.clone(),
@@ -155,7 +154,7 @@ fn parse_convoluted_statements() {
             ast::FunctionDeclaration {
                 id: function_collector.new_id(),
                 name: ast::Identifier::from("log"),
-                parameters: vec![builder.req_par("pattern", None, &ast::TypeRef::STRING)],
+                parameters: vec![builder.req_par("pattern", &ast::TypeRef::STRING)],
                 return_type: ast::TypeRef::STRING.clone(),
                 is_external: true,
             }
@@ -202,7 +201,7 @@ fn parse_function_definition() {
             n
                 sqrt() 
                 (n_sq) {
-                    1 div(n_sq)
+                    1 div(b=n_sq)
                 }
         }
     "#;
@@ -214,7 +213,7 @@ fn parse_function_definition() {
         ast::FunctionDeclaration {
             id: function_collector.new_id(),
             name: ast::Identifier::from("sqrt"),
-            parameters: vec![builder.req_par("n", None, &ast::TypeRef::INT)],
+            parameters: vec![builder.req_par("n", &ast::TypeRef::INT)],
             return_type: ast::TypeRef::INT.clone(),
             is_external: true,
         }
@@ -225,8 +224,8 @@ fn parse_function_definition() {
             id: function_collector.new_id(),
             name: ast::Identifier::from("div"),
             parameters: vec![
-                builder.req_par("a", None, &ast::TypeRef::INT),
-                builder.req_par("b", None, &ast::TypeRef::INT),
+                builder.req_par("a", &ast::TypeRef::INT),
+                builder.req_par("b", &ast::TypeRef::INT),
             ],
             return_type: ast::TypeRef::INT.clone(),
             is_external: true,
@@ -238,8 +237,8 @@ fn parse_function_definition() {
             id: function_collector.new_id(),
             name: ast::Identifier::from("less_than"),
             parameters: vec![
-                builder.req_par("a", None, &ast::TypeRef::INT),
-                builder.req_par("b", None, &ast::TypeRef::INT),
+                builder.req_par("a", &ast::TypeRef::INT),
+                builder.req_par("b", &ast::TypeRef::INT),
             ],
             return_type: ast::TypeRef::BOOLEAN.clone(),
             is_external: true,

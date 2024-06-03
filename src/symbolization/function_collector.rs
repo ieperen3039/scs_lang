@@ -32,30 +32,15 @@ impl FunctionCollector {
     ) -> SemanticResult<Vec<FunctionDeclaration>> {
         match node.rule_name {
             "namespace" => self
-                .read_functions_of_namespace(node, root_namespace, local_namespace)
-                .map_err(|e| SemanticError::WhileParsing {
-                    rule_name: "namespace",
-                    char_idx: node.first_char(),
-                    cause: Box::from(e),
-                }),
+                .read_functions_of_namespace(node, root_namespace, local_namespace),
             "implementation" => {
                 let (impl_type, functions) = self
-                    .read_implementation(node, root_namespace, local_namespace)
-                    .map_err(|e| SemanticError::WhileParsing {
-                        rule_name: "implementation",
-                        char_idx: node.first_char(),
-                        cause: Box::from(e),
-                    })?;
+                    .read_implementation(node, root_namespace, local_namespace)?;
                 Ok(functions)
             },
             "function_definition" => {
                 let fn_decl = self
-                    .read_function_declaration(node, root_namespace, local_namespace)
-                    .map_err(|e| SemanticError::WhileParsing {
-                        rule_name: "implementation",
-                        char_idx: node.first_char(),
-                        cause: Box::from(e),
-                    })?;
+                    .read_function_declaration(node, root_namespace, local_namespace)?;
                 Ok(vec![fn_decl])
             },
             _ => Ok(Vec::new()),
@@ -77,12 +62,7 @@ impl FunctionCollector {
         let parameters = {
             let parameter_node = node.find_node("parameter_list");
             if let Some(parameter_node) = parameter_node {
-                self.read_parameter_list(parameter_node, root_namespace, local_namespace)
-                    .map_err(|e| SemanticError::WhileParsing {
-                        rule_name: "parameter_list",
-                        char_idx: node.first_char(),
-                        cause: Box::from(e),
-                    })?
+                self.read_parameter_list(parameter_node, root_namespace, local_namespace)?
             } else {
                 Vec::new()
             }
@@ -178,9 +158,8 @@ impl FunctionCollector {
         for parameter_node in &node.sub_rules {
             if parameter_node.rule_name != "identifier" {
                 return Err(SemanticError::UnexpectedNode {
-                    found: Identifier::from(parameter_node.rule_name),
-                    parent_node: "untyped_parameter_list",
-                });
+                    found: Identifier::from(parameter_node.rule_name)
+                }.while_parsing(node));
             }
             parameters.push(parameter_node.as_identifier())
         }
@@ -206,7 +185,7 @@ impl FunctionCollector {
             .ok_or_else(|| SemanticError::SymbolNotFound {
                 kind: "namespace",
                 symbol: local_namespace_name,
-            })?;
+            }.while_parsing(node))?;
 
         let mut scope_function_declarations = Vec::new();
         for node in &node.sub_rules {
@@ -257,7 +236,7 @@ impl FunctionCollector {
                 kind: "type",
                 symbol: base_type_name,
                 scope: namespace.full_name.clone(),
-            }
+            }.while_parsing(node)
         })?;
 
         Ok(ImplType {

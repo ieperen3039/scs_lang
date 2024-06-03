@@ -128,16 +128,14 @@ impl TypeCollector {
                 .map(TypeRef::UnresolvedName);
         }
 
-        let tuple_inst_node =
-            derived_node
-                .find_node("tuple_ref")
-                .ok_or_else(|| SemanticError::NodeNotFound {
-                    expected: "either a base_type_ref or a tuple_ref",
-                    parent_node: Identifier::from(derived_node.rule_name),
-                })?;
+        let tuple_inst_node = derived_node.find_node("tuple_ref").ok_or_else(|| {
+            SemanticError::NodeNotFound {
+                expected: "either a base_type_ref or a tuple_ref",
+            }
+            .while_parsing(derived_node)
+        })?;
 
-                TypeCollector::read_tuple_inst(tuple_inst_node)
-            .map(TypeRef::UnamedTuple)
+        TypeCollector::read_tuple_inst(tuple_inst_node).map(TypeRef::UnamedTuple)
     }
 
     pub fn read_tuple_inst(tuple_inst_node: &RuleNode) -> SemanticResult<Vec<TypeRef>> {
@@ -266,8 +264,8 @@ impl TypeCollector {
             unknown => {
                 return Err(SemanticError::UnexpectedNode {
                     found: Identifier::from(unknown),
-                    parent_node: "type_ref",
-                })
+                }
+                .while_parsing(type_node))
             },
         };
 

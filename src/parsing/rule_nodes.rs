@@ -63,6 +63,10 @@ impl<'prog, 'bnf> RuleNode<'prog, 'bnf> {
         self.tokens.first().map(|t| t.char_idx).unwrap_or(0)
     }
 
+    pub fn last_char(&self) -> usize {
+        self.tokens.last().map(|t| t.char_idx + t.slice.len()).unwrap_or(0)
+    }
+
     // returns true if this rule node is syntactically equivalent.
     // this check is more expensive than eq
     #[allow(dead_code)]
@@ -110,7 +114,7 @@ impl<'prog, 'bnf> RuleNode<'prog, 'bnf> {
 
     pub fn expect_node<'r>(&'r self, expected: &'static str) -> SemanticResult<&'r RuleNode> {
         self.find_node(expected)
-            .ok_or_else(|| SemanticError::NodeNotFound { expected, parent_node: Identifier::from(self.rule_name) })
+            .ok_or_else(|| SemanticError::NodeNotFound { expected }.while_parsing(self))
     }
 
     pub fn find_node<'r>(&'r self, expected: &str) -> Option<&'r RuleNode> {
