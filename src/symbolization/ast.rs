@@ -169,7 +169,7 @@ pub struct FunctionCall {
     pub id: FunctionId,
     // the type of this expression as a value
     pub value_type: FunctionType,
-    // indices in this vector correspond to the parameter of the called function
+    // indices in this vector correspond to the parameter indices of the called function
     // (the argument vector and parameter vector should have the same len)
     // Option::None indicates that this is itself a fn expression accepting all missing arguments in order
     pub arguments: Vec<Option<ValueExpression>>,
@@ -181,10 +181,9 @@ pub struct LamdaCall{
     pub id: VariableId,
     // the type of this expression as a value
     pub value_type: FunctionType,
-    // indices in this vector correspond to the parameter of the called function
+    // indices in this vector correspond to the variable ids of the function body
     // (the argument vector and parameter vector should have the same len)
-    // Option::None indicates that this is itself a fn expression accepting all missing arguments in order
-    pub arguments: Vec<Option<ValueExpression>>,
+    pub arguments: Vec<ValueExpression>,
 }
 
 #[derive(Clone)]

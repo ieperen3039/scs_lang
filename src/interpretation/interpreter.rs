@@ -97,18 +97,20 @@ impl Interpreter {
     ) -> InterpResult<Value> {
         match expr {
             ast::FunctionExpression::FunctionCall(call) => {
-                let mut arguments = StackFrame::new();
+                let mut function_stack = StackFrame::new();
                 let mut var_id = 0;
                 let mut is_complete = true;
                 for ele in &call.arguments {
                     let arg_value = match ele {
                         Some(expr) => self.evaluate_value_expression(expr, stack)?,
+                        // if expr_value starts not-nothing, then the semantic analysis has verified
+                        // that this function call requires exactly one parameter.
                         None => std::mem::replace(&mut expr_value, Value::Nothing),
                     };
                     if matches!(arg_value, Value::Nothing) {
                         is_complete = false;
                     } else {
-                        arguments.add_variable(Variable {
+                        function_stack.add_variable(Variable {
                             id: var_id,
                             value: arg_value,
                         });
@@ -119,9 +121,9 @@ impl Interpreter {
 
                 if is_complete {
                     let body = self.get_fn(call.id);
-                    self.evaluate_fn_body(body, arguments)
+                    self.evaluate_fn_body(body, function_stack)
                 } else {
-                    Ok(Value::FunctionLamda(call.id, arguments))
+                    Ok(Value::FunctionLamda(call.id, function_stack))
                 }
             },
             ast::FunctionExpression::Assignment(var) => {
@@ -184,35 +186,52 @@ impl Interpreter {
                 }
 
                 assert!(lamda.parameters.len() == 1);
-                lamda_arguments.add_variable(Variable { id: 0, value: expr_value });
+                lamda_arguments.add_variable(Variable {
+                    id: 0,
+                    value: expr_value,
+                });
 
                 self.evaluate_fn_body(&lamda.body, lamda_arguments)
             },
             ast::FunctionExpression::LamdaCall(variable) => {
-                let value = stack.resolve_variable(variable.id).unwrap();
+                // the function body contains references to either the lamda parameters, or the capture
 
-                match (expr_value, &value) {
-                    (Value::Nothing, Value::FunctionLamda(id, stack)) => {
-                        let mut arguments = stack.clone();
-                        self.evaluate_fn_body(self.get_fn(*id), arguments)
+                // if expr_value is not nothing, then the semantic analysis has verified
+                // that this lamda call requires exactly one parameter.
+
+                let value = stack.resolve_variable(variable.id).unwrap();
+                match &value {
+                    Value::FunctionLamda(id, capture) => {
+                        // this copy is needed because it borrows from `value` which borrows from `stack`
+                        let id = *id;
+                        let mut function_stack = capture.clone();
+                        match expr_value {
+                            Value::Nothing => {},
+                            anything_else => function_stack.add_argument(anything_else),
+                        }
+
+                        for expr in &variable.arguments {
+                            let arg_value = self.evaluate_value_expression(expr, stack)?;
+                            function_stack.add_argument(arg_value);
+                        }
+                        self.evaluate_fn_body(self.get_fn(id), function_stack)
                     },
-                    (Value::Nothing, Value::InlineLamda(body, capture)) => {
-                        // the function body contains references to either the lamda parameters, or the capture
-                        let mut arguments = capture.clone();
-                        self.evaluate_fn_body(&body, arguments)
+                    Value::InlineLamda(body, capture) => {
+                        // this clone is needed because it borrows from `value` which borrows from `stack`
+                        let body = body.clone();
+                        let mut function_stack = capture.clone();
+                        match expr_value {
+                            Value::Nothing => {},
+                            anything_else => function_stack.add_argument(anything_else),
+                        }
+
+                        for expr in &variable.arguments {
+                            let arg_value = self.evaluate_value_expression(expr, stack)?;
+                            function_stack.add_argument(arg_value);
+                        }
+                        self.evaluate_fn_body(&body, function_stack)
                     },
-                    (any_value, Value::FunctionLamda(id, stack)) => {
-                        let mut arguments = stack.clone();
-                        arguments.add_argument(any_value);
-                        self.evaluate_fn_body(self.get_fn(*id), arguments)
-                    },
-                    (any_value, Value::InlineLamda(body, capture)) => {
-                        // the function body contains references to either the lamda parameters, or the capture
-                        let mut arguments = capture.clone();
-                        arguments.add_argument(any_value);
-                        self.evaluate_fn_body(&body, arguments)
-                    },
-                    (any_value, Value::IdentityLamda) => Ok(any_value),
+                    Value::IdentityLamda => Ok(expr_value),
                     _ => panic!("LamdaCall call did not refer to a callable variable"),
                 }
             },

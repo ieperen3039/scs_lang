@@ -168,6 +168,17 @@ impl FunctionParser<'_, '_> {
                 variables,
             )?;
 
+            // verify that mutators always have exactly one parameter
+            if let TypeRef::Function(function_type) = mutator.get_type() {
+                if function_type.parameters.len() != 1 {
+                    return Err(SemanticError::InvalidNumerOfParameters {
+                        num_target: 1,
+                        num_this: function_type.parameters.len(),
+                    }
+                    .while_parsing(mutator_node));
+                }
+            }
+
             expression_type = mutator.get_return_type();
             mutations.push(mutator);
         }
@@ -376,7 +387,21 @@ impl FunctionParser<'_, '_> {
                         Ok(FunctionExpression::FunctionCall(function_call))
                     },
                     Err(function_err) => {
-                        self.read_lamda_call(sub_node, this_scope, variables, argument_types).ok_or(function_err)
+                        // the function_name is actually the variable name
+                        let function_name_node = node.expect_node("function_name")?;
+                        let fn_var = variables
+                            .use_var_by_name(&function_name_node.tokens_as_string())
+                            .ok_or(function_err)?;
+
+                        let lamda = self.read_lamda_call(
+                            sub_node,
+                            fn_var,
+                            this_scope,
+                            variables,
+                            argument_types,
+                        )?;
+
+                        Ok(FunctionExpression::LamdaCall(lamda))
                     },
                 }
             },
@@ -710,48 +735,42 @@ impl FunctionParser<'_, '_> {
     fn read_lamda_call(
         &self,
         node: &RuleNode,
+        fn_var: Rc<VariableDeclaration>,
         this_scope: &Namespace,
         variables: &mut VarStorage,
         argument_types: &Vec<TypeRef>,
-    ) -> Option<FunctionExpression> {
-        // the function_name is actually the variable name
-        let function_name_node = node.expect_node("function_name").ok()?;
-        let fn_var = variables.use_var_by_name(&function_name_node.tokens_as_string())?;
-
+    ) -> SemanticResult<LamdaCall> {
         let argument_nodes = node.find_nodes("argument");
+        let mut arguments = Vec::new();
         for (arg_node, exp_type) in argument_nodes.iter().zip(argument_types) {
+            let arg_impl_node = arg_node.expect_node("unnamed_argument")?;
             let arg_value = self.read_value_expression(
-                arg_node,
+                arg_impl_node,
                 this_scope,
                 variables,
-                Some(expected_type),
-                false,
+                Some(exp_type),
+                true, // no ambiguity with flags
             )?;
+            arguments.push(arg_value)
         }
-
-
-        let arguments_result =
-            self.read_arguments(argument_nodes, &function_decl, this_scope, variables)?;
-
-        let arguments = arguments_result.arguments;
-        let parameters = arguments_result
-            .remaining_parameters
-            .into_iter()
-            .filter(|p| !p.is_optional)
-            .map(|p| p.par_type)
-            .collect();
 
         if let TypeRef::Function(fn_type) = &fn_var.var_type {
             validate_parameters(argument_types, &fn_type.parameters)
                 .map_err(|e| e.while_parsing(node))?;
 
-            Some(FunctionExpression::LamdaCall(LamdaCall {
+            Ok(LamdaCall {
                 id: fn_var.id,
                 value_type: fn_type.clone(),
                 arguments,
-            }))
+            })
         } else {
-            None
+            Err(SemanticError::TypeMismatchError {
+                expected: TypeRef::Function(FunctionType {
+                    parameters: argument_types.clone(),
+                    return_type: Box::new(TypeRef::NoReturn),
+                }),
+                found: fn_var.var_type.clone(),
+            })
         }
     }
 

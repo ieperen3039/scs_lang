@@ -5,7 +5,7 @@ use super::meta_structures::Value;
 
 #[derive(Clone)]
 pub struct StackFrame {
-    data: Vec<Variable>,
+    data: Vec<Option<Value>>,
 }
 
 #[derive(Debug, Clone)]
@@ -16,25 +16,31 @@ pub struct Variable {
 
 impl StackFrame {
     pub fn new() -> StackFrame {
-        StackFrame {
-            data: Vec::new(),
-        }
+        StackFrame { data: Vec::new() }
     }
 
-    pub fn resolve_variable(&mut self, id: VariableId) -> Option<&Value> {
-        self.data.iter().find(|v| v.id == id).map(|v| &v.value)
+    pub fn resolve_variable(&self, id: VariableId) -> Option<&Value> {
+        self.data.get(id)?.as_ref()
     }
 
     pub fn add_variable(&mut self, var: Variable) {
-        self.data.push(var);
+        if self.data.len() <= var.id {
+            self.data.resize(var.id + 1, None)
+        }
+        self.data[var.id] = Some(var.value);
     }
 
     pub fn add_argument(&mut self, arg: Value) {
-        
+        let found = self.data.iter_mut().find(|v| v.is_none());
+        if let Some(position) = found {
+            position.insert(arg);
+        } else {
+            self.data.push(Some(arg))
+        }
     }
 
     pub fn unwrap_return(self, id: VariableId) -> Option<Value> {
-        self.data.into_iter().find(|v| v.id == id).map(|v| v.value)
+        self.data.into_iter().nth(id).flatten()
     }
 }
 
