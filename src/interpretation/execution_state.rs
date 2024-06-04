@@ -21,15 +21,19 @@ impl StackFrame {
         }
     }
 
-    pub fn resolve_variable(&mut self, id: VariableId) -> Option<&mut Variable> {
-        self.data.iter_mut().find(|v| v.id == id)
+    pub fn resolve_variable(&mut self, id: VariableId) -> Option<&Value> {
+        self.data.iter().find(|v| v.id == id).map(|v| &v.value)
     }
 
     pub fn add_variable(&mut self, var: Variable) {
         self.data.push(var);
     }
 
-    pub fn unravel_to(self, id: VariableId) -> Option<Value> {
+    pub fn add_argument(&mut self, arg: Value) {
+        
+    }
+
+    pub fn unwrap_return(self, id: VariableId) -> Option<Value> {
         self.data.into_iter().find(|v| v.id == id).map(|v| v.value)
     }
 }

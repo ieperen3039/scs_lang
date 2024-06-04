@@ -9,7 +9,7 @@ pub struct Program {
     pub namespaces: Namespace,
     pub type_definitions: HashMap<TypeId, TypeDefinition>,
     pub function_definitions: HashMap<FunctionId, FunctionBody>,
-    pub entry_function : FunctionId
+    pub entry_function: FunctionId,
 }
 
 pub struct ImplType {
@@ -109,13 +109,14 @@ pub struct VariableDeclaration {
     pub id: VariableId,
     pub var_type: TypeRef,
     pub name: Identifier,
+    pub is_return: bool
 }
 
 #[derive(Clone)]
 pub struct FunctionBody {
     pub parameters: Vec<VariableId>,
     pub statements: Vec<Statement>,
-    pub return_var: Rc<VariableDeclaration>,
+    pub return_type: TypeRef,
 }
 
 // an expression, followed by mutations on the expression
@@ -128,11 +129,11 @@ pub struct Statement {
 
 #[derive(Clone)]
 pub enum ValueExpression {
-    FunctionAsValue(FunctionExpression),
     Tuple(Vec<ValueExpression>),
     Literal(Literal),
     // a _reference_ to a variable is an expression
-    Variable(Rc<VariableDeclaration>),
+    Variable(VariableId),
+    FunctionAsValue(FunctionExpression),
 }
 
 #[derive(Clone)]
@@ -140,6 +141,7 @@ pub enum Literal {
     Number(i32),
     String(Rc<str>),
     Boolean(bool),
+    Break // see "Value::Break"
 }
 
 // mutations of expressions
@@ -148,15 +150,16 @@ pub enum FunctionExpression {
     FunctionCall(FunctionCall),
     Operator(Operator),
     Lamda(Lamda),
+    LamdaCall(LamdaCall),
     Assignment(Rc<VariableDeclaration>),
-    Cast(TypeRef)
+    Cast(TypeRef),
 }
 
 // effectively a more efficient FunctionCall:
 // there is always 1 argument, and it is always a FunctionExpression
 #[derive(Clone)]
 pub struct Operator {
-    pub id: FunctionId, 
+    pub id: FunctionId,
     pub arg: Box<FunctionExpression>,
     pub return_type: TypeRef,
 }
@@ -164,7 +167,19 @@ pub struct Operator {
 #[derive(Clone)]
 pub struct FunctionCall {
     pub id: FunctionId,
-    // the remaining / result type of this function call
+    // the type of this expression as a value
+    pub value_type: FunctionType,
+    // indices in this vector correspond to the parameter of the called function
+    // (the argument vector and parameter vector should have the same len)
+    // Option::None indicates that this is itself a fn expression accepting all missing arguments in order
+    pub arguments: Vec<Option<ValueExpression>>,
+}
+
+#[derive(Clone)]
+pub struct LamdaCall{
+    // lamdas are variables, not functions
+    pub id: VariableId,
+    // the type of this expression as a value
     pub value_type: FunctionType,
     // indices in this vector correspond to the parameter of the called function
     // (the argument vector and parameter vector should have the same len)
@@ -175,7 +190,7 @@ pub struct FunctionCall {
 #[derive(Clone)]
 pub struct Lamda {
     pub parameters: Vec<TypeRef>,
-    pub body: FunctionBody,
+    pub body: Rc<FunctionBody>,
     pub capture: Vec<Rc<VariableDeclaration>>,
 }
 

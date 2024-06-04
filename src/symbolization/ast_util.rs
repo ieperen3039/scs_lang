@@ -1,8 +1,8 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, ops::Deref, rc::Rc};
 
 use crate::built_in::primitives::*;
 
-use super::ast::*;
+use super::{ast::*, variable_storage::VarStorage};
 
 impl TypeDefinition {}
 
@@ -47,38 +47,41 @@ impl FunctionExpression {
             FunctionExpression::Assignment(_) => TypeRef::NoReturn,
             FunctionExpression::Lamda(lamda) => TypeRef::Function(FunctionType {
                 parameters: lamda.parameters.clone(),
-                return_type: Box::from(lamda.body.return_var.var_type.clone()),
+                return_type: Box::from(lamda.body.return_type.clone()),
             }),
             FunctionExpression::Operator(op) => TypeRef::Function(FunctionType {
                 parameters: vec![op.arg.get_type()],
                 return_type: Box::from(op.return_type.clone()),
             }),
             FunctionExpression::Cast(t) => t.clone(),
+            FunctionExpression::LamdaCall(lamda) => TypeRef::Function(lamda.value_type.clone()),
         }
     }
 
     // the type that this expression returns after completing all its arguments and evaluating it
     pub fn get_return_type(&self) -> TypeRef {
         match &self {
-            FunctionExpression::FunctionCall(fc) => *fc.value_type.return_type.clone(),
+            FunctionExpression::FunctionCall(fc) => fc.value_type.return_type.deref().clone(),
             FunctionExpression::Assignment(_) => TypeRef::NoReturn,
-            FunctionExpression::Lamda(lamda) => lamda.body.return_var.var_type.clone(),
+            FunctionExpression::Lamda(lamda) => lamda.body.return_type.clone(),
             FunctionExpression::Operator(op) => op.return_type.clone(),
             FunctionExpression::Cast(t) => t.clone(),
+            FunctionExpression::LamdaCall(lamda) => lamda.value_type.return_type.deref().clone(),
         }
     }
 }
 
 impl ValueExpression {
-    pub fn get_type(&self) -> TypeRef {
+    pub fn get_type(&self, variables: &VarStorage) -> TypeRef {
         match &self {
             ValueExpression::Tuple(elements) => {
-                TypeRef::UnamedTuple(elements.iter().map(|ex| ex.get_type()).collect())
+                TypeRef::UnamedTuple(elements.iter().map(|ex| ex.get_type(variables)).collect())
             },
             ValueExpression::Literal(Literal::String(_)) => TypeRef::STRING.clone(),
             ValueExpression::Literal(Literal::Number(_)) => TypeRef::INT.clone(),
             ValueExpression::Literal(Literal::Boolean(_)) => TypeRef::BOOLEAN.clone(),
-            ValueExpression::Variable(var) => var.var_type.clone(),
+            ValueExpression::Literal(Literal::Break) => TypeRef::NoReturn,
+            ValueExpression::Variable(var) => variables.get_type_of(*var).clone(),
             ValueExpression::FunctionAsValue(fn_expr) => fn_expr.get_type(),
         }
     }

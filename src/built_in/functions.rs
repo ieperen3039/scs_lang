@@ -1,5 +1,5 @@
 use crate::{
-    interpretation::meta_structures::{InterpResult, InterpretationError, Value},
+    interpretation::{execution_state::{StackFrame, Variable}, meta_structures::{InterpResult, InterpretationError, Value}},
     symbolization::{ast::*, function_collector::FunctionCollector},
 };
 
@@ -88,8 +88,9 @@ impl FunctionBuilder {
             Ok(value)
         } else {
             Err(InterpretationError::ArgumentTypeMismatch {
-                par: par.clone(),
-                args: arguments.clone(),
+                par_name: par.name().clone(),
+                expected_type: par.par_type.clone(),
+                arg,
             })
         }
     }
@@ -101,8 +102,9 @@ impl FunctionBuilder {
             Ok(value)
         } else {
             Err(InterpretationError::ArgumentTypeMismatch {
-                par: par.clone(),
-                args: arguments.clone(),
+                par_name: par.name().clone(),
+                expected_type: par.par_type.clone(),
+                arg,
             })
         }
     }
@@ -114,21 +116,23 @@ impl FunctionBuilder {
             Ok(value)
         } else {
             Err(InterpretationError::ArgumentTypeMismatch {
-                par: par.clone(),
-                args: arguments.clone(),
+                par_name: par.name().clone(),
+                expected_type: par.par_type.clone(),
+                arg,
             })
         }
     }
 
-    pub fn get_fn(arguments: &mut Vec<Value>, par: &Parameter) -> InterpResult<FunctionBody> {
+    pub fn get_fn(arguments: &mut Vec<Value>, par: &Parameter) -> InterpResult<(FunctionId, StackFrame)> {
         let arg = std::mem::replace(&mut arguments[par.id], Value::Nothing);
 
-        if let Value::Function(value) = arg {
-            Ok(value)
+        if let Value::FunctionLamda(value, arguments) = arg {
+            Ok((value, arguments))
         } else {
             Err(InterpretationError::ArgumentTypeMismatch {
-                par: par.clone(),
-                args: arguments.clone(),
+                par_name: par.name().clone(),
+                expected_type: par.par_type.clone(),
+                arg,
             })
         }
     }
@@ -140,8 +144,9 @@ impl FunctionBuilder {
             Ok(value)
         } else {
             Err(InterpretationError::ArgumentTypeMismatch {
-                par: par.clone(),
-                args: arguments.clone(),
+                par_name: par.name().clone(),
+                expected_type: par.par_type.clone(),
+                arg,
             })
         }
     }

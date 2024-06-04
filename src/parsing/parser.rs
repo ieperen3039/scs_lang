@@ -4,9 +4,9 @@ use simple_error::SimpleError;
 
 use super::{rule_nodes::RuleNode, token::Token};
 
-pub const MAX_NUM_TOKENS_BACKTRACE_ON_ERROR: i32 = 5;
+pub const MAX_NUM_TOKENS_BACKTRACE_ON_ERROR: i32 = 2;
 pub const MAX_NUM_TOKENS_BACKTRACE_ON_SUCCESS: usize = 50;
-pub const MAX_ERRORS_PER_RULE: usize = 20;
+pub const MAX_ERRORS_PER_RULE: usize = 10;
 
 #[derive(Debug, Clone)]
 pub enum Failure<'bnf> {

@@ -10,43 +10,6 @@ use super::{
     symbolizer,
 };
 
-// #[test]
-// fn parse_simple_derived_type() {
-//     let definition = include_str!("../../doc/definition.ebnf");
-//     let program = r#"
-//         type FilePath : String
-//     "#;
-//     let tokens = Lexer::read_faux(program).unwrap();
-//     let ast = parser.parse_program(&tokens).unwrap();
-
-//     println!("{:?}", ast);
-
-//     let external_scope = Namespace::new("", None);
-//     let mut type_collector = TypeCollector::new();
-//     let parsed_program =
-//         symbolizer::parse_symbols(ast, &external_scope, &mut type_collector).unwrap();
-
-//     assert_eq!(parsed_program.type_definitions.len(), 2, "{:?}", parsed_program.type_definitions.values());
-
-//     let found_type = parsed_program
-//         .type_definitions
-//         .values()
-//         .find(|t| t.name.as_ref() == "FilePath");
-//     assert!(found_type.is_some());
-
-//     let found_type = found_type.unwrap();
-//     assert_eq!(found_type.name, Identifier::from("FilePath"));
-//     assert_eq!(found_type.full_scope, vec![]);
-//     assert_eq!(
-//         found_type.type_class,
-//         TypeClass::Base {
-//             derived: Some(Box::from(TypeRef::Defined(DefinedRef {
-//                 id: TYPE_ID_STRING
-//             })))
-//         }
-//     );
-// }
-
 #[test]
 fn parse_convoluted_statements() {
     let definition = include_str!("../../doc/faux_script.ebnf");
@@ -61,7 +24,7 @@ fn parse_convoluted_statements() {
             = extra_columns; // string[]
 
         data
-            zip(with=extra_columns)
+            zip(right=extra_columns)
             cat("data.csv", out);
     "#;
 
@@ -136,8 +99,8 @@ fn parse_convoluted_statements() {
             id: function_collector.new_id(),
             name: ast::Identifier::from("zip"),
             parameters: vec![
-                builder.req_par("stdin", &type_string_stream.clone()),
-                builder.req_par("with", &type_string_stream.clone()),
+                builder.req_par("left", &type_string_stream.clone()),
+                builder.req_par("right", &type_string_stream.clone()),
             ],
             return_type: ast::TypeRef::UnamedTuple(vec![
                 type_string_stream.clone(),
@@ -183,7 +146,7 @@ fn parse_convoluted_statements() {
         symbolizer::parse_faux_script(syntax_tree.unwrap(), &namespace, &mut function_collector);
 
     if let Err(error) = program_result {
-        panic!("Error parsing program: \n{error}");
+        panic!("Error parsing program: \n{}", error.error_string(program));
     }
 }
 
@@ -192,8 +155,7 @@ fn parse_function_definition() {
     let definition = include_str!("../../doc/faux_script.ebnf");
     // it should be noted that floating point arithmatic is (probably) not going to be supported
     let program = r#"
-        10
-            invsqrt()
+        invsqrt(10)
             less_than(1)
             = return;
 
