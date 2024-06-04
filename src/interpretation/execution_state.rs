@@ -3,28 +3,21 @@ use std::fmt::Debug;
 
 use super::meta_structures::Value;
 
+#[derive(Clone)]
 pub struct StackFrame {
     data: Vec<Variable>,
-    scope_size: Vec<usize>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Variable {
     pub id: VariableId,
     pub value: Value,
 }
 
-impl Debug for FunctionBody {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("FunctionBody").finish()
-    }
-}
-
 impl StackFrame {
-    pub fn new(initial_values: Vec<Variable>) -> StackFrame {
+    pub fn new() -> StackFrame {
         StackFrame {
-            data: initial_values,
-            scope_size: Vec::new(),
+            data: Vec::new(),
         }
     }
 
@@ -36,22 +29,13 @@ impl StackFrame {
         self.data.push(var);
     }
 
-    pub fn open_scope(&mut self) {
-        self.scope_size.push(self.data.len())
-    }
-
-    pub fn close_scope(&mut self) {
-        let data_retain_size = self
-            .scope_size
-            .pop()
-            .expect("close_scope called, but no scope was open");
-
-        while self.data.len() > data_retain_size {
-            self.data.pop();
-        }
-    }
-
     pub fn unravel_to(self, id: VariableId) -> Option<Value> {
         self.data.into_iter().find(|v| v.id == id).map(|v| v.value)
+    }
+}
+
+impl Debug for StackFrame {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("StackFrame({} variables)", self.data.len()))
     }
 }
