@@ -1,7 +1,7 @@
 use crate::{
-    built_in::functions::{FunctionBuilder, InternalFunction},
+    built_in::{function_builder::FunctionBuilder, functions::InternalFunction},
     interpretation::meta_structures::*,
-    symbolization::{ast::*, function_collector::FunctionCollector},
+    symbolization::ast::*,
 };
 
 struct FnEcho {
@@ -11,11 +11,11 @@ struct FnEcho {
 }
 
 impl InternalFunction for FnEcho {
-    fn new(collector: &mut FunctionCollector) -> Self {
+    fn new(function_id: FunctionId) -> Self {
         let mut builder = FunctionBuilder::new();
 
         FnEcho {
-            fn_id: collector.new_id(),
+            fn_id: function_id,
             par_in: builder.req_par("in", &TypeRef::STRING),
             par_error: builder.flag(Some("error"), Some("e")),
         }
@@ -25,9 +25,9 @@ impl InternalFunction for FnEcho {
         FunctionDeclaration {
             id: self.fn_id,
             name: Identifier::from("echo"),
-            parameters: vec![self.par_in.clone(), self.par_error.clone()],
+            parameters: FunctionBuilder::sorted(&[&self.par_in, &self.par_error]),
             return_type: TypeRef::STRING.clone(),
-            is_external: true,
+            is_native: true,
         }
     }
 
