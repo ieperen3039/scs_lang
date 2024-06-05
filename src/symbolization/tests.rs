@@ -1,5 +1,5 @@
 use crate::{
-    built_in,
+    built_in::{self, primitives::build_primitives},
     parsing::{ebnf_parser, left_left_parser, lexer::Lexer},
     transformation::grammatificator,
 };
@@ -32,9 +32,9 @@ fn parse_convoluted_statements() {
 
     let mut function_collector = FunctionCollector::new();
 
-    let mut namespace = ast::Namespace::new("", None);
+    let mut namespace = ast::Namespace::new_root();
     namespace.add_function({
-        let mut builder = built_in::functions::FunctionBuilder::new();
+        let mut builder = built_in::function_builder::FunctionBuilder::new();
         ast::FunctionDeclaration {
             id: function_collector.new_id(),
             name: ast::Identifier::from("cat"),
@@ -43,11 +43,11 @@ fn parse_convoluted_statements() {
                 builder.flag(Some("out"), None),
             ],
             return_type: type_string_stream.clone(),
-            is_external: true,
+            is_native: true,
         }
     });
     namespace.add_function({
-        let mut builder = built_in::functions::FunctionBuilder::new();
+        let mut builder = built_in::function_builder::FunctionBuilder::new();
         ast::FunctionDeclaration {
             id: function_collector.new_id(),
             name: ast::Identifier::from(">"),
@@ -62,11 +62,11 @@ fn parse_convoluted_statements() {
                 ),
             ],
             return_type: type_string_stream.clone(),
-            is_external: true,
+            is_native: true,
         }
     });
     namespace.add_function({
-        let mut builder = built_in::functions::FunctionBuilder::new();
+        let mut builder = built_in::function_builder::FunctionBuilder::new();
         ast::FunctionDeclaration {
             id: function_collector.new_id(),
             name: ast::Identifier::from("tail"),
@@ -76,11 +76,11 @@ fn parse_convoluted_statements() {
                 builder.opt_par("from_end", &ast::TypeRef::INT),
             ],
             return_type: type_string_stream.clone(),
-            is_external: true,
+            is_native: true,
         }
     });
     namespace.add_function({
-        let mut builder = built_in::functions::FunctionBuilder::new();
+        let mut builder = built_in::function_builder::FunctionBuilder::new();
         ast::FunctionDeclaration {
             id: function_collector.new_id(),
             name: ast::Identifier::from("select"),
@@ -90,11 +90,11 @@ fn parse_convoluted_statements() {
                 builder.req_par("n", &ast::TypeRef::INT),
             ],
             return_type: ast::TypeRef::STRING.clone(),
-            is_external: true,
+            is_native: true,
         }
     });
     namespace.add_function({
-        let mut builder = built_in::functions::FunctionBuilder::new();
+        let mut builder = built_in::function_builder::FunctionBuilder::new();
         ast::FunctionDeclaration {
             id: function_collector.new_id(),
             name: ast::Identifier::from("zip"),
@@ -106,20 +106,20 @@ fn parse_convoluted_statements() {
                 type_string_stream.clone(),
                 type_string_stream.clone(),
             ]),
-            is_external: true,
+            is_native: true,
         }
     });
 
     {
-        let mut git_ns = ast::Namespace::new("git", Some(&namespace));
+        let mut git_ns = ast::Namespace::new("git", &namespace);
         git_ns.add_function({
-            let mut builder = built_in::functions::FunctionBuilder::new();
+            let mut builder = built_in::function_builder::FunctionBuilder::new();
             ast::FunctionDeclaration {
                 id: function_collector.new_id(),
                 name: ast::Identifier::from("log"),
                 parameters: vec![builder.req_par("pattern", &ast::TypeRef::STRING)],
                 return_type: ast::TypeRef::STRING.clone(),
-                is_external: true,
+                is_native: true,
             }
         });
         namespace.add_sub_scope(git_ns);
@@ -171,17 +171,17 @@ fn parse_function_definition() {
     let mut function_collector = FunctionCollector::new();
 
     let fn_sqrt = {
-        let mut builder = built_in::functions::FunctionBuilder::new();
+        let mut builder = built_in::function_builder::FunctionBuilder::new();
         ast::FunctionDeclaration {
             id: function_collector.new_id(),
             name: ast::Identifier::from("sqrt"),
             parameters: vec![builder.req_par("n", &ast::TypeRef::INT)],
             return_type: ast::TypeRef::INT.clone(),
-            is_external: true,
+            is_native: true,
         }
     };
     let fn_div = {
-        let mut builder = built_in::functions::FunctionBuilder::new();
+        let mut builder = built_in::function_builder::FunctionBuilder::new();
         ast::FunctionDeclaration {
             id: function_collector.new_id(),
             name: ast::Identifier::from("div"),
@@ -190,11 +190,11 @@ fn parse_function_definition() {
                 builder.req_par("b", &ast::TypeRef::INT),
             ],
             return_type: ast::TypeRef::INT.clone(),
-            is_external: true,
+            is_native: true,
         }
     };
     let fn_lt = {
-        let mut builder = built_in::functions::FunctionBuilder::new();
+        let mut builder = built_in::function_builder::FunctionBuilder::new();
         ast::FunctionDeclaration {
             id: function_collector.new_id(),
             name: ast::Identifier::from("less_than"),
@@ -203,18 +203,15 @@ fn parse_function_definition() {
                 builder.req_par("b", &ast::TypeRef::INT),
             ],
             return_type: ast::TypeRef::BOOLEAN.clone(),
-            is_external: true,
+            is_native: true,
         }
     };
 
     let functions = vec![fn_sqrt, fn_div, fn_lt];
 
-    let mut namespace = ast::Namespace::new("", None);
+    let mut namespace = built_in::types::get_types(&build_primitives());
     for fn_def in &functions {
         namespace.add_function(fn_def.clone());
-    }
-    for type_def in &built_in::primitives::get_primitives() {
-        namespace.add_type(type_def);
     }
 
     let grammar = ebnf_parser::parse_ebnf(definition)
@@ -249,7 +246,7 @@ fn parse_function_definition() {
                 panic!("program.entry_function not found")
             };
 
-            assert_eq!(entry_fn.return_var.var_type, ast::TypeRef::BOOLEAN);
+            assert_eq!(entry_fn.return_type, ast::TypeRef::BOOLEAN);
         },
     }
 }

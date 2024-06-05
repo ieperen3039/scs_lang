@@ -42,6 +42,10 @@ impl StackFrame {
     pub fn unwrap_return(self, id: VariableId) -> Option<Value> {
         self.data.into_iter().nth(id).flatten()
     }
+
+    pub fn to_vec(self) -> Vec<Value> {
+        self.data.into_iter().filter_map(|v| v).collect()
+    }
 }
 
 impl Debug for StackFrame {

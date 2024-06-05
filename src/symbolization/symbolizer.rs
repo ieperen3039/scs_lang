@@ -21,12 +21,12 @@ pub fn parse_faux_program(
     external_namespace: &Namespace,
     type_collector: &mut TypeCollector,
     function_collector: &mut FunctionCollector,
-) -> SemanticResult<ast::Program> {
+) -> SemanticResult<ast::FileAst> {
     debug_assert_eq!(ast.rule_name, "faux_program");
     // faux_program = [ version_declaration ], { include_declaration }, { _definition }, [ program_interface, function_body ];
     // _definition = constant_def | scope | type_definition | enum_definition | variant_definition | implementation | function_definition;
 
-    let mut internal_namespace = Namespace::new("", None);
+    let mut internal_namespace = Namespace::new_root();
     let mut types = Vec::new();
 
     // collect type definitions
@@ -74,7 +74,7 @@ pub fn parse_faux_program(
         &internal_namespace,
     )?;
 
-    Ok(ast::Program {
+    Ok(ast::FileAst {
         namespaces: internal_namespace,
         type_definitions,
         function_definitions,
@@ -86,13 +86,13 @@ pub fn parse_faux_script(
     ast: RuleNode,
     external_namespace: &Namespace,
     function_collector: &mut FunctionCollector,
-) -> SemanticResult<ast::Program> {
+) -> SemanticResult<ast::FileAst> {
     debug_assert_eq!(ast.rule_name, "faux_script");
     // faux_script = { function_definition }, statement, { statement_separator, statement }, end_symbol, { function_definition };
 
     let type_definitions: HashMap<ast::TypeId, ast::TypeDefinition> = HashMap::new();
 
-    let mut internal_namespace = Namespace::new("", None);
+    let mut internal_namespace = Namespace::new_root();
 
     // read function declarations
     parse_function_declarations(
@@ -123,7 +123,7 @@ pub fn parse_faux_script(
 
     function_definitions.insert(entry_function_id, entry_function);
 
-    Ok(ast::Program {
+    Ok(ast::FileAst {
         namespaces: internal_namespace,
         type_definitions,
         function_definitions,

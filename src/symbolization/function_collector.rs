@@ -91,7 +91,7 @@ impl FunctionCollector {
             name: name_node.as_identifier(),
             parameters,
             // technically, only when the "native_decl" node is found
-            is_external: function_body_node.is_none(),
+            is_native: function_body_node.is_none(),
             return_type,
         })
     }

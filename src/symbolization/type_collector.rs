@@ -37,7 +37,7 @@ impl TypeCollector {
 
         let scope_name = node.expect_node("scope_name")?;
 
-        let mut scope = Namespace::new(&scope_name.tokens_as_string(), Some(parent_scope));
+        let mut scope = Namespace::new(&scope_name.tokens_as_string(), parent_scope);
         let mut types = Vec::new();
 
         for node in &node.sub_rules {

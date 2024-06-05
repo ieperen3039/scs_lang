@@ -54,7 +54,6 @@ impl FunctionExpression {
                 return_type: Box::from(op.return_type.clone()),
             }),
             FunctionExpression::Cast(t) => t.clone(),
-            FunctionExpression::LamdaCall(lamda) => TypeRef::Function(lamda.value_type.clone()),
         }
     }
 
@@ -66,7 +65,6 @@ impl FunctionExpression {
             FunctionExpression::Lamda(lamda) => lamda.body.return_type.clone(),
             FunctionExpression::Operator(op) => op.return_type.clone(),
             FunctionExpression::Cast(t) => t.clone(),
-            FunctionExpression::LamdaCall(lamda) => lamda.value_type.return_type.deref().clone(),
         }
     }
 }
@@ -88,12 +86,21 @@ impl ValueExpression {
 }
 
 impl Namespace {
-    pub fn new(name: &str, parent: Option<&Namespace>) -> Namespace {
-        let mut full_name = parent.map(|sc| sc.full_name.clone()).unwrap_or(Vec::new());
+    pub fn new(name: &str, parent: &Namespace) -> Namespace {
+        let mut full_name = parent.full_name.clone();
         full_name.push(Rc::from(name));
 
         Namespace {
             full_name,
+            namespaces: HashMap::new(),
+            types: HashMap::new(),
+            functions: HashMap::new(),
+        }
+    }
+
+    pub fn new_root() -> Namespace {
+        Namespace {
+            full_name: Vec::new(),
             namespaces: HashMap::new(),
             types: HashMap::new(),
             functions: HashMap::new(),
@@ -114,10 +121,11 @@ impl Namespace {
     }
 
     pub fn get_name(&self) -> Identifier {
-        self.full_name.last().unwrap().to_owned()
+        self.full_name.last().cloned().unwrap_or_else(|| Identifier::from("root"))
     }
 
     pub fn extend(&mut self, other: Namespace) {
+        debug_assert_eq!(self.full_name, other.full_name);
         self.namespaces.extend(other.namespaces);
         self.types.extend(other.types);
         self.functions.extend(other.functions);

@@ -63,11 +63,13 @@ fn main() {
         let base_directory =
             std::env::current_dir().expect("Could not get this program's current directory");
 
-        let compile_result = compiler
+        let file_ast = compiler
             .compile(&base_directory.join(script_file))
             .expect("Compilation failed");
 
-        Interpreter::new(compile_result).execute_by_name("main").expect("Runtime error");
+        let built_in_functions = compiler.get_built_in_functions();
+
+        Interpreter::new(file_ast, built_in_functions).execute_by_name("main").expect("Runtime error");
     } else {
         println!(
             "Faux version {} interactive mode (try `help()` for more information)",

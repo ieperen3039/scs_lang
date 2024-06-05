@@ -7,7 +7,7 @@ use super::{
     token::TokenClass,
 };
 
-type EbnfParseResult<'a, T> = Result<OkResult<'a, T>, ErrResult>;
+type EbnfParseResult<'a, T> = Result<OkResult<'a, T>, GrammarError>;
 
 #[derive(Debug)]
 struct OkResult<'a, T: std::fmt::Debug> {
@@ -16,7 +16,7 @@ struct OkResult<'a, T: std::fmt::Debug> {
 }
 
 #[derive(Debug)]
-pub enum ErrResult {
+pub enum GrammarError {
     // the worst error of no errors at all
     EmptyError {
         tokens_remaining: usize,
@@ -42,13 +42,13 @@ pub enum ErrResult {
     InternalError(SimpleError),
 }
 
-pub fn error_string(error: &ErrResult, source: &str) -> String {
+pub fn error_string(error: &GrammarError, source: &str) -> String {
     match error {
-        ErrResult::EmptyError { tokens_remaining }
-        | ErrResult::UnexpectedToken {
+        GrammarError::EmptyError { tokens_remaining }
+        | GrammarError::UnexpectedToken {
             tokens_remaining, ..
         }
-        | ErrResult::UnclosedGroup { tokens_remaining } => {
+        | GrammarError::UnclosedGroup { tokens_remaining } => {
             let offset = source.len() - tokens_remaining;
             let line_number = source[..=offset].bytes().filter(|c| c == &b'\n').count();
             let lower_newline = source[..=offset].rfind("\n").map(|v| v + 1).unwrap_or(0);
@@ -71,7 +71,7 @@ pub fn error_string(error: &ErrResult, source: &str) -> String {
 }
 
 // grammar = { rule } ;
-pub fn parse_ebnf(definition: &str) -> Result<EbnfAst, ErrResult> {
+pub fn parse_ebnf(definition: &str) -> Result<EbnfAst, GrammarError> {
     let mut rules = process_repeated(skip_ignored(definition), process_rule)?;
 
     let ignore_rule = rules
@@ -149,7 +149,7 @@ where
                     return Ok(ok_result);
                 }
             },
-            Err(ErrResult::InternalError(_)) => {
+            Err(GrammarError::InternalError(_)) => {
                 // if this is a internal error, return it.
                 return result;
             },
@@ -161,13 +161,13 @@ where
     }
 
     let mut least_remaining: usize = tokens.len();
-    let mut furthest_err = ErrResult::EmptyError {
+    let mut furthest_err = GrammarError::EmptyError {
         tokens_remaining: least_remaining,
     };
 
     for err in problems {
         match err {
-            ErrResult::UnexpectedToken {
+            GrammarError::UnexpectedToken {
                 tokens_remaining,
                 expected: _,
             } => {
@@ -176,7 +176,7 @@ where
                     furthest_err = err;
                 }
             },
-            ErrResult::OutOfTokens { .. } => return Err(err),
+            GrammarError::OutOfTokens { .. } => return Err(err),
             _ => (),
         }
     }
@@ -222,7 +222,7 @@ fn process_rule(tokens: &str) -> EbnfParseResult<Rule> {
             remaining_tokens: terminator.remaining_tokens,
         })
     } else {
-        Err(ErrResult::Error(SimpleError::new(
+        Err(GrammarError::Error(SimpleError::new(
             "Identifier was not of the identifier type",
         )))
     }
@@ -291,7 +291,7 @@ fn process_concatenation(tokens: &str) -> EbnfParseResult<Term> {
                 remaining_tokens: terms.remaining_tokens,
             })
         },
-        Err(ErrResult::UnexpectedToken { .. }) | Err(ErrResult::OutOfTokens { .. }) => Ok(first),
+        Err(GrammarError::UnexpectedToken { .. }) | Err(GrammarError::OutOfTokens { .. }) => Ok(first),
         Err(err) => Err(err),
     }
 }
@@ -326,7 +326,7 @@ fn process_alternation(tokens: &str) -> EbnfParseResult<Term> {
                 remaining_tokens: terms.remaining_tokens,
             })
         },
-        Err(ErrResult::UnexpectedToken { .. }) | Err(ErrResult::OutOfTokens { .. }) => Ok(first),
+        Err(GrammarError::UnexpectedToken { .. }) | Err(GrammarError::OutOfTokens { .. }) => Ok(first),
         Err(err) => Err(err),
     }
 }
@@ -373,7 +373,7 @@ fn process_terminal_single_quote(tokens: &str) -> EbnfParseResult<Term> {
 fn process_terminal_with<'a>(tokens: &'a str, char: &'static str) -> EbnfParseResult<'a, Term> {
     check_starts_with(tokens, char)?;
 
-    let string_length = tokens[1..].find(char).ok_or(ErrResult::UnclosedGroup {
+    let string_length = tokens[1..].find(char).ok_or(GrammarError::UnclosedGroup {
         tokens_remaining: tokens.len(),
     })?;
 
@@ -388,7 +388,7 @@ fn process_terminal_with<'a>(tokens: &'a str, char: &'static str) -> EbnfParseRe
 fn process_terminal_questionmark(tokens: &str) -> EbnfParseResult<Term> {
     check_starts_with(tokens, "? ")?;
 
-    let string_length = tokens[2..].find(" ?").ok_or(ErrResult::UnclosedGroup {
+    let string_length = tokens[2..].find(" ?").ok_or(GrammarError::UnclosedGroup {
         tokens_remaining: tokens.len(),
     })?;
 
@@ -396,7 +396,7 @@ fn process_terminal_questionmark(tokens: &str) -> EbnfParseResult<Term> {
     let token_class = TokenClass::from_str(&tokens[2..string_end]);
 
     if token_class == TokenClass::INVALID {
-        return Err(ErrResult::UnexpectedToken {
+        return Err(GrammarError::UnexpectedToken {
             tokens_remaining: tokens.len() - 2,
             expected: "some TokenClass",
         });
@@ -415,7 +415,7 @@ fn process_identifier(tokens: &str) -> EbnfParseResult<Term> {
     let mut name_len = 0;
     if let Some(c) = iterator.next() {
         if !c.is_ascii_alphabetic() && c != b'_' {
-            return Err(ErrResult::UnexpectedToken {
+            return Err(GrammarError::UnexpectedToken {
                 tokens_remaining: tokens.len(),
                 expected: "identifier",
             });
@@ -441,7 +441,7 @@ fn process_identifier(tokens: &str) -> EbnfParseResult<Term> {
         });
     }
 
-    return Err(ErrResult::OutOfTokens {
+    return Err(GrammarError::OutOfTokens {
         expected: "identifier",
     });
 }
@@ -449,11 +449,11 @@ fn process_identifier(tokens: &str) -> EbnfParseResult<Term> {
 fn check_starts_with<'a>(
     tokens: &'a str,
     prefix: &'static str,
-) -> Result<OkResult<'a, ()>, ErrResult> {
+) -> Result<OkResult<'a, ()>, GrammarError> {
     if tokens.len() < prefix.len() {
-        return Err(ErrResult::OutOfTokens { expected: prefix });
+        return Err(GrammarError::OutOfTokens { expected: prefix });
     } else if !tokens.starts_with(prefix) {
-        return Err(ErrResult::UnexpectedToken {
+        return Err(GrammarError::UnexpectedToken {
             tokens_remaining: tokens.len(),
             expected: prefix,
         });

@@ -401,7 +401,7 @@ impl FunctionParser<'_, '_> {
                             argument_types,
                         )?;
 
-                        Ok(FunctionExpression::LamdaCall(lamda))
+                        Ok(FunctionExpression::FunctionCall(lamda))
                     },
                 }
             },
@@ -722,8 +722,14 @@ impl FunctionParser<'_, '_> {
             .map(|p| p.par_type)
             .collect();
 
+        let target = if function_decl.is_native {
+            FunctionTarget::Native(function_decl.id)
+        } else {
+            FunctionTarget::Defined(function_decl.id)
+        };
+
         Ok(FunctionCall {
-            id: function_decl.id,
+            target,
             arguments,
             value_type: FunctionType {
                 parameters,
@@ -739,7 +745,7 @@ impl FunctionParser<'_, '_> {
         this_scope: &Namespace,
         variables: &mut VarStorage,
         argument_types: &Vec<TypeRef>,
-    ) -> SemanticResult<LamdaCall> {
+    ) -> SemanticResult<FunctionCall> {
         let argument_nodes = node.find_nodes("argument");
         let mut arguments = Vec::new();
         for (arg_node, exp_type) in argument_nodes.iter().zip(argument_types) {
@@ -751,15 +757,15 @@ impl FunctionParser<'_, '_> {
                 Some(exp_type),
                 true, // no ambiguity with flags
             )?;
-            arguments.push(arg_value)
+            arguments.push(Some(arg_value))
         }
 
         if let TypeRef::Function(fn_type) = &fn_var.var_type {
             validate_parameters(argument_types, &fn_type.parameters)
                 .map_err(|e| e.while_parsing(node))?;
 
-            Ok(LamdaCall {
-                id: fn_var.id,
+            Ok(FunctionCall {
+                target: FunctionTarget::Variable(fn_var.id),
                 value_type: fn_type.clone(),
                 arguments,
             })

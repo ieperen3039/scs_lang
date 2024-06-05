@@ -5,7 +5,7 @@ pub type TypeId = u32;
 pub type FunctionId = u32;
 pub type VariableId = usize; // this one is used for indexing
 
-pub struct Program {
+pub struct FileAst {
     pub namespaces: Namespace,
     pub type_definitions: HashMap<TypeId, TypeDefinition>,
     pub function_definitions: HashMap<FunctionId, FunctionBody>,
@@ -101,7 +101,7 @@ pub struct FunctionDeclaration {
     pub name: Identifier,
     pub parameters: Vec<Parameter>,
     pub return_type: TypeRef,
-    pub is_external: bool,
+    pub is_native: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -150,7 +150,6 @@ pub enum FunctionExpression {
     FunctionCall(FunctionCall),
     Operator(Operator),
     Lamda(Lamda),
-    LamdaCall(LamdaCall),
     Assignment(Rc<VariableDeclaration>),
     Cast(TypeRef),
 }
@@ -166,6 +165,24 @@ pub struct Operator {
 
 #[derive(Clone)]
 pub struct FunctionCall {
+    // where is this function
+    pub target: FunctionTarget,
+    // the type of this expression as a value
+    pub value_type: FunctionType,
+    // indices in this vector correspond to the variable ids of the function body
+    // (the argument vector and parameter vector should have the same len)
+    pub arguments: Vec<Option<ValueExpression>>,
+}
+
+#[derive(Clone)]
+pub enum FunctionTarget {
+    Defined(FunctionId),
+    Variable(VariableId),
+    Native(FunctionId)
+}
+
+#[derive(Clone)]
+pub struct DefinedFunctionCall {
     pub id: FunctionId,
     // the type of this expression as a value
     pub value_type: FunctionType,
@@ -173,17 +190,6 @@ pub struct FunctionCall {
     // (the argument vector and parameter vector should have the same len)
     // Option::None indicates that this is itself a fn expression accepting all missing arguments in order
     pub arguments: Vec<Option<ValueExpression>>,
-}
-
-#[derive(Clone)]
-pub struct LamdaCall{
-    // lamdas are variables, not functions
-    pub id: VariableId,
-    // the type of this expression as a value
-    pub value_type: FunctionType,
-    // indices in this vector correspond to the variable ids of the function body
-    // (the argument vector and parameter vector should have the same len)
-    pub arguments: Vec<ValueExpression>,
 }
 
 #[derive(Clone)]
