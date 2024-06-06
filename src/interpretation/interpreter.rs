@@ -97,7 +97,7 @@ impl Interpreter {
     fn evaluate_function_expression(
         &self,
         expr: &FunctionExpression,
-        mut expr_value: Value,
+        expr_value: Value,
         stack: &mut StackFrame,
     ) -> InterpResult<Value> {
         match expr {

@@ -231,10 +231,10 @@ fn parse_function_definition() {
         );
     }
 
-    let program_result =
+    let parse_result =
         symbolizer::parse_faux_script(syntax_tree.unwrap(), &namespace, &mut function_collector);
 
-    match program_result {
+    match parse_result {
         Err(error) => {
             panic!("Error parsing program: \n{error}");
         },

@@ -8,16 +8,12 @@ fn interp_math() {
     let definition = include_str!("../../doc/faux_script.ebnf");
     // it should be noted that floating point arithmatic is (probably) not going to be supported
     let program = r#"
-        invsqrt(10)
-            less_than(1)
-            = return;
+        add(1, 3)
+            mul(4)
+            = alpha
 
-        fn invsqrt(int n) : int {
-            n
-                sqrt() 
-                (n_sq) {
-                    1 div(b=n_sq)
-                }
-        }
+        add(5, 6)
+            mul(r=alpha)
+            div(l=1) // calculates 1/x
     "#;
 }

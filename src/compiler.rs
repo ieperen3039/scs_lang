@@ -177,7 +177,13 @@ impl FauxCompiler {
         namespace.extend(functions::get_functions(&built_in_functions));
         namespace.extend(types::get_types(&built_in_types));
 
-        symbolizer::parse_faux_script(syntax_tree, &namespace, &mut function_collector)
-            .map_err(SimpleError::from)
+        symbolizer::parse_faux_script(syntax_tree, &namespace, &mut function_collector).map_err(
+            |err| {
+                SimpleError::new(format!(
+                    "Error parsing script: \n{}",
+                    err.error_string(&program_text)
+                ))
+            },
+        )
     }
 }

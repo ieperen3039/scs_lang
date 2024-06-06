@@ -33,7 +33,7 @@ impl StackFrame {
     pub fn add_argument(&mut self, arg: Value) {
         let found = self.data.iter_mut().find(|v| v.is_none());
         if let Some(position) = found {
-            position.insert(arg);
+            *position = Some(arg);
         } else {
             self.data.push(Some(arg))
         }

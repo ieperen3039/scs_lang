@@ -24,7 +24,11 @@ pub enum SemanticError {
         par: ast::Identifier,
         function: ast::Identifier,
     },
-    ArgumentInvalid {
+    AmbiguousUnnamedArgument {
+        arg: ast::Identifier,
+        function: ast::Identifier,
+    },
+    ArgumentNotFound {
         arg: ast::Identifier,
         function: ast::Identifier,
     },
@@ -105,7 +109,8 @@ impl Display for SemanticError {
             SemanticError::TypeMismatchError { expected, found } => f.write_fmt(format_args!("Expected type \"{:?}\", but found type \"{:?}\"", expected, found)),
             SemanticError::VariableExists { name } => f.write_fmt(format_args!("A variable with the name \"{name}\" already exists in this scope")),
             SemanticError::ArgumentRequired { par, function } => f.write_fmt(format_args!("Parameter \"{par}\" of function \"{function}\" is required")),
-            SemanticError::ArgumentInvalid { arg, function } => f.write_fmt(format_args!("Argument \"{arg}\" of function \"{function}\" is invalid")),
+            SemanticError::AmbiguousUnnamedArgument { arg, function } => f.write_fmt(format_args!("Argument \"{arg}\" of function \"{function}\" is ambigouous")),
+            SemanticError::ArgumentNotFound { arg, function } => f.write_fmt(format_args!("Function \"{function}\" has no argument \"{arg}\"")),
             SemanticError::InvalidNumerOfParameters { num_target: num_found, num_this: expected, } => f.write_fmt(format_args!("Invalid number of parameters: found {num_found}, but expected {expected}")),
             SemanticError::FunctionGivenWhereValueExpected { found_type } => f.write_fmt(format_args!("Found function type {:?} while paring value_expression", found_type)),
             SemanticError::SymbolNotFound { kind, symbol } => f.write_fmt(format_args!("Could not find {kind} \"{symbol}\"")),

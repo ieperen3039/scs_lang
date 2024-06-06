@@ -121,7 +121,10 @@ impl Namespace {
     }
 
     pub fn get_name(&self) -> Identifier {
-        self.full_name.last().cloned().unwrap_or_else(|| Identifier::from("root"))
+        self.full_name
+            .last()
+            .cloned()
+            .unwrap_or_else(|| Identifier::from("root"))
     }
 
     pub fn extend(&mut self, other: Namespace) {
@@ -156,5 +159,19 @@ impl Parameter {
             .as_ref()
             .or(self.short_name.as_ref())
             .expect("Parameters always have either a long name or a short name")
+    }
+
+    pub fn matches(&self, name: &str) -> bool {
+        if let Some(short_name) = &self.short_name {
+            if short_name.as_ref() == name {
+                return true;
+            }
+        }
+
+        if let Some(long_name) = &self.long_name {
+            return long_name.as_ref() == name;
+        } else {
+            return false;
+        }
     }
 }

@@ -376,34 +376,32 @@ impl FunctionParser<'_, '_> {
 
         match sub_node.rule_name {
             "function_call" => {
-                let function_call_result = self.read_function_call(sub_node, this_scope, variables);
+                // we first check whether this refers to a variable
+                if sub_node.find_nodes("namespace_name").is_empty() {
+                    let function_name_node = sub_node.expect_node("function_name")?;
+                    let fn_variable =
+                        variables.use_var_by_name(&function_name_node.tokens_as_string());
 
-                match function_call_result {
-                    Ok(function_call) => {
-                        let parameters = &function_call.value_type.parameters;
-                        validate_parameters(argument_types, parameters)
-                            .map_err(|e| e.while_parsing(sub_node))?;
-
-                        Ok(FunctionExpression::FunctionCall(function_call))
-                    },
-                    Err(function_err) => {
+                    if let Some(found_variable) = fn_variable {
                         // the function_name is actually the variable name
-                        let function_name_node = node.expect_node("function_name")?;
-                        let fn_var = variables
-                            .use_var_by_name(&function_name_node.tokens_as_string())
-                            .ok_or(function_err)?;
-
                         let lamda = self.read_lamda_call(
                             sub_node,
-                            fn_var,
+                            found_variable,
                             this_scope,
                             variables,
                             argument_types,
                         )?;
 
-                        Ok(FunctionExpression::FunctionCall(lamda))
-                    },
+                        return Ok(FunctionExpression::FunctionCall(lamda));
+                    }
                 }
+
+                let function_call = self.read_function_call(sub_node, this_scope, variables)?;
+                let parameters = &function_call.value_type.parameters;
+                validate_parameters(argument_types, parameters)
+                    .map_err(|e| e.while_parsing(sub_node))?;
+
+                Ok(FunctionExpression::FunctionCall(function_call))
             },
             "implicit_par_lamda" => {
                 if argument_types.len() != 1 {
@@ -845,12 +843,11 @@ impl FunctionParser<'_, '_> {
             "named_argument" => {
                 let arg_name_node = &sub_node.expect_node("identifier")?;
                 let arg_name = arg_name_node.as_identifier();
-                let some_arg_name = Some(arg_name.clone());
                 let target_parameter_idx = remaining_parameters
                     .iter()
-                    .position(|p| p.long_name == some_arg_name)
+                    .position(|p| p.matches(&arg_name))
                     .ok_or_else(|| {
-                        SemanticError::ArgumentInvalid {
+                        SemanticError::ArgumentNotFound {
                             arg: arg_name,
                             function: function_name.clone(),
                         }
@@ -874,7 +871,7 @@ impl FunctionParser<'_, '_> {
                     .iter()
                     .position(|p| !p.is_optional)
                     .ok_or_else(|| {
-                    SemanticError::ArgumentInvalid {
+                    SemanticError::AmbiguousUnnamedArgument {
                         arg: sub_node.as_identifier(),
                         function: function_name.clone(),
                     }
@@ -896,10 +893,10 @@ impl FunctionParser<'_, '_> {
                 let flag_name = sub_node.as_identifier();
                 let target_parameter_idx = remaining_parameters
                     .iter()
-                    .position(|p| p.short_name == Some(flag_name.clone()));
+                    .position(|p| p.matches(&flag_name));
 
                 let Some(target_parameter_idx) = target_parameter_idx else {
-                    return Err(SemanticError::ArgumentInvalid {
+                    return Err(SemanticError::ArgumentNotFound {
                         arg: flag_name,
                         function: function_name.clone(),
                     }

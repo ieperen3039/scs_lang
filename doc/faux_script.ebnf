@@ -1,4 +1,4 @@
-faux_script             = statement, { statement_separator, statement }, statement_separator, { function_definition };
+faux_script             = statement, { statement_separator, statement }, [ statement_separator, { function_definition } ];
 
 (* namespaces and definitions *)
 identifier              = ? IDENTIFIER ?;

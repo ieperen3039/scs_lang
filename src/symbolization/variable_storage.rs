@@ -109,7 +109,7 @@ impl VarStorage {
             id,
             var_type,
             name: Identifier::from("return"),
-            is_return: false,
+            is_return: true,
         });
         self.data.push(Var {
             rc: var.clone(),

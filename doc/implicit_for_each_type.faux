@@ -1,6 +1,6 @@
 impl T {
-    // op "=" : assign_to_variable
-    // op ":" : replace_with
+    op "=" : _builtin_assign
+    op ":" : _builtin_replace
 
     fn identity : T { this }
     fn equalTo<T>(T other) : boolean extern
