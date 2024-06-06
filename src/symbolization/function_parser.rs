@@ -297,8 +297,8 @@ impl FunctionParser<'_, '_> {
                     Ok(integer_value) => {
                         Ok(ValueExpression::Literal(Literal::Number(integer_value)))
                     },
-                    Err(_) => Err(
-                        SemanticError::InternalError("Could not parse integer literal")
+                    Err(err) => Err(
+                        SemanticError::InternalError(format!("Could not parse integer literal \"{as_string}\": {err}"))
                             .while_parsing(sub_node),
                     ),
                 }

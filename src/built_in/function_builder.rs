@@ -1,7 +1,7 @@
 use crate::{
     interpretation::{
         execution_state::StackFrame,
-        meta_structures::{InterpResult, InterpretationError, Value},
+        meta_structures::Value, Interperation_result::{InterpResult, InterpretationError},
     },
     symbolization::ast::*,
 };
@@ -80,7 +80,7 @@ impl FunctionBuilder {
     pub fn get_string(
         arguments: &mut Vec<Value>,
         par: &Parameter,
-    ) -> InterpResult<std::rc::Rc<str>> {
+    ) -> InterpResult<Identifier> {
         let arg = std::mem::replace(&mut arguments[par.id], Value::Nothing);
 
         if let Value::String(value) = arg {

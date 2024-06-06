@@ -1,6 +1,6 @@
 use crate::{
     built_in::{function_builder::FunctionBuilder, functions::InternalFunction},
-    interpretation::meta_structures::*,
+    interpretation::{meta_structures::*, Interperation_result::InterpResult},
     symbolization::ast::*,
 };
 
@@ -26,6 +26,11 @@ pub struct FnDiv {
     function_id: FunctionId,
     par_left: Parameter,
     par_right: Parameter,
+}
+
+pub struct FnSqrt {
+    function_id: FunctionId,
+    par_value : Parameter,
 }
 
 impl InternalFunction for FnAdd {
@@ -137,5 +142,31 @@ impl InternalFunction for FnDiv {
         let left = FunctionBuilder::get_int(&mut arguments, &self.par_left)?;
         let right = FunctionBuilder::get_int(&mut arguments, &self.par_right)?;
         return Ok(Value::Int(left / right));
+    }
+}
+
+impl InternalFunction for FnSqrt {
+    fn new(function_id: FunctionId) -> Self {
+        let mut builder = FunctionBuilder::new();
+
+        FnSqrt {
+            function_id,
+            par_value: builder.req_par_s("value", "v", &TypeRef::INT),
+        }
+    }
+
+    fn get_declaration(&self) -> FunctionDeclaration {
+        FunctionDeclaration {
+            id: self.function_id,
+            name: Identifier::from("div"),
+            parameters: FunctionBuilder::sorted(&[&self.par_value]),
+            return_type: TypeRef::INT.clone(),
+            is_native: true,
+        }
+    }
+
+    fn call(&self, mut arguments: Vec<Value>) -> InterpResult<Value> {
+        let left = FunctionBuilder::get_int(&mut arguments, &self.par_value)?;
+        return Ok(Value::Int(f32::sqrt(left as f32) as i32));
     }
 }

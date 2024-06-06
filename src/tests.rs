@@ -25,7 +25,7 @@ fn faux_script_compile() {
             div(l=1) // calculates 1/x
     "#;
 
-    let parse_result = FauxCompiler::compile_script(&definition, &program);
+    let parse_result = FauxCompiler::build(&definition, None).unwrap().compile_script(&program);
 
     match parse_result {
         Err(error) => {

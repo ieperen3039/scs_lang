@@ -31,15 +31,14 @@ pub struct FauxCompiler {
 }
 
 impl FauxCompiler {
-    pub fn build(definition: &str, xml_out: Option<std::fs::File>) -> Option<FauxCompiler> {
+    pub fn build(definition: &str, xml_out: Option<std::fs::File>) -> SimpleResult<FauxCompiler> {
         let grammar = match ebnf_parser::parse_ebnf(definition) {
             Ok(ebnf_grammar) => grammatificator::convert_to_grammar(ebnf_grammar),
             Err(err) => {
-                println!(
+                return Err(simple_error!(
                     "Error parsing EBNF definition: {}",
                     ebnf_parser::error_string(&err, definition)
-                );
-                return None;
+                ))
             },
         };
 
@@ -52,7 +51,7 @@ impl FauxCompiler {
             functions::build_functions(&mut function_collector);
         let built_in_types: InternalTypes = primitives::build_primitives();
 
-        Some(FauxCompiler {
+        Ok(FauxCompiler {
             parser: Rc::from(parser),
             file_cache: HashMap::new(),
             parse_stack: Vec::new(),
@@ -146,15 +145,15 @@ impl FauxCompiler {
         .map_err(SimpleError::from)
     }
 
-    pub fn compile_script(definition_text: &str, program_text: &str) -> SimpleResult<ast::FileAst> {
-        let grammar = ebnf_parser::parse_ebnf(definition_text)
-            .map(grammatificator::convert_to_grammar)
-            .map_err(|err| SimpleError::new(ebnf_parser::error_string(&err, definition_text)))?;
+    pub fn compile_script(
+        &mut self,
+        program_text: &str,
+    ) -> SimpleResult<ast::FileAst> {
+        let tokens = self.lexer.read(&program_text).map_err(|char_idx| {
+            SimpleError::new(parser::Failure::LexerError { char_idx }.error_string(&program_text))
+        })?;
 
-        let tokens = Lexer::read_faux(&program_text)
-            .map_err(|char_idx| simple_error!("Unrecognized token at char index {}", char_idx))?;
-        let parser = left_left_parser::Parser::new(grammar, None);
-        let parse_result = parser.parse_program(&tokens);
+        let parse_result = self.parser.parse_program(&tokens);
 
         let syntax_tree = match parse_result {
             Ok(node) => node,
@@ -168,22 +167,17 @@ impl FauxCompiler {
             },
         };
 
-        let mut function_collector = FunctionCollector::new();
         let mut namespace = ast::Namespace::new_root();
 
-        let built_in_functions = functions::build_functions(&mut function_collector);
-        let built_in_types = primitives::build_primitives();
+        namespace.extend(functions::get_functions(&self.built_in_functions));
+        namespace.extend(types::get_types(&self.built_in_types));
 
-        namespace.extend(functions::get_functions(&built_in_functions));
-        namespace.extend(types::get_types(&built_in_types));
-
-        symbolizer::parse_faux_script(syntax_tree, &namespace, &mut function_collector).map_err(
-            |err| {
+        symbolizer::parse_faux_script(syntax_tree, &namespace, &mut self.function_collector)
+            .map_err(|err| {
                 SimpleError::new(format!(
                     "Error parsing script: \n{}",
                     err.error_string(&program_text)
                 ))
-            },
-        )
+            })
     }
 }

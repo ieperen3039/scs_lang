@@ -6,7 +6,7 @@ use crate::{
     symbolization::ast::*,
 };
 
-use super::{execution_state::Variable, meta_structures::*};
+use super::{execution_state::Variable, meta_structures::*, Interperation_result::{InterpResult, InterpretationError}};
 
 pub struct Interpreter {
     program: FileAst,
@@ -21,8 +21,16 @@ impl Interpreter {
         }
     }
 
+    pub fn execute_main(&self) -> InterpResult<String> {
+        let to_execute = self.get_defined_fn(self.program.entry_function);
+        let result = self.evaluate_fn_body(to_execute, StackFrame::new())?;
+
+        return Ok(format!("{:?}", result));
+    }
+
     pub fn execute_by_name(&self, function: &str) -> InterpResult<String> {
-        let to_execute = self.resolve_function(function)?;
+        let to_execute = self.program.resolve_function(function)
+            .map_err(|e| InterpretationError::InternalError(e.to_string()))?;
         let result = self.evaluate_fn_body(to_execute, StackFrame::new())?;
 
         return Ok(format!("{:?}", result));
@@ -295,34 +303,5 @@ impl Interpreter {
             .expect("FunctionCall must be valid");
 
         target.call(function_stack.to_vec())
-    }
-
-    // only used to resolve the function to call, all subsequent functions are already resolved in the parsing stage
-    fn resolve_function(&self, full_name: &str) -> InterpResult<&FunctionBody> {
-        let mut full_function_scope: Vec<&str> = full_name.split(".").collect();
-        let function_name = full_function_scope.pop().unwrap();
-
-        let mut target_scope = &self.program.namespaces;
-        for ele in full_function_scope {
-            target_scope = target_scope.namespaces.get(ele).ok_or_else(|| {
-                InterpretationError::SymbolNotFound {
-                    kind: "namespace",
-                    symbol: Identifier::from(ele),
-                }
-            })?;
-        }
-        let function_decl = target_scope.functions.get(function_name).ok_or_else(|| {
-            InterpretationError::SymbolNotFound {
-                kind: "function",
-                symbol: Identifier::from(function_name),
-            }
-        })?;
-
-        let to_execute = self.program.function_definitions.get(&function_decl.id);
-
-        to_execute.ok_or_else(|| InterpretationError::SymbolNotFound {
-            kind: "function",
-            symbol: Identifier::from(function_name),
-        })
     }
 }

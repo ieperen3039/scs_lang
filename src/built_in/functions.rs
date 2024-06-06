@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    interpretation::meta_structures::{InterpResult, Value},
+    interpretation::{meta_structures::Value, Interperation_result::InterpResult},
     symbolization::{ast, function_collector::FunctionCollector},
 };
 

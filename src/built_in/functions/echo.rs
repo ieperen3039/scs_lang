@@ -1,6 +1,6 @@
 use crate::{
     built_in::{function_builder::FunctionBuilder, functions::InternalFunction},
-    interpretation::meta_structures::*,
+    interpretation::{meta_structures::*, Interperation_result::InterpResult},
     symbolization::ast::*,
 };
 

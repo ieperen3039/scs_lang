@@ -14,6 +14,7 @@ mod xml_logger;
 
 #[cfg(test)]
 mod tests;
+pub mod program_util;
 
 use clap::Parser;
 
