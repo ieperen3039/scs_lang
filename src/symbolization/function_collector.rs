@@ -31,16 +31,15 @@ impl FunctionCollector {
         local_namespace: &Namespace,
     ) -> SemanticResult<Vec<FunctionDeclaration>> {
         match node.rule_name {
-            "namespace" => self
-                .read_functions_of_namespace(node, root_namespace, local_namespace),
+            "namespace" => self.read_functions_of_namespace(node, root_namespace, local_namespace),
             "implementation" => {
-                let (impl_type, functions) = self
-                    .read_implementation(node, root_namespace, local_namespace)?;
+                let (impl_type, functions) =
+                    self.read_implementation(node, root_namespace, local_namespace)?;
                 Ok(functions)
             },
             "function_definition" => {
-                let fn_decl = self
-                    .read_function_declaration(node, root_namespace, local_namespace)?;
+                let fn_decl =
+                    self.read_function_declaration(node, root_namespace, local_namespace)?;
                 Ok(vec![fn_decl])
             },
             _ => Ok(Vec::new()),
@@ -72,26 +71,37 @@ impl FunctionCollector {
             let return_type_node = node.expect_node("return_type")?;
             debug_assert_eq!(return_type_node.sub_rules.len(), 1);
 
-            let maybe_type_node = return_type_node.find_node("type_ref");
-
-            if let Some(type_node) = maybe_type_node {
-                let type_ref = TypeCollector::read_type_ref(type_node)?;
-                type_resolver::resolve_type_name(type_ref, root_namespace, local_namespace)?
-            } else {
-                return_type_node.expect_node("no_return_type_ref")?;
-                TypeRef::NoReturn
+            let sub_rule = &return_type_node.sub_rules[0];
+            match sub_rule.rule_name {
+                "type_ref" => {
+                    let type_ref = TypeCollector::read_type_ref(&sub_rule)?;
+                    type_resolver::resolve_type_name(type_ref, root_namespace, local_namespace)?
+                },
+                "no_return_type_ref" => TypeRef::Break,
+                unknown => {
+                    return Err(SemanticError::UnexpectedNode {
+                        found: Identifier::from(unknown),
+                    }
+                    .while_parsing(sub_rule))
+                },
             }
         };
 
         // we only check whether it exists. We can't parse it before we have collected all function declarations
         let function_body_node = node.find_node("function_body");
 
+        let id = if function_body_node.is_some() {
+            GlobalFunctionTarget::Defined(self.new_id())
+        } else {
+            // technically, only when the "native_decl" node is found
+            GlobalFunctionTarget::Native(0);
+            todo!("explicitly adding native decl functions")
+        };
+
         Ok(FunctionDeclaration {
-            id: self.new_id(),
+            id,
             name: name_node.as_identifier(),
             parameters,
-            // technically, only when the "native_decl" node is found
-            is_native: function_body_node.is_none(),
             return_type,
         })
     }
@@ -158,8 +168,9 @@ impl FunctionCollector {
         for parameter_node in &node.sub_rules {
             if parameter_node.rule_name != "identifier" {
                 return Err(SemanticError::UnexpectedNode {
-                    found: Identifier::from(parameter_node.rule_name)
-                }.while_parsing(node));
+                    found: Identifier::from(parameter_node.rule_name),
+                }
+                .while_parsing(node));
             }
             parameters.push(parameter_node.as_identifier())
         }
@@ -182,10 +193,13 @@ impl FunctionCollector {
         let local_namespace = super_scope
             .namespaces
             .get(&local_namespace_name)
-            .ok_or_else(|| SemanticError::SymbolNotFound {
-                kind: "namespace",
-                symbol: local_namespace_name,
-            }.while_parsing(node))?;
+            .ok_or_else(|| {
+                SemanticError::SymbolNotFound {
+                    kind: "namespace",
+                    symbol: local_namespace_name,
+                }
+                .while_parsing(node)
+            })?;
 
         let mut scope_function_declarations = Vec::new();
         for node in &node.sub_rules {
@@ -236,7 +250,8 @@ impl FunctionCollector {
                 kind: "type",
                 symbol: base_type_name,
                 scope: namespace.full_name.clone(),
-            }.while_parsing(node)
+            }
+            .while_parsing(node)
         })?;
 
         Ok(ImplType {

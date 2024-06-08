@@ -39,12 +39,15 @@ impl FunctionExpression {
                 if fc.value_type.parameters.is_empty() {
                     // function calls that evaluate to fn<()T> are evaluated to T
                     // explicit lamdas can be used to create fn<()T>
-                    *fc.value_type.return_type.clone()
+                    fc.value_type.return_type.deref().clone()
                 } else {
                     TypeRef::Function(fc.value_type.clone())
                 }
             },
-            FunctionExpression::Assignment(_) => TypeRef::NoReturn,
+            FunctionExpression::Assignment(var) => TypeRef::Function(FunctionType {
+                parameters: vec![var.var_type.clone()],
+                return_type: Box::from(TypeRef::Break),
+            }),
             FunctionExpression::Lamda(lamda) => TypeRef::Function(FunctionType {
                 parameters: lamda.parameters.clone(),
                 return_type: Box::from(lamda.body.return_type.clone()),
@@ -61,7 +64,7 @@ impl FunctionExpression {
     pub fn get_return_type(&self) -> TypeRef {
         match &self {
             FunctionExpression::FunctionCall(fc) => fc.value_type.return_type.deref().clone(),
-            FunctionExpression::Assignment(_) => TypeRef::NoReturn,
+            FunctionExpression::Assignment(_) => TypeRef::Break,
             FunctionExpression::Lamda(lamda) => lamda.body.return_type.clone(),
             FunctionExpression::Operator(op) => op.return_type.clone(),
             FunctionExpression::Cast(t) => t.clone(),
@@ -78,9 +81,9 @@ impl ValueExpression {
             ValueExpression::Literal(Literal::String(_)) => TypeRef::STRING.clone(),
             ValueExpression::Literal(Literal::Number(_)) => TypeRef::INT.clone(),
             ValueExpression::Literal(Literal::Boolean(_)) => TypeRef::BOOLEAN.clone(),
-            ValueExpression::Literal(Literal::Break) => TypeRef::NoReturn,
             ValueExpression::Variable(var) => variables.get_type_of(*var).clone(),
             ValueExpression::FunctionAsValue(fn_expr) => fn_expr.get_type(),
+            ValueExpression::FunctionCall(fc) => fc.value_type.return_type.deref().clone()
         }
     }
 }
@@ -142,6 +145,24 @@ impl Namespace {
 
     pub fn get(&self, name: &str) -> Option<&TypeId> {
         self.types.get(name)
+    }
+}
+
+impl From<GlobalFunctionTarget> for LocalFunctionTarget {
+    fn from(value: GlobalFunctionTarget) -> Self {
+        match value {
+            GlobalFunctionTarget::Defined(id) => LocalFunctionTarget::Defined(id),
+            GlobalFunctionTarget::Native(id) => LocalFunctionTarget::Native(id),
+        }
+    }
+}
+
+impl GlobalFunctionTarget {
+    pub fn assert_defined(&self) -> FunctionId {
+        if let GlobalFunctionTarget::Defined(id) = self {
+            return id.clone();
+        }
+        panic!("Main function is not a defined function");
     }
 }
 

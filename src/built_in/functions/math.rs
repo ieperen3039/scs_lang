@@ -1,40 +1,40 @@
 use crate::{
     built_in::{function_builder::FunctionBuilder, functions::InternalFunction},
-    interpretation::{meta_structures::*, Interperation_result::InterpResult},
+    interpretation::{value::*, Interperation_result::InterpResult},
     symbolization::ast::*,
 };
 
 pub struct FnAdd {
-    function_id: FunctionId,
+    function_id: NativeFunctionId,
     par_left: Parameter,
     par_right: Parameter,
 }
 
 pub struct FnSub {
-    function_id: FunctionId,
+    function_id: NativeFunctionId,
     par_left: Parameter,
     par_right: Parameter,
 }
 
 pub struct FnMul {
-    function_id: FunctionId,
+    function_id: NativeFunctionId,
     par_left: Parameter,
     par_right: Parameter,
 }
 
 pub struct FnDiv {
-    function_id: FunctionId,
+    function_id: NativeFunctionId,
     par_left: Parameter,
     par_right: Parameter,
 }
 
 pub struct FnSqrt {
-    function_id: FunctionId,
+    function_id: NativeFunctionId,
     par_value : Parameter,
 }
 
 impl InternalFunction for FnAdd {
-    fn new(function_id: FunctionId) -> Self {
+    fn new(function_id: NativeFunctionId) -> Self {
         let mut builder = FunctionBuilder::new();
 
         FnAdd {
@@ -46,11 +46,10 @@ impl InternalFunction for FnAdd {
 
     fn get_declaration(&self) -> FunctionDeclaration {
         FunctionDeclaration {
-            id: self.function_id,
+            id: GlobalFunctionTarget::Native(self.function_id),
             name: Identifier::from("add"),
             parameters: FunctionBuilder::sorted(&[&self.par_left, &self.par_right]),
-            return_type: TypeRef::INT.clone(),
-            is_native: true,
+            return_type: TypeRef::INT.clone()
         }
     }
 
@@ -62,7 +61,7 @@ impl InternalFunction for FnAdd {
 }
 
 impl InternalFunction for FnSub {
-    fn new(function_id: FunctionId) -> Self {
+    fn new(function_id: NativeFunctionId) -> Self {
         let mut builder = FunctionBuilder::new();
 
         FnSub {
@@ -74,11 +73,10 @@ impl InternalFunction for FnSub {
 
     fn get_declaration(&self) -> FunctionDeclaration {
         FunctionDeclaration {
-            id: self.function_id,
+            id: GlobalFunctionTarget::Native(self.function_id),
             name: Identifier::from("sub"),
             parameters: FunctionBuilder::sorted(&[&self.par_left, &self.par_right]),
             return_type: TypeRef::INT.clone(),
-            is_native: true,
         }
     }
 
@@ -90,7 +88,7 @@ impl InternalFunction for FnSub {
 }
 
 impl InternalFunction for FnMul {
-    fn new(function_id: FunctionId) -> Self {
+    fn new(function_id: NativeFunctionId) -> Self {
         let mut builder = FunctionBuilder::new();
 
         FnMul {
@@ -102,11 +100,10 @@ impl InternalFunction for FnMul {
 
     fn get_declaration(&self) -> FunctionDeclaration {
         FunctionDeclaration {
-            id: self.function_id,
+            id: GlobalFunctionTarget::Native(self.function_id),
             name: Identifier::from("mul"),
             parameters: FunctionBuilder::sorted(&[&self.par_left, &self.par_right]),
             return_type: TypeRef::INT.clone(),
-            is_native: true,
         }
     }
 
@@ -118,7 +115,7 @@ impl InternalFunction for FnMul {
 }
 
 impl InternalFunction for FnDiv {
-    fn new(function_id: FunctionId) -> Self {
+    fn new(function_id: NativeFunctionId) -> Self {
         let mut builder = FunctionBuilder::new();
 
         FnDiv {
@@ -130,11 +127,10 @@ impl InternalFunction for FnDiv {
 
     fn get_declaration(&self) -> FunctionDeclaration {
         FunctionDeclaration {
-            id: self.function_id,
+            id: GlobalFunctionTarget::Native(self.function_id),
             name: Identifier::from("div"),
             parameters: FunctionBuilder::sorted(&[&self.par_left, &self.par_right]),
             return_type: TypeRef::INT.clone(),
-            is_native: true,
         }
     }
 
@@ -146,7 +142,7 @@ impl InternalFunction for FnDiv {
 }
 
 impl InternalFunction for FnSqrt {
-    fn new(function_id: FunctionId) -> Self {
+    fn new(function_id: NativeFunctionId) -> Self {
         let mut builder = FunctionBuilder::new();
 
         FnSqrt {
@@ -157,11 +153,10 @@ impl InternalFunction for FnSqrt {
 
     fn get_declaration(&self) -> FunctionDeclaration {
         FunctionDeclaration {
-            id: self.function_id,
-            name: Identifier::from("div"),
+            id: GlobalFunctionTarget::Native(self.function_id),
+            name: Identifier::from("sqrt"),
             parameters: FunctionBuilder::sorted(&[&self.par_value]),
             return_type: TypeRef::INT.clone(),
-            is_native: true,
         }
     }
 

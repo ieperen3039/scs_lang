@@ -1,7 +1,7 @@
-use std::fmt::Display;
+use std::{fmt::Display, rc::Rc};
 
-use super::meta_structures::Value;
-use crate::symbolization::ast::{self, FunctionDeclaration, Identifier};
+use super::value::Value;
+use crate::symbolization::ast;
 
 pub type InterpResult<T> = Result<T, InterpretationError>;
 
@@ -16,22 +16,20 @@ pub enum InterpretationError {
         expected_type: ast::TypeRef,
         arg: Value,
     },
+    VariableHasNoValue {
+        variable: Rc<ast::VariableDeclaration>
+    },
     InternalError(String),
     WhileParsing {
-        function_name: Identifier,
-        first_char: usize,
-        last_char: usize,
+        line_nr: usize,
         cause: Box<InterpretationError>,
     },
 }
 
 impl InterpretationError {
-    pub fn while_parsing(self, function: &FunctionDeclaration) -> InterpretationError {
-        todo!("locating function back to script");
+    pub fn while_parsing(self, line_nr: usize) -> InterpretationError {
         InterpretationError::WhileParsing {
-            function_name: function.name.clone(),
-            first_char: 0,// function.first_char(),
-            last_char: 0,// function.last_char(),
+            line_nr,// function.first_char(),
             cause: Box::from(self),
         }
     }
@@ -44,10 +42,12 @@ impl Display for InterpretationError {
                 f.write_fmt(format_args!("Could not find {kind} \"{symbol}\"")),
             InterpretationError::ArgumentTypeMismatch { par_name, expected_type, arg } => 
                 f.write_fmt(format_args!("Expected type \"{:?}\", but found value \"{:?}\" for argument {:?}", expected_type, arg, par_name)),
+            InterpretationError::VariableHasNoValue{ variable } => 
+                f.write_fmt(format_args!("Variable {} was used, but no value has been assigned to it", variable.name)),
             InterpretationError::InternalError(what) => 
                 f.write_fmt(format_args!("Internal error: {what}")),
-            InterpretationError::WhileParsing { function_name, first_char, last_char, cause } =>
-                f.write_fmt(format_args!("{cause}\n\twhile parsing \"{function_name}\" (char {first_char} to {last_char})")),    
+            InterpretationError::WhileParsing { line_nr, cause } =>
+                f.write_fmt(format_args!("{cause} (line {line_nr})")),    
         }
     }
 }

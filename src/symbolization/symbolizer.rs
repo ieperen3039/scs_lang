@@ -1,13 +1,11 @@
 use std::collections::HashMap;
 
 use crate::{
-    built_in,
     parsing::rule_nodes::RuleNode,
     symbolization::{
         ast::{self, FunctionId, Identifier, Namespace},
         function_collector::FunctionCollector,
         function_parser::FunctionParser,
-        semantic_result::SemanticError,
         type_collector::{Definition, TypeCollector},
         type_resolver,
         variable_storage::VarStorage,
@@ -78,7 +76,7 @@ pub fn parse_faux_program(
         namespaces: internal_namespace,
         type_definitions,
         function_definitions,
-        entry_function: main_fn.id,
+        entry_function: main_fn.id.assert_defined(),
     })
 }
 
@@ -175,7 +173,7 @@ fn parse_function_definitions(
                     function_parser.root_namespace,
                 )?;
 
-                function_definitions.insert(function_declaration.id, function_body);
+                function_definitions.insert(function_declaration.id.assert_defined(), function_body);
             },
             _ => {},
         }

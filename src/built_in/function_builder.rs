@@ -1,7 +1,7 @@
 use crate::{
     interpretation::{
-        execution_state::StackFrame,
-        meta_structures::Value, Interperation_result::{InterpResult, InterpretationError},
+        stack_frame::StackFrame,
+        value::Value, Interperation_result::{InterpResult, InterpretationError},
     },
     symbolization::ast::*,
 };
@@ -125,7 +125,7 @@ impl FunctionBuilder {
     pub fn get_fn(
         arguments: &mut Vec<Value>,
         par: &Parameter,
-    ) -> InterpResult<(FunctionId, StackFrame)> {
+    ) -> InterpResult<(GlobalFunctionTarget, StackFrame)> {
         let arg = std::mem::replace(&mut arguments[par.id], Value::Nothing);
 
         if let Value::FunctionLamda(value, arguments) = arg {

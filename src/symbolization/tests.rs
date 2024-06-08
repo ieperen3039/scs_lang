@@ -1,5 +1,5 @@
 use crate::{
-    built_in::{self, primitives::build_primitives},
+    built_in::{self, functions::NativeFunctionBuilder, primitives::build_primitives},
     parsing::{ebnf_parser, left_left_parser, lexer::Lexer},
     transformation::grammatificator,
 };
@@ -31,25 +31,25 @@ fn parse_convoluted_statements() {
     let type_string_stream = ast::TypeRef::Stream(Box::new(ast::TypeRef::STRING.clone()));
 
     let mut function_collector = FunctionCollector::new();
+    let mut id_gen = NativeFunctionBuilder::new();
 
     let mut namespace = ast::Namespace::new_root();
     namespace.add_function({
         let mut builder = built_in::function_builder::FunctionBuilder::new();
         ast::FunctionDeclaration {
-            id: function_collector.new_id(),
+            id: ast::GlobalFunctionTarget::Native(id_gen.new_id()),
             name: ast::Identifier::from("cat"),
             parameters: vec![
                 builder.req_par("file", &ast::TypeRef::STRING),
                 builder.flag(Some("out"), None),
             ],
             return_type: type_string_stream.clone(),
-            is_native: true,
         }
     });
     namespace.add_function({
         let mut builder = built_in::function_builder::FunctionBuilder::new();
         ast::FunctionDeclaration {
-            id: function_collector.new_id(),
+            id: ast::GlobalFunctionTarget::Native(id_gen.new_id()),
             name: ast::Identifier::from(">"),
             parameters: vec![
                 builder.req_par("in", &type_string_stream),
@@ -62,13 +62,12 @@ fn parse_convoluted_statements() {
                 ),
             ],
             return_type: type_string_stream.clone(),
-            is_native: true,
         }
     });
     namespace.add_function({
         let mut builder = built_in::function_builder::FunctionBuilder::new();
         ast::FunctionDeclaration {
-            id: function_collector.new_id(),
+            id: ast::GlobalFunctionTarget::Native(id_gen.new_id()),
             name: ast::Identifier::from("tail"),
             parameters: vec![
                 builder.req_par("input", &type_string_stream),
@@ -76,13 +75,12 @@ fn parse_convoluted_statements() {
                 builder.opt_par("from_end", &ast::TypeRef::INT),
             ],
             return_type: type_string_stream.clone(),
-            is_native: true,
         }
     });
     namespace.add_function({
         let mut builder = built_in::function_builder::FunctionBuilder::new();
         ast::FunctionDeclaration {
-            id: function_collector.new_id(),
+            id: ast::GlobalFunctionTarget::Native(id_gen.new_id()),
             name: ast::Identifier::from("select"),
             parameters: vec![
                 builder.req_par("input", &ast::TypeRef::STRING),
@@ -90,13 +88,12 @@ fn parse_convoluted_statements() {
                 builder.req_par("n", &ast::TypeRef::INT),
             ],
             return_type: ast::TypeRef::STRING.clone(),
-            is_native: true,
         }
     });
     namespace.add_function({
         let mut builder = built_in::function_builder::FunctionBuilder::new();
         ast::FunctionDeclaration {
-            id: function_collector.new_id(),
+            id: ast::GlobalFunctionTarget::Native(id_gen.new_id()),
             name: ast::Identifier::from("zip"),
             parameters: vec![
                 builder.req_par("left", &type_string_stream.clone()),
@@ -106,7 +103,6 @@ fn parse_convoluted_statements() {
                 type_string_stream.clone(),
                 type_string_stream.clone(),
             ]),
-            is_native: true,
         }
     });
 
@@ -115,11 +111,10 @@ fn parse_convoluted_statements() {
         git_ns.add_function({
             let mut builder = built_in::function_builder::FunctionBuilder::new();
             ast::FunctionDeclaration {
-                id: function_collector.new_id(),
+                id: ast::GlobalFunctionTarget::Native(id_gen.new_id()),
                 name: ast::Identifier::from("log"),
                 parameters: vec![builder.req_par("pattern", &ast::TypeRef::STRING)],
                 return_type: ast::TypeRef::STRING.clone(),
-                is_native: true,
             }
         });
         namespace.add_sub_scope(git_ns);
@@ -169,41 +164,39 @@ fn parse_function_definition() {
     "#;
 
     let mut function_collector = FunctionCollector::new();
+    let mut id_gen = NativeFunctionBuilder::new();
 
     let fn_sqrt = {
         let mut builder = built_in::function_builder::FunctionBuilder::new();
         ast::FunctionDeclaration {
-            id: function_collector.new_id(),
+            id: ast::GlobalFunctionTarget::Native(id_gen.new_id()),
             name: ast::Identifier::from("sqrt"),
             parameters: vec![builder.req_par("n", &ast::TypeRef::INT)],
             return_type: ast::TypeRef::INT.clone(),
-            is_native: true,
         }
     };
     let fn_div = {
         let mut builder = built_in::function_builder::FunctionBuilder::new();
         ast::FunctionDeclaration {
-            id: function_collector.new_id(),
+            id: ast::GlobalFunctionTarget::Native(id_gen.new_id()),
             name: ast::Identifier::from("div"),
             parameters: vec![
                 builder.req_par("a", &ast::TypeRef::INT),
                 builder.req_par("b", &ast::TypeRef::INT),
             ],
             return_type: ast::TypeRef::INT.clone(),
-            is_native: true,
         }
     };
     let fn_lt = {
         let mut builder = built_in::function_builder::FunctionBuilder::new();
         ast::FunctionDeclaration {
-            id: function_collector.new_id(),
+            id: ast::GlobalFunctionTarget::Native(id_gen.new_id()),
             name: ast::Identifier::from("less_than"),
             parameters: vec![
                 builder.req_par("a", &ast::TypeRef::INT),
                 builder.req_par("b", &ast::TypeRef::INT),
             ],
             return_type: ast::TypeRef::BOOLEAN.clone(),
-            is_native: true,
         }
     };
 

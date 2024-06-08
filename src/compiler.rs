@@ -44,22 +44,15 @@ impl FauxCompiler {
 
         let parser = left_left_parser::Parser::new(grammar, xml_out);
 
-        let mut function_collector = FunctionCollector::new();
-        let type_collector = TypeCollector::new();
-
-        let built_in_functions: InternalFunctions =
-            functions::build_functions(&mut function_collector);
-        let built_in_types: InternalTypes = primitives::build_primitives();
-
         Ok(FauxCompiler {
             parser: Rc::from(parser),
             file_cache: HashMap::new(),
             parse_stack: Vec::new(),
-            type_collector,
-            function_collector,
+            type_collector: TypeCollector::new(),
+            function_collector: FunctionCollector::new(),
             lexer: Lexer::new_faux_lexer(),
-            built_in_functions,
-            built_in_types,
+            built_in_functions: functions::build_functions(),
+            built_in_types: primitives::build_primitives(),
         })
     }
 

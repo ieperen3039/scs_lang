@@ -1,12 +1,15 @@
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use crate::{
-    built_in::functions::InternalFunctions,
-    interpretation::execution_state::StackFrame,
+    built_in::functions::InternalFunctions, interpretation::stack_frame::StackFrame,
     symbolization::ast::*,
 };
 
-use super::{execution_state::Variable, meta_structures::*, Interperation_result::{InterpResult, InterpretationError}};
+use super::{
+    stack_frame::Variable,
+    value::*,
+    Interperation_result::{InterpResult, InterpretationError},
+};
 
 pub struct Interpreter {
     program: FileAst,
@@ -29,7 +32,9 @@ impl Interpreter {
     }
 
     pub fn execute_by_name(&self, function: &str) -> InterpResult<String> {
-        let to_execute = self.program.resolve_function(function)
+        let to_execute = self
+            .program
+            .resolve_function(function)
             .map_err(|e| InterpretationError::InternalError(e.to_string()))?;
         let result = self.evaluate_fn_body(to_execute, StackFrame::new())?;
 
@@ -58,7 +63,7 @@ impl Interpreter {
             for expr in &stmt.mutations {
                 match expr_value {
                     Value::Nothing => break,
-                    Value::Break => return Ok(expr_value),
+                    Value::Break(_) => return Ok(expr_value),
                     _ => {},
                 }
 
@@ -77,11 +82,8 @@ impl Interpreter {
         stack: &mut StackFrame,
     ) -> InterpResult<Value> {
         match expr {
-            ValueExpression::Literal(Literal::Break) => Ok(Value::Break),
             ValueExpression::Literal(Literal::Number(lit)) => Ok(Value::Int(*lit)),
-            ValueExpression::Literal(Literal::String(lit)) => {
-                Ok(Value::String(lit.clone()))
-            },
+            ValueExpression::Literal(Literal::String(lit)) => Ok(Value::String(lit.clone())),
             ValueExpression::Literal(Literal::Boolean(lit)) => Ok(Value::Boolean(*lit)),
             ValueExpression::Tuple(tuple) => {
                 let mut tuple_values = Vec::new();
@@ -99,6 +101,13 @@ impl Interpreter {
             ValueExpression::FunctionAsValue(fn_expr) => {
                 self.evaluate_function_expression(fn_expr, Value::Nothing, stack)
             },
+            ValueExpression::FunctionCall(fn_call) => self.evaluate_function_call(
+                fn_call.target,
+                &fn_call.arguments,
+                true,
+                Value::Nothing,
+                stack,
+            ),
         }
     }
 
@@ -109,46 +118,24 @@ impl Interpreter {
         stack: &mut StackFrame,
     ) -> InterpResult<Value> {
         match expr {
-            FunctionExpression::FunctionCall(call) => match call.target {
-                FunctionTarget::Defined(id) => self.evaluate_function_call(
-                    id,
-                    |function_stack| self.evaluate_fn_body(self.get_defined_fn(id), function_stack),
-                    &call.arguments,
-                    expr_value,
-                    stack,
-                ),
-                FunctionTarget::Variable(id) => {
-                    self.evaluate_lamda_call(id, &call.arguments, expr_value, stack)
-                },
-                FunctionTarget::Native(id) => self.evaluate_function_call(
-                    id,
-                    |function_stack| self.evaluate_native(id, function_stack),
-                    &call.arguments,
-                    expr_value,
-                    stack,
-                ),
+            FunctionExpression::FunctionCall(call) => {
+                self.evaluate_function_call(call.target, &call.arguments, false, expr_value, stack)
             },
             FunctionExpression::Assignment(var) => {
                 if matches!(expr_value, Value::Nothing) {
-                    let assignment_impl = Rc::new(FunctionBody {
-                        parameters: vec![0],
-                        statements: vec![Statement {
-                            base_element: ValueExpression::Literal(Literal::Break),
-                            mutations: vec![],
-                        }],
-                        return_type: TypeRef::NoReturn,
-                    });
-                    return Ok(Value::InlineLamda(assignment_impl, StackFrame::new()));
+                    return Ok(Value::AssignmentLamda(var.id));
                 }
 
-                stack.add_variable(Variable {
-                    id: var.id,
-                    value: expr_value,
-                });
-
                 if var.is_return {
-                    Ok(Value::Break)
+                    Ok(Value::Break(Box::new(Variable {
+                        id: var.id,
+                        value: expr_value,
+                    })))
                 } else {
+                    stack.add_variable(Variable {
+                        id: var.id,
+                        value: expr_value,
+                    });
                     Ok(Value::Nothing)
                 }
             },
@@ -156,31 +143,43 @@ impl Interpreter {
                 let arg_value =
                     self.evaluate_function_expression(&op.arg, Value::Nothing, stack)?;
 
-                let mut arguments = StackFrame::new();
-                arguments.add_variable(Variable {
+                let mut function_stack = StackFrame::new();
+                function_stack.add_variable(Variable {
                     id: 1,
                     value: arg_value,
                 });
 
                 if matches!(expr_value, Value::Nothing) {
-                    return Ok(Value::FunctionLamda(op.id, arguments));
+                    return Ok(Value::FunctionLamda(op.target, function_stack));
                 }
 
-                arguments.add_variable(Variable {
+                function_stack.add_variable(Variable {
                     id: 0,
                     value: expr_value,
                 });
 
-                let body = self.get_defined_fn(op.id);
-                self.evaluate_fn_body(body, arguments)
+                match op.target {
+                    GlobalFunctionTarget::Defined(id) => {
+                        self.evaluate_fn_body(self.get_defined_fn(id), function_stack)
+                    },
+                    GlobalFunctionTarget::Native(id) => self.evaluate_native(id, function_stack),
+                }
             },
             FunctionExpression::Lamda(lamda) => {
                 let mut lamda_arguments = StackFrame::new();
                 let mut var_id = lamda.parameters.len();
                 for ele in &lamda.capture {
-                    let value = stack.resolve_variable(ele.id).unwrap().clone();
-                    lamda_arguments.add_variable(Variable { id: var_id, value });
-                    var_id += 1;
+                    if let Some(value) = stack.resolve_variable(ele.id) {
+                        lamda_arguments.add_variable(Variable {
+                            id: var_id,
+                            value: value.clone(),
+                        });
+                        var_id += 1;
+                    } else {
+                        return Err(InterpretationError::VariableHasNoValue {
+                            variable: ele.clone(),
+                        });
+                    }
                 }
 
                 if matches!(expr_value, Value::Nothing) {
@@ -205,20 +204,48 @@ impl Interpreter {
         }
     }
 
-    fn evaluate_function_call<TargetFn>(
+    fn evaluate_function_call(
         &self,
-        id: FunctionId,
-        target: TargetFn,
+        target: LocalFunctionTarget,
         arguments: &Vec<Option<ValueExpression>>,
+        require_full_evaluation: bool,
+        expr_value: Value,
+        stack: &mut StackFrame,
+    ) -> InterpResult<Value> {
+        match target {
+            LocalFunctionTarget::Local(id) => {
+                self.evaluate_lamda_call(id, arguments, expr_value, stack)
+            },
+            LocalFunctionTarget::Defined(id) => {
+                let function_stack = self.build_function_stack(
+                    arguments,
+                    require_full_evaluation,
+                    expr_value,
+                    stack,
+                )?;
+                self.evaluate_fn_body(self.get_defined_fn(id), function_stack)
+            },
+            LocalFunctionTarget::Native(id) => {
+                let function_stack = self.build_function_stack(
+                    arguments,
+                    require_full_evaluation,
+                    expr_value,
+                    stack,
+                )?;
+                self.evaluate_native(id, function_stack)
+            },
+        }
+    }
+
+    fn build_function_stack(
+        &self,
+        arguments: &Vec<Option<ValueExpression>>,
+        require_full_evaluation: bool,
         mut expr_value: Value,
         stack: &mut StackFrame,
-    ) -> InterpResult<Value>
-    where
-        TargetFn: Fn(StackFrame) -> InterpResult<Value>,
-    {
+    ) -> InterpResult<StackFrame> {
         let mut function_stack = StackFrame::new();
         let mut var_id = 0;
-        let mut is_complete = true;
         for ele in arguments {
             let arg_value = match ele {
                 Some(expr) => self.evaluate_value_expression(expr, stack)?,
@@ -226,8 +253,11 @@ impl Interpreter {
                 // that this function call requires exactly one parameter.
                 None => std::mem::replace(&mut expr_value, Value::Nothing),
             };
-            if matches!(arg_value, Value::Nothing) {
-                is_complete = false;
+
+            if require_full_evaluation && matches!(arg_value, Value::Nothing) {
+                panic!(
+                    "Function call must evaluate to a value, but parameter {var_id} has no value"
+                );
             } else {
                 function_stack.add_variable(Variable {
                     id: var_id,
@@ -238,11 +268,7 @@ impl Interpreter {
             var_id += 1;
         }
 
-        if is_complete {
-            target(function_stack)
-        } else {
-            Ok(Value::FunctionLamda(id, function_stack))
-        }
+        Ok(function_stack)
     }
 
     fn evaluate_lamda_call(
@@ -252,16 +278,14 @@ impl Interpreter {
         expr_value: Value,
         stack: &mut StackFrame,
     ) -> InterpResult<Value> {
-        // the function body contains references to either the lamda parameters, or the capture
-
         // if expr_value is not nothing, then the semantic analysis has verified
         // that this lamda call requires exactly one parameter.
 
         let value = stack.resolve_variable(variable_id).unwrap();
         match &value {
-            Value::FunctionLamda(id, capture) => {
+            Value::FunctionLamda(target, capture) => {
                 // this copy is needed because it borrows from `value` which borrows from `stack`
-                let id = *id;
+                let target = *target;
                 let mut function_stack = capture.clone();
                 match expr_value {
                     Value::Nothing => {},
@@ -273,11 +297,18 @@ impl Interpreter {
                     let arg_value = self.evaluate_value_expression(expr, stack)?;
                     function_stack.add_argument(arg_value);
                 }
-                self.evaluate_fn_body(self.get_defined_fn(id), function_stack)
+
+                match target {
+                    GlobalFunctionTarget::Defined(id) => {
+                        self.evaluate_fn_body(self.get_defined_fn(id), function_stack)
+                    },
+                    GlobalFunctionTarget::Native(id) => self.evaluate_native(id, function_stack),
+                }
             },
             Value::InlineLamda(body, capture) => {
                 // this clone is needed because it borrows from `value` which borrows from `stack`
                 let body = body.clone();
+
                 let mut function_stack = capture.clone();
                 match expr_value {
                     Value::Nothing => {},
@@ -289,14 +320,27 @@ impl Interpreter {
                     let arg_value = self.evaluate_value_expression(expr, stack)?;
                     function_stack.add_argument(arg_value);
                 }
+
+                // the function body contains references to either the lamda parameters, or the capture
                 self.evaluate_fn_body(&body, function_stack)
+            },
+            Value::AssignmentLamda(target_id) => {
+                if matches!(expr_value, Value::Nothing) {
+                    panic!("partial call of lamda is not allowed");
+                }
+
+                Ok(Value::Break(Box::new(Variable { id: *target_id, value: expr_value })))
             },
             Value::IdentityLamda => Ok(expr_value),
             _ => panic!("LamdaCall call did not refer to a callable variable"),
         }
     }
 
-    fn evaluate_native(&self, id: FunctionId, function_stack: StackFrame) -> InterpResult<Value> {
+    fn evaluate_native(
+        &self,
+        id: NativeFunctionId,
+        function_stack: StackFrame,
+    ) -> InterpResult<Value> {
         let target = self
             .internal_functions
             .get(&id)

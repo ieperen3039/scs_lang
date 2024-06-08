@@ -195,13 +195,23 @@ impl FunctionParser<'_, '_> {
         node: &RuleNode,
     ) -> SemanticResult<()> {
         if let Some(expected_type) = expected_type {
-            if found_type != expected_type {
-                return Err(SemanticError::TypeMismatchError {
-                    expected: expected_type.clone(),
-                    found: found_type.clone(),
-                }
-                .while_parsing(node));
+            if found_type == expected_type {
+                return Ok(());
             }
+
+            if let TypeRef::Function(function_type) = found_type {
+                if function_type.parameters.is_empty()
+                    && function_type.return_type.as_ref() == expected_type
+                {
+                    return Ok(());
+                }
+            }
+
+            return Err(SemanticError::TypeMismatchError {
+                expected: expected_type.clone(),
+                found: found_type.clone(),
+            }
+            .while_parsing(node));
         }
 
         return Ok(());
@@ -216,6 +226,12 @@ impl FunctionParser<'_, '_> {
         if let Some(expected_type) = expected_type {
             if let TypeRef::Function(expected_type) = expected_type {
                 if found_type == expected_type {
+                    return Ok(());
+                }
+            } else {
+                if found_type.parameters.is_empty()
+                    && found_type.return_type.as_ref() == expected_type
+                {
                     return Ok(());
                 }
             }
@@ -243,13 +259,6 @@ impl FunctionParser<'_, '_> {
     ) -> SemanticResult<ValueExpression> {
         if allow_variables {
             debug_assert_eq!(node.rule_name, "value_expression");
-        }
-
-        if let Some(TypeRef::Function(unwrapped_type)) = target_type {
-            return Err(SemanticError::FunctionGivenWhereValueExpected {
-                found_type: unwrapped_type.clone(),
-            }
-            .while_parsing(node));
         }
 
         let sub_node = node
@@ -297,10 +306,10 @@ impl FunctionParser<'_, '_> {
                     Ok(integer_value) => {
                         Ok(ValueExpression::Literal(Literal::Number(integer_value)))
                     },
-                    Err(err) => Err(
-                        SemanticError::InternalError(format!("Could not parse integer literal \"{as_string}\": {err}"))
-                            .while_parsing(sub_node),
-                    ),
+                    Err(err) => Err(SemanticError::InternalError(format!(
+                        "Could not parse integer literal \"{as_string}\": {err}"
+                    ))
+                    .while_parsing(sub_node)),
                 }
             },
             "dollar_string_literal" => {
@@ -314,11 +323,22 @@ impl FunctionParser<'_, '_> {
             "function_call" => {
                 let function_call = self.read_function_call(sub_node, this_scope, variables)?;
 
-                Self::verify_function_type(&function_call.value_type, target_type, sub_node)?;
+                let found_type = &function_call.value_type;
+                if let Some(expected_type) = target_type {
+                    // require that the function call is
+                    if found_type.parameters.is_empty()
+                        && found_type.return_type.as_ref() == expected_type
+                    {
+                    } else {
+                        return Err(SemanticError::TypeMismatchError {
+                            expected: expected_type.clone(),
+                            found: TypeRef::Function(found_type.clone()),
+                        }
+                        .while_parsing(sub_node));
+                    }
+                }
 
-                Ok(ValueExpression::FunctionAsValue(
-                    FunctionExpression::FunctionCall(function_call),
-                ))
+                Ok(ValueExpression::FunctionCall(function_call))
             },
             "function_as_value" => {
                 let expr_node = sub_node.expect_node("function_expression")?;
@@ -344,6 +364,11 @@ impl FunctionParser<'_, '_> {
                         this_scope,
                         variables,
                     )?;
+
+                    if let FunctionExpression::Assignment(_) = fn_expr {
+                        todo!("")
+                    }
+
                     // fn_expr.get_type() will return a non-function type if no parameters are left to evaluate
                     Self::verify_value_type(&fn_expr.get_type(), target_type, sub_node)?;
                     Ok(ValueExpression::FunctionAsValue(fn_expr))
@@ -415,7 +440,7 @@ impl FunctionParser<'_, '_> {
                     sub_node,
                     variables,
                     this_scope,
-                    argument_types.first().unwrap().clone(),
+                    argument_types[0].clone(),
                 )
             },
             "explicit_par_lamda" => {
@@ -430,7 +455,7 @@ impl FunctionParser<'_, '_> {
                     .while_parsing(sub_node));
                 }
 
-                self.read_assignment(sub_node, argument_types.first().unwrap(), variables)
+                self.read_assignment(sub_node, &argument_types[0], variables)
             },
             "mutator_cast" => {
                 let type_node = sub_node.expect_node("type_ref")?;
@@ -445,66 +470,13 @@ impl FunctionParser<'_, '_> {
                     }
                     .while_parsing(sub_node));
                 }
-
-                let mutator_node = sub_node.expect_node("operator")?;
-                let operator_str = mutator_node.as_identifier();
-                let operator_fn_decl = self
-                    .root_namespace
-                    .functions
-                    .get(&operator_str)
-                    .ok_or_else(|| {
-                        SemanticError::SymbolNotFound {
-                            kind: "operator",
-                            symbol: operator_str,
-                        }
-                        .while_parsing(mutator_node)
-                    })?;
-
-                // operators must have (exactly) 2 parameters:
-                // 0: the generic input value
-                // 1: the function with which to transform the input
-                debug_assert_eq!(operator_fn_decl.parameters.len(), 2);
-
-                let first_par_type = operator_fn_decl.parameters[0].to_type();
-                if &argument_types[0] != first_par_type {
-                    return Err(SemanticError::TypeMismatchError {
-                        expected: argument_types[0].clone(),
-                        found: first_par_type.clone(),
-                    }
-                    .while_parsing(mutator_node));
-                }
-
-                let inner_type = operator_fn_decl.parameters[1].to_type();
-                let TypeRef::Function(inner_fn_type) = inner_type else {
-                    panic!(
-                        "second parameter of operator must be of function type, but found {:?}",
-                        inner_type
-                    );
-                };
-
-                let function_expression_node = sub_node.expect_node("function_expression")?;
-                let found_inner = self.read_function_expression(
-                    function_expression_node,
-                    &inner_fn_type.parameters,
+                self.read_operator(
+                    sub_node,
+                    &argument_types[0],
+                    argument_types,
                     this_scope,
                     variables,
-                )?;
-
-                let found_return_type = found_inner.get_return_type();
-
-                if found_return_type != *inner_fn_type.return_type {
-                    return Err(SemanticError::TypeMismatchError {
-                        expected: *inner_fn_type.return_type.clone(),
-                        found: found_return_type,
-                    }
-                    .while_parsing(function_expression_node));
-                }
-
-                Ok(FunctionExpression::Operator(Operator {
-                    id: operator_fn_decl.id,
-                    arg: Box::from(found_inner),
-                    return_type: operator_fn_decl.return_type.clone(),
-                }))
+                )
             },
             unknown => {
                 return Err(SemanticError::UnexpectedNode {
@@ -513,6 +485,79 @@ impl FunctionParser<'_, '_> {
                 .while_parsing(sub_node))
             },
         }
+    }
+
+    // operator_expression = operator, function_expression;
+    // operator = ? OPERATOR ?;
+    fn read_operator(
+        &self,
+        sub_node: &RuleNode,
+        argument_type: &TypeRef,
+        argument_types: &Vec<TypeRef>,
+        this_scope: &Namespace,
+        variables: &mut VarStorage,
+    ) -> Result<FunctionExpression, SemanticError> {
+        debug_assert_eq!(sub_node.rule_name, "operator_expression");
+
+        let operator_symbol_node = sub_node.expect_node("operator")?;
+        let operator_str = operator_symbol_node.as_identifier();
+        let operator_fn_decl = self
+            .root_namespace
+            .functions
+            .get(&operator_str)
+            .ok_or_else(|| {
+                SemanticError::SymbolNotFound {
+                    kind: "operator",
+                    symbol: operator_str,
+                }
+                .while_parsing(operator_symbol_node)
+            })?;
+
+        // operators must have exactly 2 parameters:
+        // 0: the generic input value
+        // 1: the function with which to transform the input
+        debug_assert_eq!(operator_fn_decl.parameters.len(), 2);
+
+        let first_par_type = operator_fn_decl.parameters[0].to_type();
+        if argument_type != first_par_type {
+            return Err(SemanticError::TypeMismatchError {
+                expected: argument_types[0].clone(),
+                found: first_par_type.clone(),
+            }
+            .while_parsing(operator_symbol_node));
+        }
+
+        let inner_type = operator_fn_decl.parameters[1].to_type();
+        let TypeRef::Function(inner_fn_type) = inner_type else {
+            panic!(
+                "second parameter of operator must be of function type, but found {:?}",
+                inner_type
+            );
+        };
+
+        let function_expression_node = sub_node.expect_node("function_expression")?;
+        let found_inner = self.read_function_expression(
+            function_expression_node,
+            &inner_fn_type.parameters,
+            this_scope,
+            variables,
+        )?;
+
+        let found_return_type = found_inner.get_return_type();
+
+        if found_return_type != *inner_fn_type.return_type {
+            return Err(SemanticError::TypeMismatchError {
+                expected: *inner_fn_type.return_type.clone(),
+                found: found_return_type,
+            }
+            .while_parsing(function_expression_node));
+        }
+
+        Ok(FunctionExpression::Operator(Operator {
+            target: operator_fn_decl.id,
+            arg: Box::from(found_inner),
+            return_type: operator_fn_decl.return_type.clone(),
+        }))
     }
 
     // mutator_assign = [ type_ref ], variable_name;
@@ -720,14 +765,8 @@ impl FunctionParser<'_, '_> {
             .map(|p| p.par_type)
             .collect();
 
-        let target = if function_decl.is_native {
-            FunctionTarget::Native(function_decl.id)
-        } else {
-            FunctionTarget::Defined(function_decl.id)
-        };
-
         Ok(FunctionCall {
-            target,
+            target: function_decl.id.into(),
             arguments,
             value_type: FunctionType {
                 parameters,
@@ -763,7 +802,7 @@ impl FunctionParser<'_, '_> {
                 .map_err(|e| e.while_parsing(node))?;
 
             Ok(FunctionCall {
-                target: FunctionTarget::Variable(fn_var.id),
+                target: LocalFunctionTarget::Local(fn_var.id),
                 value_type: fn_type.clone(),
                 arguments,
             })
@@ -771,10 +810,11 @@ impl FunctionParser<'_, '_> {
             Err(SemanticError::TypeMismatchError {
                 expected: TypeRef::Function(FunctionType {
                     parameters: argument_types.clone(),
-                    return_type: Box::new(TypeRef::NoReturn),
+                    return_type: Box::new(TypeRef::Void),
                 }),
                 found: fn_var.var_type.clone(),
-            })
+            }
+            .while_parsing(node))
         }
     }
 

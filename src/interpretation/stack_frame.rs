@@ -1,7 +1,7 @@
 use crate::symbolization::ast::*;
 use std::fmt::Debug;
 
-use super::meta_structures::Value;
+use super::value::Value;
 
 #[derive(Clone)]
 pub struct StackFrame {
@@ -30,6 +30,7 @@ impl StackFrame {
         self.data[var.id] = Some(var.value);
     }
 
+    // adds the value as a variable with the first id that is not in use
     pub fn add_argument(&mut self, arg: Value) {
         let found = self.data.iter_mut().find(|v| v.is_none());
         if let Some(position) = found {

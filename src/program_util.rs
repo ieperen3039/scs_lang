@@ -25,7 +25,7 @@ impl FileAst {
             }
         })?;
 
-        let to_execute = self.function_definitions.get(&function_decl.id);
+        let to_execute = self.function_definitions.get(&function_decl.id.assert_defined());
 
         to_execute.ok_or_else(|| SemanticError::SymbolNotFound {
             kind: "function",

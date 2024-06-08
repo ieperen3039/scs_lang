@@ -1,6 +1,6 @@
 pub mod interpreter;
-pub mod execution_state;
-pub mod meta_structures;
+pub mod stack_frame;
+pub mod value;
 mod implementations;
 
 #[cfg(test)]

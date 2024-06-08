@@ -3,6 +3,7 @@ use std::{collections::HashMap, hash::Hash, rc::Rc};
 pub type Identifier = Rc<str>;
 pub type TypeId = u32;
 pub type FunctionId = u32;
+pub type NativeFunctionId = usize;
 pub type VariableId = usize; // this one is used for indexing
 
 pub struct FileAst {
@@ -38,7 +39,7 @@ pub enum TypeRef {
     Stream(Box<TypeRef>),
     Function(FunctionType),
     Void,
-    NoReturn,
+    Break,
 }
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
@@ -97,11 +98,10 @@ pub struct Parameter {
 
 #[derive(Clone)]
 pub struct FunctionDeclaration {
-    pub id: FunctionId,
+    pub id: GlobalFunctionTarget,
     pub name: Identifier,
     pub parameters: Vec<Parameter>,
     pub return_type: TypeRef,
-    pub is_native: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -133,6 +133,7 @@ pub enum ValueExpression {
     Literal(Literal),
     // a _reference_ to a variable is an expression
     Variable(VariableId),
+    FunctionCall(FunctionCall),
     FunctionAsValue(FunctionExpression),
 }
 
@@ -141,7 +142,6 @@ pub enum Literal {
     Number(i32),
     String(Rc<str>),
     Boolean(bool),
-    Break // see "Value::Break"
 }
 
 // mutations of expressions
@@ -158,15 +158,16 @@ pub enum FunctionExpression {
 // there is always 1 argument, and it is always a FunctionExpression
 #[derive(Clone)]
 pub struct Operator {
-    pub id: FunctionId,
+    // the operator is implemented as some function
+    pub target: GlobalFunctionTarget,
     pub arg: Box<FunctionExpression>,
     pub return_type: TypeRef,
 }
 
 #[derive(Clone)]
 pub struct FunctionCall {
-    // where is this function
-    pub target: FunctionTarget,
+    // could be a global function, or a local variable
+    pub target: LocalFunctionTarget,
     // the type of this expression as a value
     pub value_type: FunctionType,
     // indices in this vector correspond to the variable ids of the function body
@@ -174,22 +175,17 @@ pub struct FunctionCall {
     pub arguments: Vec<Option<ValueExpression>>,
 }
 
-#[derive(Clone)]
-pub enum FunctionTarget {
+#[derive(Clone, Copy, Debug)]
+pub enum LocalFunctionTarget {
     Defined(FunctionId),
-    Variable(VariableId),
-    Native(FunctionId)
+    Local(VariableId),
+    Native(NativeFunctionId)
 }
 
-#[derive(Clone)]
-pub struct DefinedFunctionCall {
-    pub id: FunctionId,
-    // the type of this expression as a value
-    pub value_type: FunctionType,
-    // indices in this vector correspond to the parameter indices of the called function
-    // (the argument vector and parameter vector should have the same len)
-    // Option::None indicates that this is itself a fn expression accepting all missing arguments in order
-    pub arguments: Vec<Option<ValueExpression>>,
+#[derive(Clone, Copy, Debug)]
+pub enum GlobalFunctionTarget {
+    Defined(FunctionId),
+    Native(NativeFunctionId)
 }
 
 #[derive(Clone)]

@@ -1,21 +1,21 @@
 use crate::{
     built_in::{function_builder::FunctionBuilder, functions::InternalFunction},
-    interpretation::{meta_structures::*, Interperation_result::InterpResult},
+    interpretation::{value::*, Interperation_result::InterpResult},
     symbolization::ast::*,
 };
 
 struct FnEcho {
-    fn_id: FunctionId,
+    function_id: NativeFunctionId,
     par_in: Parameter,
     par_error: Parameter,
 }
 
 impl InternalFunction for FnEcho {
-    fn new(function_id: FunctionId) -> Self {
+    fn new(function_id: NativeFunctionId) -> Self {
         let mut builder = FunctionBuilder::new();
 
         FnEcho {
-            fn_id: function_id,
+            function_id,
             par_in: builder.req_par("in", &TypeRef::STRING),
             par_error: builder.flag(Some("error"), Some("e")),
         }
@@ -23,11 +23,10 @@ impl InternalFunction for FnEcho {
 
     fn get_declaration(&self) -> FunctionDeclaration {
         FunctionDeclaration {
-            id: self.fn_id,
+            id: GlobalFunctionTarget::Native(self.function_id),
             name: Identifier::from("echo"),
             parameters: FunctionBuilder::sorted(&[&self.par_in, &self.par_error]),
             return_type: TypeRef::STRING.clone(),
-            is_native: true,
         }
     }
 

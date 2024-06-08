@@ -1,33 +1,52 @@
 use std::collections::HashMap;
 
 use crate::{
-    interpretation::{meta_structures::Value, Interperation_result::InterpResult},
-    symbolization::{ast, function_collector::FunctionCollector},
+    interpretation::{value::Value, Interperation_result::InterpResult},
+    symbolization::ast,
 };
 
 pub mod echo;
 pub mod math;
 
-pub type InternalFunctions = HashMap<ast::FunctionId, Box<dyn InternalFunction>>;
+pub type InternalFunctions = HashMap<ast::NativeFunctionId, Box<dyn InternalFunction>>;
 
-pub fn build_functions(fc: &mut FunctionCollector) -> InternalFunctions {
+pub fn build_functions() -> InternalFunctions {
+    let mut id_gen = NativeFunctionBuilder::new();
+
     HashMap::from([
-        build_function::<math::FnAdd>(fc),
-        build_function::<math::FnSub>(fc),
-        build_function::<math::FnMul>(fc),
-        build_function::<math::FnDiv>(fc),
+        id_gen.build_function::<math::FnAdd>(),
+        id_gen.build_function::<math::FnSub>(),
+        id_gen.build_function::<math::FnMul>(),
+        id_gen.build_function::<math::FnDiv>(),
+        id_gen.build_function::<math::FnSqrt>(),
     ])
 }
 
-pub fn build_function<FnType: InternalFunction + 'static>(
-    fc: &mut FunctionCollector,
-) -> (ast::FunctionId, Box<dyn InternalFunction>) {
-    let id = fc.new_id();
-    (id, Box::new(FnType::new(id)))
+pub struct NativeFunctionBuilder {
+    next_id: ast::NativeFunctionId,
+}
+
+impl NativeFunctionBuilder {
+    pub fn new() -> NativeFunctionBuilder {
+        NativeFunctionBuilder { next_id: 0 }
+    }
+
+    pub fn new_id(&mut self) -> ast::NativeFunctionId {
+        let id = self.next_id;
+        self.next_id = id + 1;
+        id
+    }
+
+    pub fn build_function<FnType: InternalFunction + 'static>(
+        &mut self,
+    ) -> (ast::NativeFunctionId, Box<dyn InternalFunction>) {
+        let id = self.new_id();
+        (id, Box::new(FnType::new(id)))
+    }
 }
 
 pub trait InternalFunction {
-    fn new(function_id: ast::FunctionId) -> Self
+    fn new(function_id: ast::NativeFunctionId) -> Self
     where
         Self: Sized;
 

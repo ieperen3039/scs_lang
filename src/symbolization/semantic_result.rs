@@ -35,8 +35,11 @@ pub enum SemanticError {
         num_target: usize,
         num_this: usize,
     },
-    FunctionGivenWhereValueExpected {
+    ExpectedValueGotFunction {
         found_type: ast::FunctionType,
+    },
+    ExpectedFunctionGotValue {
+        found_type: ast::TypeRef,
     },
     SymbolNotFound {
         kind: &'static str,
@@ -88,8 +91,8 @@ impl SemanticError {
                 let ub = cmp::min(last_char_idx as i64 + 40, upper_newline as i64) as usize;
                 format!(
                     "Error while parsing {rule_name} on line {start_line_number}:\n\n{0:>40}{1:<40}\n{2:>40}{2:^<width$} when parsing here\n{cause}",
-                    &source[lb..first_char_idx],
-                    &source[first_char_idx..ub],
+                    &source[lb..first_char_idx].replace("\n", " "),
+                    &source[first_char_idx..ub].replace("\n", " "),
                     "",
                     width = last_char_idx - first_char_idx
                 )
@@ -120,8 +123,10 @@ impl Display for SemanticError {
                 f.write_fmt(format_args!("Function \"{function}\" has no argument \"{arg}\"")),
             SemanticError::InvalidNumerOfParameters { num_target: num_found, num_this: expected, } => 
                 f.write_fmt(format_args!("Invalid number of parameters: found {num_found}, but expected {expected}")),
-            SemanticError::FunctionGivenWhereValueExpected { found_type } => 
+            SemanticError::ExpectedValueGotFunction { found_type } => 
                 f.write_fmt(format_args!("Found function type {:?} while paring value_expression", found_type)),
+            SemanticError::ExpectedFunctionGotValue { found_type } => 
+                f.write_fmt(format_args!("Found value {:?} while paring function_expression", found_type)),
             SemanticError::SymbolNotFound { kind, symbol } => 
                 f.write_fmt(format_args!("Could not find {kind} \"{symbol}\"")),
             SemanticError::SymbolNotFoundInScope { kind, symbol, scope, } => 

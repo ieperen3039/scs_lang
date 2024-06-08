@@ -25,7 +25,7 @@ fn interp_math() {
             = c;
 
         mul(l=b, r=b) 
-            sub({
+            sub($(){
                 mul(l=4, r=a)
                     mul(r=c)
             })
@@ -33,7 +33,7 @@ fn interp_math() {
 
         sub(0, r=b)
             add(sqrt(v=d))
-            div(mul(2, a))
+            div(mul(2, r=a))
     "#;
 
     let mut faux_compiler = FauxCompiler::build(&definition, None).unwrap();
