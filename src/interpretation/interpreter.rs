@@ -1,14 +1,12 @@
-use std::{cell::RefCell, rc::Rc};
-
 use crate::{
     built_in::functions::InternalFunctions, interpretation::stack_frame::StackFrame,
     symbolization::ast::*,
 };
 
 use super::{
+    interperation_result::{InterpResult, InterpretationError},
     stack_frame::Variable,
     value::*,
-    interperation_result::{InterpResult, InterpretationError},
 };
 
 pub struct Interpreter {
@@ -62,15 +60,21 @@ impl Interpreter {
 
             for expr in &stmt.mutations {
                 match expr_value {
-                    Value::Nothing => break,
-                    Value::Break(_) => return Ok(expr_value),
+                    Value::Break => break,
+                    Value::Nothing => panic!("expr_value == Nothing"),
+                    Value::DelayedAssignment(variable) => {
+                        stack.add_variable(*variable);
+                        expr_value = Value::Break;
+                        break;
+                    },
+                    Value::Return(value) => return Ok(*value),
                     _ => {},
                 }
 
                 expr_value = self.evaluate_function_expression(expr, expr_value, &mut stack)?;
             }
 
-            debug_assert!(matches!(expr_value, Value::Nothing));
+            debug_assert!(matches!(expr_value, Value::Break));
         }
 
         unreachable!("functions must have a return expression")
@@ -83,21 +87,29 @@ impl Interpreter {
     ) -> InterpResult<Value> {
         match expr {
             ValueExpression::Literal(Literal::Number(lit)) => Ok(Value::Int(*lit)),
-            ValueExpression::Literal(Literal::String(lit)) => Ok(Value::String(lit.clone())),
+            ValueExpression::Literal(Literal::String(lit)) => Ok(Value::String(lit.to_string())),
             ValueExpression::Literal(Literal::Boolean(lit)) => Ok(Value::Boolean(*lit)),
             ValueExpression::Tuple(tuple) => {
                 let mut tuple_values = Vec::new();
                 for ele in tuple {
-                    tuple_values.push(self.evaluate_value_expression(ele, stack)?);
+                    let expr_result = self.evaluate_value_expression(ele, stack);
+                    match expr_result {
+                        Ok(Value::Break) | Ok(Value::Nothing) => return Err(InterpretationError::ExpectedValueGotNothing),
+                        Ok(value) => tuple_values.push(value),
+                        Err(err) => return Err(err),
+                    }
                 }
                 Ok(Value::Tuple(tuple_values))
             },
-            ValueExpression::Variable(var) => Ok(stack
-                .resolve_variable(*var)
-                .cloned()
-                // syntactially the variable exists in this scope.
-                // If we do not have a value stored, then the variable is conditionally (not) assigned
-                .unwrap_or(Value::Nothing)),
+            ValueExpression::Variable(var) => {
+                let value = stack
+                    .resolve_variable(*var)
+                    .cloned()
+                    // syntactially the variable exists in this scope.
+                    // If we do not have a value stored, then the variable is conditionally (not) assigned
+                    .unwrap_or(Value::Break);
+                Ok(value)
+            },
             ValueExpression::FunctionAsValue(fn_expr) => {
                 self.evaluate_function_expression(fn_expr, Value::Nothing, stack)
             },
@@ -126,17 +138,16 @@ impl Interpreter {
                     return Ok(Value::AssignmentLamda(var.id));
                 }
 
+                println!("{} = {:?}", var.name, expr_value);
+
                 if var.is_return {
-                    Ok(Value::Break(Box::new(Variable {
-                        id: var.id,
-                        value: expr_value,
-                    })))
+                    Ok(Value::Return(Box::from(expr_value)))
                 } else {
                     stack.add_variable(Variable {
                         id: var.id,
                         value: expr_value,
                     });
-                    Ok(Value::Nothing)
+                    Ok(Value::Break)
                 }
             },
             FunctionExpression::Operator(op) => {
@@ -183,7 +194,11 @@ impl Interpreter {
                 }
 
                 if matches!(expr_value, Value::Nothing) {
-                    return Ok(Value::InlineLamda(lamda.body.clone(), lamda_arguments));
+                    if lamda.parameters.is_empty() {
+                        return self.evaluate_fn_body(&lamda.body, lamda_arguments);
+                    } else {
+                        return Ok(Value::InlineLamda(lamda.body.clone(), lamda_arguments));
+                    }
                 }
 
                 assert!(lamda.parameters.len() == 1);
@@ -324,12 +339,8 @@ impl Interpreter {
                 // the function body contains references to either the lamda parameters, or the capture
                 self.evaluate_fn_body(&body, function_stack)
             },
-            Value::AssignmentLamda(target_id) => {
-                if matches!(expr_value, Value::Nothing) {
-                    panic!("partial call of lamda is not allowed");
-                }
-
-                Ok(Value::Break(Box::new(Variable { id: *target_id, value: expr_value })))
+            Value::AssignmentLamda(_target_id) => {
+                panic!("AssignmentLamda in user code is not supported");
             },
             Value::IdentityLamda => Ok(expr_value),
             _ => panic!("LamdaCall call did not refer to a callable variable"),

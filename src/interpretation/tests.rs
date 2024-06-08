@@ -12,7 +12,7 @@ fn interp_math() {
     // d = (b * b) - 4 * a * c = 1754 - 600 = 1154
     // (-b + sqrt(d)) / (2*a) = (-42 + 33) / 2 = -4
     let program = r#"
-        div(1, 2) 
+        div(3, 2) 
             = a;
         mul(3, 4) 
             add(mul(5, 6)) = b;

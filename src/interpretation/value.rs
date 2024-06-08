@@ -6,11 +6,13 @@ use super::stack_frame::{StackFrame, Variable};
 
 #[derive(Debug, Clone)]
 pub enum Value {
-    Nothing, // the value does not exist
-    Break(Box<Variable>),   // execution of this function must halt
+    Nothing,
+    Break,                          // execution of this statement must halt
+    Return(Box<Value>),             // execution of this function must halt
+    DelayedAssignment(Box<Variable>), // result of evaluating an AssignmentLamda
     Boolean(bool),
     Int(i32),
-    String(Rc<str>),
+    String(String),
     FunctionLamda(GlobalFunctionTarget, StackFrame),
     InlineLamda(Rc<FunctionBody>, StackFrame),
     AssignmentLamda(VariableId),

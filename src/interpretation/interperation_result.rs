@@ -1,6 +1,5 @@
 use std::{fmt::Display, rc::Rc};
 
-use super::value::Value;
 use crate::symbolization::ast;
 
 pub type InterpResult<T> = Result<T, InterpretationError>;
@@ -11,11 +10,7 @@ pub enum InterpretationError {
         kind: &'static str,
         symbol: ast::Identifier,
     },
-    ArgumentTypeMismatch {
-        par_name: ast::Identifier,
-        expected_type: ast::TypeRef,
-        arg: Value,
-    },
+    ExpectedValueGotNothing,
     VariableHasNoValue {
         variable: Rc<ast::VariableDeclaration>
     },
@@ -40,14 +35,14 @@ impl Display for InterpretationError {
         match self {
             InterpretationError::SymbolNotFound { kind, symbol } => 
                 f.write_fmt(format_args!("Could not find {kind} \"{symbol}\"")),
-            InterpretationError::ArgumentTypeMismatch { par_name, expected_type, arg } => 
-                f.write_fmt(format_args!("Expected type \"{:?}\", but found value \"{:?}\" for argument {:?}", expected_type, arg, par_name)),
+            InterpretationError::ExpectedValueGotNothing => 
+                f.write_fmt(format_args!("A value was requried, but no value was returned")),
             InterpretationError::VariableHasNoValue{ variable } => 
                 f.write_fmt(format_args!("Variable {} was used, but no value has been assigned to it", variable.name)),
             InterpretationError::InternalError(what) => 
                 f.write_fmt(format_args!("Internal error: {what}")),
             InterpretationError::WhileParsing { line_nr, cause } =>
-                f.write_fmt(format_args!("{cause} (line {line_nr})")),    
+                f.write_fmt(format_args!("{cause} (line {line_nr})")), 
         }
     }
 }

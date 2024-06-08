@@ -365,10 +365,6 @@ impl FunctionParser<'_, '_> {
                         variables,
                     )?;
 
-                    if let FunctionExpression::Assignment(_) = fn_expr {
-                        todo!("")
-                    }
-
                     // fn_expr.get_type() will return a non-function type if no parameters are left to evaluate
                     Self::verify_value_type(&fn_expr.get_type(), target_type, sub_node)?;
                     Ok(ValueExpression::FunctionAsValue(fn_expr))
