@@ -1,7 +1,7 @@
 use crate::{
     interpretation::{
         stack_frame::StackFrame,
-        value::Value, Interperation_result::{InterpResult, InterpretationError},
+        value::Value, interperation_result::{InterpResult, InterpretationError},
     },
     symbolization::ast::*,
 };

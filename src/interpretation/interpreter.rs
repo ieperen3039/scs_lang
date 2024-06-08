@@ -8,7 +8,7 @@ use crate::{
 use super::{
     stack_frame::Variable,
     value::*,
-    Interperation_result::{InterpResult, InterpretationError},
+    interperation_result::{InterpResult, InterpretationError},
 };
 
 pub struct Interpreter {
