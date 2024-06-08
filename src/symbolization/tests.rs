@@ -24,8 +24,8 @@ fn parse_convoluted_statements() {
             = extra_columns; // string[]
 
         data
-            zip(right=extra_columns)
-            cat("data.csv", out);
+            zip(extra_columns)
+            cat("data.csv", !out);
     "#;
 
     let type_string_stream = ast::TypeRef::Stream(Box::new(ast::TypeRef::STRING.clone()));
@@ -158,7 +158,7 @@ fn parse_function_definition() {
             n
                 sqrt() 
                 (n_sq) {
-                    1 div(b=n_sq)
+                    1 div(n_sq)
                 }
         }
     "#;

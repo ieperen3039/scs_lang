@@ -152,7 +152,7 @@ impl Interpreter {
             },
             FunctionExpression::Operator(op) => {
                 let arg_value =
-                    self.evaluate_function_expression(&op.arg, Value::Nothing, stack)?;
+                    self.evaluate_value_expression(&op.arg, stack)?;
 
                 let mut function_stack = StackFrame::new();
                 function_stack.add_variable(Variable {

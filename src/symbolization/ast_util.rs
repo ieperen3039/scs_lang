@@ -53,7 +53,7 @@ impl FunctionExpression {
                 return_type: Box::from(lamda.body.return_type.clone()),
             }),
             FunctionExpression::Operator(op) => TypeRef::Function(FunctionType {
-                parameters: vec![op.arg.get_type()],
+                parameters: vec![op.arg_type.clone()],
                 return_type: Box::from(op.return_type.clone()),
             }),
             FunctionExpression::Cast(t) => t.clone(),

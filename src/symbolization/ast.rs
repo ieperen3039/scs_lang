@@ -155,12 +155,13 @@ pub enum FunctionExpression {
 }
 
 // effectively a more efficient FunctionCall:
-// there is always 1 argument, and it is always a FunctionExpression
+// there is always 1 argument
 #[derive(Clone)]
 pub struct Operator {
     // the operator is implemented as some function
     pub target: GlobalFunctionTarget,
-    pub arg: Box<FunctionExpression>,
+    pub arg: Box<ValueExpression>,
+    pub arg_type: TypeRef,
     pub return_type: TypeRef,
 }
 
