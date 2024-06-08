@@ -31,8 +31,8 @@ impl InternalFunction for FnEcho {
     }
 
     fn call(&self, mut arguments: Vec<Value>) -> InterpResult<Value> {
-        let val_in = FunctionBuilder::get_string(&mut arguments, &self.par_in)?;
-        let val_error = FunctionBuilder::get_boolean(&mut arguments, &self.par_error)?;
+        let val_in = FunctionBuilder::get_string(&mut arguments, &self.par_in);
+        let val_error = FunctionBuilder::get_boolean(&mut arguments, &self.par_error);
 
         if val_error {
             eprintln!("{val_in}");

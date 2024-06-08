@@ -54,8 +54,8 @@ impl InternalFunction for FnAdd {
     }
 
     fn call(&self, mut arguments: Vec<Value>) -> InterpResult<Value> {
-        let left = FunctionBuilder::get_int(&mut arguments, &self.par_left)?;
-        let right = FunctionBuilder::get_int(&mut arguments, &self.par_right)?;
+        let left = FunctionBuilder::get_int(&mut arguments, &self.par_left);
+        let right = FunctionBuilder::get_int(&mut arguments, &self.par_right);
         return Ok(Value::Int(left + right));
     }
 }
@@ -81,8 +81,8 @@ impl InternalFunction for FnSub {
     }
 
     fn call(&self, mut arguments: Vec<Value>) -> InterpResult<Value> {
-        let left = FunctionBuilder::get_int(&mut arguments, &self.par_left)?;
-        let right = FunctionBuilder::get_int(&mut arguments, &self.par_right)?;
+        let left = FunctionBuilder::get_int(&mut arguments, &self.par_left);
+        let right = FunctionBuilder::get_int(&mut arguments, &self.par_right);
         return Ok(Value::Int(left - right));
     }
 }
@@ -108,8 +108,8 @@ impl InternalFunction for FnMul {
     }
 
     fn call(&self, mut arguments: Vec<Value>) -> InterpResult<Value> {
-        let left = FunctionBuilder::get_int(&mut arguments, &self.par_left)?;
-        let right = FunctionBuilder::get_int(&mut arguments, &self.par_right)?;
+        let left = FunctionBuilder::get_int(&mut arguments, &self.par_left);
+        let right = FunctionBuilder::get_int(&mut arguments, &self.par_right);
         return Ok(Value::Int(left * right));
     }
 }
@@ -135,8 +135,8 @@ impl InternalFunction for FnDiv {
     }
 
     fn call(&self, mut arguments: Vec<Value>) -> InterpResult<Value> {
-        let left = FunctionBuilder::get_int(&mut arguments, &self.par_left)?;
-        let right = FunctionBuilder::get_int(&mut arguments, &self.par_right)?;
+        let left = FunctionBuilder::get_int(&mut arguments, &self.par_left);
+        let right = FunctionBuilder::get_int(&mut arguments, &self.par_right);
         return Ok(Value::Int(left / right));
     }
 }
@@ -161,7 +161,7 @@ impl InternalFunction for FnSqrt {
     }
 
     fn call(&self, mut arguments: Vec<Value>) -> InterpResult<Value> {
-        let left = FunctionBuilder::get_int(&mut arguments, &self.par_value)?;
+        let left = FunctionBuilder::get_int(&mut arguments, &self.par_value);
         return Ok(Value::Int(f32::sqrt(left as f32) as i32));
     }
 }

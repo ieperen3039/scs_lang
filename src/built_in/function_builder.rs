@@ -1,7 +1,8 @@
 use crate::{
     interpretation::{
+        interperation_result::{InterpResult, InterpretationError},
         stack_frame::StackFrame,
-        value::Value, interperation_result::{InterpResult, InterpretationError},
+        value::Value,
     },
     symbolization::ast::*,
 };
@@ -72,84 +73,90 @@ impl FunctionBuilder {
     }
 
     pub fn sorted(parameters: &[&Parameter]) -> Vec<Parameter> {
-        let mut result : Vec<Parameter> = parameters.into_iter().map(|&p| p.to_owned()).collect();
+        let mut result: Vec<Parameter> = parameters.into_iter().map(|&p| p.to_owned()).collect();
         result.sort_unstable_by_key(|p| p.id);
         result
     }
 
-    pub fn get_string(
-        arguments: &mut Vec<Value>,
-        par: &Parameter,
-    ) -> InterpResult<Identifier> {
+    pub fn get_value(arguments: &mut Vec<Value>, par: &Parameter) -> Value {
+        std::mem::replace(&mut arguments[par.id], Value::Nothing)
+    }
+
+    pub fn get_string(arguments: &mut Vec<Value>, par: &Parameter) -> String {
         let arg = std::mem::replace(&mut arguments[par.id], Value::Nothing);
 
         if let Value::String(value) = arg {
-            Ok(value)
+            value
         } else {
-            Err(InterpretationError::ArgumentTypeMismatch {
-                par_name: par.name().clone(),
-                expected_type: par.par_type.clone(),
+            panic!(
+                "Expected type \"{:?}\", but found value \"{:?}\" for argument {:?}",
+                par.par_type,
                 arg,
-            })
+                par.name()
+            );
         }
     }
 
-    pub fn get_boolean(arguments: &mut Vec<Value>, par: &Parameter) -> InterpResult<bool> {
+    pub fn get_boolean(arguments: &mut Vec<Value>, par: &Parameter) -> bool {
         let arg = std::mem::replace(&mut arguments[par.id], Value::Nothing);
 
         if let Value::Boolean(value) = arg {
-            Ok(value)
+            value
         } else {
-            Err(InterpretationError::ArgumentTypeMismatch {
-                par_name: par.name().clone(),
-                expected_type: par.par_type.clone(),
+            panic!(
+                "Expected type \"{:?}\", but found value \"{:?}\" for argument {:?}",
+                par.par_type,
                 arg,
-            })
+                par.name()
+            );
         }
     }
 
-    pub fn get_int(arguments: &mut Vec<Value>, par: &Parameter) -> InterpResult<i32> {
+    pub fn get_int(arguments: &mut Vec<Value>, par: &Parameter) -> i32 {
         let arg = std::mem::replace(&mut arguments[par.id], Value::Nothing);
 
         if let Value::Int(value) = arg {
-            Ok(value)
+            value
         } else {
-            Err(InterpretationError::ArgumentTypeMismatch {
-                par_name: par.name().clone(),
-                expected_type: par.par_type.clone(),
+            panic!(
+                "Expected type \"{:?}\", but found value \"{:?}\" for argument {:?}",
+                par.par_type,
                 arg,
-            })
+                par.name()
+            );
         }
     }
 
     pub fn get_fn(
         arguments: &mut Vec<Value>,
         par: &Parameter,
-    ) -> InterpResult<(GlobalFunctionTarget, StackFrame)> {
+    ) -> (GlobalFunctionTarget, StackFrame) {
         let arg = std::mem::replace(&mut arguments[par.id], Value::Nothing);
 
         if let Value::FunctionLamda(value, arguments) = arg {
-            Ok((value, arguments))
+            (value, arguments)
         } else {
-            Err(InterpretationError::ArgumentTypeMismatch {
-                par_name: par.name().clone(),
-                expected_type: par.par_type.clone(),
+            panic!(
+                "Expected type \"{:?}\", but found value \"{:?}\" for argument {:?}",
+                par.par_type,
                 arg,
-            })
+                par.name()
+            );
         }
     }
 
-    pub fn get_tuple(arguments: &mut Vec<Value>, par: &Parameter) -> InterpResult<Vec<Value>> {
+    pub fn get_tuple(arguments: &mut Vec<Value>, par: &Parameter) -> Vec<Value> {
         let arg = std::mem::replace(&mut arguments[par.id], Value::Nothing);
 
         if let Value::Tuple(value) = arg {
-            Ok(value)
+            value
         } else {
-            Err(InterpretationError::ArgumentTypeMismatch {
-                par_name: par.name().clone(),
-                expected_type: par.par_type.clone(),
+            panic!(
+                "Expected type \"{:?}\", but found value \"{:?}\" for argument {:?}",
+                par.par_type,
                 arg,
-            })
+                par.name()
+            );
         }
     }
 }
