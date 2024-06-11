@@ -2,14 +2,13 @@ use std::{cell::OnceCell, rc::Rc};
 
 use crate::symbolization::ast::*;
 
-use super::stack_frame::{StackFrame, Variable};
+use super::stack_frame::StackFrame;
 
 #[derive(Debug, Clone)]
 pub enum Value {
     Nothing,
     Break,                          // execution of this statement must halt
     Return(Box<Value>),             // execution of this function must halt
-    DelayedAssignment(Box<Variable>), // result of evaluating an AssignmentLamda
     Boolean(bool),
     Int(i32),
     String(String),

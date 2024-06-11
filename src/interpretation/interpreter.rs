@@ -62,11 +62,6 @@ impl Interpreter {
                 match expr_value {
                     Value::Break => break,
                     Value::Nothing => panic!("expr_value == Nothing"),
-                    Value::DelayedAssignment(variable) => {
-                        stack.add_variable(*variable);
-                        expr_value = Value::Break;
-                        break;
-                    },
                     Value::Return(value) => return Ok(*value),
                     _ => {},
                 }
