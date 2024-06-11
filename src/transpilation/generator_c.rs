@@ -147,9 +147,6 @@ impl GeneratorC {
                 "Unresolved type \"{}\" in generation stage",
                 unresolved.name
             ))),
-            ast::TypeRef::Optional(_) => todo!(),
-            ast::TypeRef::Result(_, _) => todo!(),
-            ast::TypeRef::Flag => todo!(),
         }
     }
 }

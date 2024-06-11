@@ -44,6 +44,7 @@ fn parse_convoluted_statements() {
                 builder.flag(Some("out"), None),
             ],
             return_type: type_string_stream.clone(),
+            start_char: 0,
         }
     });
     namespace.add_function({
@@ -62,6 +63,7 @@ fn parse_convoluted_statements() {
                 ),
             ],
             return_type: type_string_stream.clone(),
+            start_char: 0,
         }
     });
     namespace.add_function({
@@ -75,6 +77,7 @@ fn parse_convoluted_statements() {
                 builder.opt_par("from_end", &ast::TypeRef::INT),
             ],
             return_type: type_string_stream.clone(),
+            start_char: 0,
         }
     });
     namespace.add_function({
@@ -88,6 +91,7 @@ fn parse_convoluted_statements() {
                 builder.req_par("n", &ast::TypeRef::INT),
             ],
             return_type: ast::TypeRef::STRING.clone(),
+            start_char: 0,
         }
     });
     namespace.add_function({
@@ -103,6 +107,7 @@ fn parse_convoluted_statements() {
                 type_string_stream.clone(),
                 type_string_stream.clone(),
             ]),
+            start_char: 0,
         }
     });
 
@@ -115,6 +120,7 @@ fn parse_convoluted_statements() {
                 name: ast::Identifier::from("log"),
                 parameters: vec![builder.req_par("pattern", &ast::TypeRef::STRING)],
                 return_type: ast::TypeRef::STRING.clone(),
+                start_char: 0,
             }
         });
         namespace.add_sub_scope(git_ns);
@@ -173,6 +179,7 @@ fn parse_function_definition() {
             name: ast::Identifier::from("sqrt"),
             parameters: vec![builder.req_par("n", &ast::TypeRef::INT)],
             return_type: ast::TypeRef::INT.clone(),
+            start_char: 0,
         }
     };
     let fn_div = {
@@ -185,6 +192,7 @@ fn parse_function_definition() {
                 builder.req_par("b", &ast::TypeRef::INT),
             ],
             return_type: ast::TypeRef::INT.clone(),
+            start_char: 0,
         }
     };
     let fn_lt = {
@@ -197,6 +205,7 @@ fn parse_function_definition() {
                 builder.req_par("b", &ast::TypeRef::INT),
             ],
             return_type: ast::TypeRef::BOOLEAN.clone(),
+            start_char: 0,
         }
     };
 

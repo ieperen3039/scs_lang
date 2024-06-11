@@ -72,12 +72,6 @@ impl FunctionBuilder {
         }
     }
 
-    pub fn sorted(parameters: &[&Parameter]) -> Vec<Parameter> {
-        let mut result: Vec<Parameter> = parameters.into_iter().map(|&p| p.to_owned()).collect();
-        result.sort_unstable_by_key(|p| p.id);
-        result
-    }
-
     pub fn get_value(arguments: &mut Vec<Value>, par: &Parameter) -> Value {
         std::mem::replace(&mut arguments[par.id], Value::Nothing)
     }

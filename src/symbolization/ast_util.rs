@@ -72,6 +72,21 @@ impl FunctionExpression {
     }
 }
 
+impl FunctionDeclaration {
+    pub fn new_native(id: NativeFunctionId, name: &str, parameters: &[&Parameter], return_type: &TypeRef) -> FunctionDeclaration {
+        let mut parameters_sorted: Vec<Parameter> = parameters.into_iter().map(|&p| p.to_owned()).collect();
+        parameters_sorted.sort_unstable_by_key(|p| p.id);
+
+        FunctionDeclaration {
+            id: GlobalFunctionTarget::Native(id),
+            name: Identifier::from(name),
+            parameters: parameters_sorted,
+            return_type: return_type.clone(),
+            start_char: 0
+        }
+    }
+}
+
 impl ValueExpression {
     pub fn get_type(&self, variables: &VarStorage) -> TypeRef {
         match &self {

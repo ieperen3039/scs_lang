@@ -1,6 +1,6 @@
 use std::{fmt::Display, rc::Rc};
 
-use crate::symbolization::ast;
+use crate::symbolization::ast::{self, FunctionDeclaration};
 
 pub type InterpResult<T> = Result<T, InterpretationError>;
 
@@ -14,17 +14,20 @@ pub enum InterpretationError {
     VariableHasNoValue {
         variable: Rc<ast::VariableDeclaration>
     },
+    DoubleAssignment(),
     InternalError(String),
     WhileParsing {
-        line_nr: usize,
+        function_name: ast::Identifier,
+        char_idx: usize,
         cause: Box<InterpretationError>,
     },
 }
 
 impl InterpretationError {
-    pub fn while_parsing(self, line_nr: usize) -> InterpretationError {
+    pub fn while_parsing(self, function: &FunctionDeclaration) -> InterpretationError {
         InterpretationError::WhileParsing {
-            line_nr,// function.first_char(),
+            function_name: function.name.clone(),
+            char_idx: function.start_char,
             cause: Box::from(self),
         }
     }
@@ -39,10 +42,11 @@ impl Display for InterpretationError {
                 f.write_fmt(format_args!("A value was requried, but no value was returned")),
             InterpretationError::VariableHasNoValue{ variable } => 
                 f.write_fmt(format_args!("Variable {} was used, but no value has been assigned to it", variable.name)),
+            InterpretationError::DoubleAssignment() => f.write_str("Assignment lamda was executed more than once"),
             InterpretationError::InternalError(what) => 
                 f.write_fmt(format_args!("Internal error: {what}")),
-            InterpretationError::WhileParsing { line_nr, cause } =>
-                f.write_fmt(format_args!("{cause} (line {line_nr})")), 
+            InterpretationError::WhileParsing { function_name, char_idx, cause } =>
+            f.write_fmt(format_args!("{cause}\n\twhile parsing \"{function_name}\" (at char {char_idx})")),
         }
     }
 }

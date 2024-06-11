@@ -102,6 +102,7 @@ pub struct FunctionDeclaration {
     pub name: Identifier,
     pub parameters: Vec<Parameter>,
     pub return_type: TypeRef,
+    pub start_char: usize,
 }
 
 #[derive(Debug, Clone)]

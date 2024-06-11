@@ -103,6 +103,7 @@ impl FunctionCollector {
             name: name_node.as_identifier(),
             parameters,
             return_type,
+            start_char: node.first_char()
         })
     }
 

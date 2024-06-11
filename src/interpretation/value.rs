@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{cell::OnceCell, rc::Rc};
 
 use crate::symbolization::ast::*;
 
@@ -15,7 +15,7 @@ pub enum Value {
     String(String),
     FunctionLamda(GlobalFunctionTarget, StackFrame),
     InlineLamda(Rc<FunctionBody>, StackFrame),
-    AssignmentLamda(VariableId),
+    AssignmentLamda(Rc<OnceCell<Value>>),
     IdentityLamda,
     Tuple(Vec<Value>),
 }

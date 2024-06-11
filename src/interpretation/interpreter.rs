@@ -135,7 +135,8 @@ impl Interpreter {
             },
             FunctionExpression::Assignment(var) => {
                 if matches!(expr_value, Value::Nothing) {
-                    return Ok(Value::AssignmentLamda(var.id));
+                    let promise = stack.promise_variable(var.id);
+                    return Ok(Value::AssignmentLamda(promise));
                 }
 
                 println!("{} = {:?}", var.name, expr_value);
@@ -339,8 +340,22 @@ impl Interpreter {
                 // the function body contains references to either the lamda parameters, or the capture
                 self.evaluate_fn_body(&body, function_stack)
             },
-            Value::AssignmentLamda(_target_id) => {
-                panic!("AssignmentLamda in user code is not supported");
+            Value::AssignmentLamda(promise) => {
+                // this clone is needed because it borrows from `value` which borrows from `stack`
+                let promise = promise.clone();
+
+                let value = match expr_value {
+                    Value::Nothing => {
+                        let expr = arguments[0].as_ref().expect("partial call of lamda is not allowed");
+                        self.evaluate_value_expression(expr, stack)?
+                    },
+                    anything_else => anything_else,
+                };
+
+                match promise.set(value) {
+                    Ok(_) => Ok(Value::Break),
+                    Err(_) => Err(InterpretationError::DoubleAssignment()),
+                }
             },
             Value::IdentityLamda => Ok(expr_value),
             _ => panic!("LamdaCall call did not refer to a callable variable"),

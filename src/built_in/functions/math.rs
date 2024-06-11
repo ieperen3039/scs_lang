@@ -1,6 +1,6 @@
 use crate::{
     built_in::{function_builder::FunctionBuilder, functions::InternalFunction},
-    interpretation::{value::*, interperation_result::InterpResult},
+    interpretation::{interperation_result::InterpResult, value::*},
     symbolization::ast::*,
 };
 
@@ -30,7 +30,7 @@ pub struct FnDiv {
 
 pub struct FnSqrt {
     function_id: NativeFunctionId,
-    par_value : Parameter,
+    par_value: Parameter,
 }
 
 impl InternalFunction for FnAdd {
@@ -45,12 +45,12 @@ impl InternalFunction for FnAdd {
     }
 
     fn get_declaration(&self) -> FunctionDeclaration {
-        FunctionDeclaration {
-            id: GlobalFunctionTarget::Native(self.function_id),
-            name: Identifier::from("add"),
-            parameters: FunctionBuilder::sorted(&[&self.par_left, &self.par_right]),
-            return_type: TypeRef::INT.clone()
-        }
+        FunctionDeclaration::new_native(
+            self.function_id,
+            "add",
+            &[&self.par_left, &self.par_right],
+            &TypeRef::INT,
+        )
     }
 
     fn call(&self, mut arguments: Vec<Value>) -> InterpResult<Value> {
@@ -72,12 +72,12 @@ impl InternalFunction for FnSub {
     }
 
     fn get_declaration(&self) -> FunctionDeclaration {
-        FunctionDeclaration {
-            id: GlobalFunctionTarget::Native(self.function_id),
-            name: Identifier::from("sub"),
-            parameters: FunctionBuilder::sorted(&[&self.par_left, &self.par_right]),
-            return_type: TypeRef::INT.clone(),
-        }
+        FunctionDeclaration::new_native(
+            self.function_id,
+            "sub",
+            &[&self.par_left, &self.par_right],
+            &TypeRef::INT,
+        )
     }
 
     fn call(&self, mut arguments: Vec<Value>) -> InterpResult<Value> {
@@ -99,12 +99,12 @@ impl InternalFunction for FnMul {
     }
 
     fn get_declaration(&self) -> FunctionDeclaration {
-        FunctionDeclaration {
-            id: GlobalFunctionTarget::Native(self.function_id),
-            name: Identifier::from("mul"),
-            parameters: FunctionBuilder::sorted(&[&self.par_left, &self.par_right]),
-            return_type: TypeRef::INT.clone(),
-        }
+        FunctionDeclaration::new_native(
+            self.function_id,
+            "mul",
+            &[&self.par_left, &self.par_right],
+            &TypeRef::INT,
+        )
     }
 
     fn call(&self, mut arguments: Vec<Value>) -> InterpResult<Value> {
@@ -126,12 +126,12 @@ impl InternalFunction for FnDiv {
     }
 
     fn get_declaration(&self) -> FunctionDeclaration {
-        FunctionDeclaration {
-            id: GlobalFunctionTarget::Native(self.function_id),
-            name: Identifier::from("div"),
-            parameters: FunctionBuilder::sorted(&[&self.par_left, &self.par_right]),
-            return_type: TypeRef::INT.clone(),
-        }
+        FunctionDeclaration::new_native(
+            self.function_id,
+            "div",
+            &[&self.par_left, &self.par_right],
+            &TypeRef::INT,
+        )
     }
 
     fn call(&self, mut arguments: Vec<Value>) -> InterpResult<Value> {
@@ -152,12 +152,7 @@ impl InternalFunction for FnSqrt {
     }
 
     fn get_declaration(&self) -> FunctionDeclaration {
-        FunctionDeclaration {
-            id: GlobalFunctionTarget::Native(self.function_id),
-            name: Identifier::from("sqrt"),
-            parameters: FunctionBuilder::sorted(&[&self.par_value]),
-            return_type: TypeRef::INT.clone(),
-        }
+        FunctionDeclaration::new_native(self.function_id, "sqrt", &[&self.par_value], &TypeRef::INT)
     }
 
     fn call(&self, mut arguments: Vec<Value>) -> InterpResult<Value> {
