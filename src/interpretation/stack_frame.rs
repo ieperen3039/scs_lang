@@ -1,7 +1,6 @@
 use crate::symbolization::ast::*;
 use std::{
-    borrow::BorrowMut,
-    cell::{self, OnceCell},
+    cell::OnceCell,
     fmt::Debug,
     rc::Rc,
 };

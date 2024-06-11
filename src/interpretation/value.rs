@@ -6,9 +6,9 @@ use super::stack_frame::StackFrame;
 
 #[derive(Debug, Clone)]
 pub enum Value {
-    Nothing,
-    Break,                          // execution of this statement must halt
-    Return(Box<Value>),             // execution of this function must halt
+    Nothing,            // execution continues, but value is of void-type
+    Break,              // execution of this statement must halt
+    Return(Box<Value>), // execution of this function must halt
     Boolean(bool),
     Int(i32),
     String(String),

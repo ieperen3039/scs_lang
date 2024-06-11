@@ -73,8 +73,14 @@ impl FunctionExpression {
 }
 
 impl FunctionDeclaration {
-    pub fn new_native(id: NativeFunctionId, name: &str, parameters: &[&Parameter], return_type: &TypeRef) -> FunctionDeclaration {
-        let mut parameters_sorted: Vec<Parameter> = parameters.into_iter().map(|&p| p.to_owned()).collect();
+    pub fn new_native(
+        id: NativeFunctionId,
+        name: &str,
+        parameters: &[&Parameter],
+        return_type: &TypeRef,
+    ) -> FunctionDeclaration {
+        let mut parameters_sorted: Vec<Parameter> =
+            parameters.into_iter().map(|&p| p.to_owned()).collect();
         parameters_sorted.sort_unstable_by_key(|p| p.id);
 
         FunctionDeclaration {
@@ -82,7 +88,7 @@ impl FunctionDeclaration {
             name: Identifier::from(name),
             parameters: parameters_sorted,
             return_type: return_type.clone(),
-            start_char: 0
+            start_char: 0,
         }
     }
 }
@@ -98,7 +104,7 @@ impl ValueExpression {
             ValueExpression::Literal(Literal::Boolean(_)) => TypeRef::BOOLEAN.clone(),
             ValueExpression::Variable(var) => variables.get_type_of(*var).clone(),
             ValueExpression::FunctionAsValue(fn_expr) => fn_expr.get_type(),
-            ValueExpression::FunctionCall(fc) => fc.value_type.return_type.deref().clone()
+            ValueExpression::FunctionCall(fc) => fc.value_type.return_type.deref().clone(),
         }
     }
 }
@@ -158,8 +164,20 @@ impl Namespace {
         new_self
     }
 
-    pub fn get(&self, name: &str) -> Option<&TypeId> {
-        self.types.get(name)
+    // recursively
+    pub fn find_fn(&self, name: GlobalFunctionTarget) -> Option<&FunctionDeclaration> {
+        let mut result_here = self.functions.values().find(|f| f.id == name);
+
+        let mut ns_iter = self.namespaces.values();
+        while result_here.is_none() {
+            if let Some(ns) = ns_iter.next() {
+                result_here = ns.find_fn(name)
+            } else {
+                return None;
+            }
+        }
+
+        return result_here;
     }
 }
 

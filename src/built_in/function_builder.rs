@@ -1,6 +1,5 @@
 use crate::{
     interpretation::{
-        interperation_result::{InterpResult, InterpretationError},
         stack_frame::StackFrame,
         value::Value,
     },

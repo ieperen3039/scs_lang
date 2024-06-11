@@ -33,7 +33,7 @@ impl FunctionCollector {
         match node.rule_name {
             "namespace" => self.read_functions_of_namespace(node, root_namespace, local_namespace),
             "implementation" => {
-                let (impl_type, functions) =
+                let (_impl_type, functions) =
                     self.read_implementation(node, root_namespace, local_namespace)?;
                 Ok(functions)
             },

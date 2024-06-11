@@ -15,7 +15,8 @@ fn interp_math() {
         div(3, 2) 
             = a;
         mul(3, 4) 
-            add(mul(5, 6)) = b;
+            add(mul(5, 6)) 
+            = b;
         1 
             add(2) 
             add(3) 
@@ -24,16 +25,16 @@ fn interp_math() {
             mul(10) 
             = c;
 
-        mul(l=b, r=b) 
-            sub($(){
-                mul(l=4, r=a)
-                    mul(r=c)
+        mul(b, b) 
+            sub((){
+                mul(4, a)
+                    mul(c)
             })
-            = d
+            = d;
 
-        sub(0, r=b)
-            add(sqrt(v=d))
-            div(mul(2, r=a))
+        sub(0, b)
+            add(sqrt(d))
+            div(mul(2, a))
     "#;
 
     let mut faux_compiler = FauxCompiler::build(&definition, None).unwrap();

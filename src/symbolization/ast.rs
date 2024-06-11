@@ -184,7 +184,7 @@ pub enum LocalFunctionTarget {
     Native(NativeFunctionId)
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GlobalFunctionTarget {
     Defined(FunctionId),
     Native(NativeFunctionId)

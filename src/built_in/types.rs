@@ -2,7 +2,7 @@ use crate::symbolization::{ast::*, type_collector::TypeCollector};
 
 pub type InternalTypes = Vec<TypeDefinition>;
 
-pub fn build_types(tc: &mut TypeCollector) -> InternalTypes {
+pub fn build_types(_tc: &mut TypeCollector) -> InternalTypes {
     vec![]
 }
 

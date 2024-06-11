@@ -1,5 +1,6 @@
 use crate::{
-    built_in::functions::InternalFunctions, interpretation::stack_frame::StackFrame,
+    built_in::functions::InternalFunctions,
+    interpretation::stack_frame::StackFrame,
     symbolization::ast::*,
 };
 
@@ -89,7 +90,9 @@ impl Interpreter {
                 for ele in tuple {
                     let expr_result = self.evaluate_value_expression(ele, stack);
                     match expr_result {
-                        Ok(Value::Break) | Ok(Value::Nothing) => return Err(InterpretationError::ExpectedValueGotNothing),
+                        Ok(Value::Break) | Ok(Value::Nothing) => {
+                            return Err(InterpretationError::ExpectedValueGotNothing)
+                        },
                         Ok(value) => tuple_values.push(value),
                         Err(err) => return Err(err),
                     }
@@ -147,8 +150,7 @@ impl Interpreter {
                 }
             },
             FunctionExpression::Operator(op) => {
-                let arg_value =
-                    self.evaluate_value_expression(&op.arg, stack)?;
+                let arg_value = self.evaluate_value_expression(&op.arg, stack)?;
 
                 let mut function_stack = StackFrame::new();
                 function_stack.add_variable(Variable {
@@ -256,7 +258,7 @@ impl Interpreter {
         stack: &mut StackFrame,
     ) -> InterpResult<StackFrame> {
         let mut function_stack = StackFrame::new();
-        let mut var_id = 0;
+        let mut par_idx = 0;
         for ele in arguments {
             let arg_value = match ele {
                 Some(expr) => self.evaluate_value_expression(expr, stack)?,
@@ -265,18 +267,17 @@ impl Interpreter {
                 None => std::mem::replace(&mut expr_value, Value::Nothing),
             };
 
-            if require_full_evaluation && matches!(arg_value, Value::Nothing) {
-                panic!(
-                    "Function call must evaluate to a value, but parameter {var_id} has no value"
-                );
+            if matches!(arg_value, Value::Nothing) || matches!(arg_value, Value::Break) {
+                if require_full_evaluation {
+                    panic!(
+                        "Function call must evaluate to a value, but parameter {par_idx} has no value"
+                    );
+                }
             } else {
-                function_stack.add_variable(Variable {
-                    id: var_id,
-                    value: arg_value,
-                });
+                function_stack.add_argument(arg_value);
             }
-            // assume that all parameters have consectutive variable ids starting from 0
-            var_id += 1;
+            
+            par_idx += 1;
         }
 
         Ok(function_stack)
@@ -310,9 +311,13 @@ impl Interpreter {
                 }
 
                 match target {
-                    GlobalFunctionTarget::Defined(id) => {
-                        self.evaluate_fn_body(self.get_defined_fn(id), function_stack)
-                    },
+                    GlobalFunctionTarget::Defined(id) => self
+                        .evaluate_fn_body(self.get_defined_fn(id), function_stack)
+                        .map_err(|err| {
+                            err.while_parsing(
+                                self.get_declaration(GlobalFunctionTarget::Defined(id)),
+                            )
+                        }),
                     GlobalFunctionTarget::Native(id) => self.evaluate_native(id, function_stack),
                 }
             },
@@ -341,12 +346,15 @@ impl Interpreter {
 
                 let value = match expr_value {
                     Value::Nothing => {
-                        let expr = arguments[0].as_ref().expect("partial call of lamda is not allowed");
+                        let expr = arguments[0]
+                            .as_ref()
+                            .expect("partial call of lamda is not allowed");
                         self.evaluate_value_expression(expr, stack)?
                     },
                     anything_else => anything_else,
                 };
 
+                todo!("What if we are targeting the return variable?");
                 match promise.set(value) {
                     Ok(_) => Ok(Value::Break),
                     Err(_) => Err(InterpretationError::DoubleAssignment()),
@@ -367,6 +375,15 @@ impl Interpreter {
             .get(&id)
             .expect("FunctionCall must be valid");
 
-        target.call(function_stack.to_vec())
+        target
+            .call(function_stack.to_vec())
+            .map_err(|err| err.while_parsing(&target.get_declaration()))
+    }
+
+    fn get_declaration(&self, id: GlobalFunctionTarget) -> &FunctionDeclaration {
+        self.program
+            .namespaces
+            .find_fn(id)
+            .expect("function id not found")
     }
 }
