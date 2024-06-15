@@ -62,7 +62,7 @@ impl Interpreter {
             for expr in &stmt.mutations {
                 match expr_value {
                     Value::Break => break,
-                    Value::Nothing => panic!("expr_value == Nothing"),
+                    Value::Nothing => panic!("expr_value == {:?}", expr_value),
                     Value::Return(value) => return Ok(*value),
                     _ => {},
                 }
@@ -70,7 +70,12 @@ impl Interpreter {
                 expr_value = self.evaluate_function_expression(expr, expr_value, &mut stack)?;
             }
 
-            debug_assert!(matches!(expr_value, Value::Break));
+            // now expr_value should be either a statement break, or a return value
+            match expr_value {
+                Value::Break => {},
+                Value::Return(value) => return Ok(*value),
+                _ => panic!("expr_value == {:?}", expr_value),
+            }
         }
 
         unreachable!("functions must have a return expression")
@@ -133,6 +138,10 @@ impl Interpreter {
             },
             FunctionExpression::Assignment(var) => {
                 if matches!(expr_value, Value::Nothing) {
+                    if var.is_return {
+                        panic!("assigning to return via lamda is not yet supported");
+                    }
+
                     let promise = stack.promise_variable(var.id);
                     return Ok(Value::AssignmentLamda(promise));
                 }
@@ -270,7 +279,7 @@ impl Interpreter {
             if matches!(arg_value, Value::Nothing) || matches!(arg_value, Value::Break) {
                 if require_full_evaluation {
                     panic!(
-                        "Function call must evaluate to a value, but parameter {par_idx} has no value"
+                        "Function call must evaluate to a value, but parameter {par_idx} is {:?}", arg_value
                     );
                 }
             } else {
@@ -354,7 +363,6 @@ impl Interpreter {
                     anything_else => anything_else,
                 };
 
-                todo!("What if we are targeting the return variable?");
                 match promise.set(value) {
                     Ok(_) => Ok(Value::Break),
                     Err(_) => Err(InterpretationError::DoubleAssignment()),

@@ -64,15 +64,20 @@ impl FunctionParser<'_, '_> {
                     }
                     .while_parsing(separator_node));
                 };
-            } else if let Some(last_mutation) = statement.mutations.last() {
+            } else {
                 // this is an implicit return
-                if let FunctionExpression::Assignment(_) = last_mutation {
-                    return Err(SemanticError::BrokenControl(
-                        "Function ended with an assignment, but no semicolon. \
-                        Assignments do not return a result, but the missing semicolon implies that we wnat to return this result",
-                    ).while_parsing(statement_node.sub_rules.last().unwrap_or(statement_node)));
-                }
-                let last_expression_type = last_mutation.get_return_type();
+                let last_expression_type = match statement.mutations.last() {
+                    Some(last_mutation) => {
+                        if let FunctionExpression::Assignment(_) = last_mutation {
+                            return Err(SemanticError::BrokenControl(
+                                "Function ended with an assignment, but no semicolon. \
+                            Assignments do not return a result, but the missing semicolon implies that we wnat to return this result",
+                            ).while_parsing(statement_node.sub_rules.last().unwrap_or(statement_node)));
+                        }
+                        last_mutation.get_return_type()
+                    },
+                    None => statement.base_element.get_type(variables),
+                };
                 // TODO check whether last_expression_type is TypeRef::NoReturn
 
                 let return_var = match variables.get_return_var() {
@@ -159,8 +164,16 @@ impl FunctionParser<'_, '_> {
 
         let mut expression_type = expression.get_type(variables);
         let mut mutations = Vec::new();
+        let mut previous_expr_node = expression_node;
 
         for mutator_node in node.find_nodes("function_expression") {
+            if expression_type == TypeRef::Break {
+                return Err(SemanticError::BrokenControl(
+                    "Expression does not return, but the statement continues. Did you forget a semicolon?",
+                )
+                .while_parsing(previous_expr_node));
+            }
+
             let mutator = self.read_function_expression(
                 mutator_node,
                 &vec![expression_type],
@@ -180,6 +193,7 @@ impl FunctionParser<'_, '_> {
             }
 
             expression_type = mutator.get_return_type();
+            previous_expr_node = mutator_node;
             mutations.push(mutator);
         }
 
@@ -831,7 +845,7 @@ impl FunctionParser<'_, '_> {
         let mut arguments = Vec::new();
         arguments.resize(remaining_parameters.len(), None);
 
-        for arg_node in argument_nodes {
+        for arg_node in argument_nodes.into_iter().rev() {
             let (par_idx, expr) = self.read_argument(
                 &function_decl.name,
                 arg_node,
@@ -895,14 +909,17 @@ impl FunctionParser<'_, '_> {
             "unnamed_argument" => {
                 let first_non_optional = remaining_parameters
                     .iter()
-                    .position(|p| !p.is_optional)
+                    .enumerate()
+                    .rev()
+                    .find(|(_, p)| !p.is_optional)
+                    .map(|(idx, _)| idx)
                     .ok_or_else(|| {
-                    SemanticError::AmbiguousUnnamedArgument {
-                        arg: sub_node.as_identifier(),
-                        function: function_name.clone(),
-                    }
-                    .while_parsing(sub_node)
-                })?;
+                        SemanticError::AmbiguousUnnamedArgument {
+                            arg: sub_node.as_identifier(),
+                            function: function_name.clone(),
+                        }
+                        .while_parsing(sub_node)
+                    })?;
 
                 let expression_node = sub_node.expect_node("expression")?;
                 let expected_type = &remaining_parameters[first_non_optional].par_type;
