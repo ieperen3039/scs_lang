@@ -3,7 +3,7 @@ use crate::compiler::FauxCompiler;
 use super::interpreter::Interpreter;
 
 #[test]
-fn sqrt_and_nested_fn() {
+fn single_nested_fn() {
     let definition = include_str!("../../doc/faux_script.ebnf");
 
     let program = r#"
@@ -139,6 +139,69 @@ fn interp_math() {
     match interpretation_result {
         Ok(string_rep) => {
             assert_eq!(string_rep, "Int(-4)");
+        },
+        Err(err) => {
+            panic!("{err}");
+        },
+    }
+}
+
+#[test]
+fn lamda_call() {
+    let definition = include_str!("../../doc/faux_script.ebnf");
+
+    let program = r#"
+        10
+            sub((){
+                1 add(2) add(3)
+            }
+            (res) {
+                20
+                    sub(5)
+                    add(res)
+            }
+    "#;
+
+    let mut faux_compiler = FauxCompiler::build(&definition, None).unwrap();
+    let parse_result = faux_compiler.compile_script(&program);
+    
+    if let Err(err) = parse_result {
+        panic!("{err}");
+    }
+
+    let interpreter = Interpreter::new(parse_result.unwrap(), faux_compiler.get_built_in_functions());
+
+    let interpretation_result = interpreter.execute_main();
+    match interpretation_result {
+        Ok(string_rep) => {
+            assert_eq!(string_rep, "<TODO>");
+        },
+        Err(err) => {
+            panic!("{err}");
+        },
+    }
+}
+
+#[test]
+fn conditional_assignment() {
+    let definition = include_str!("../../doc/faux_script.ebnf");
+
+    let program = r#"
+    "#;
+
+    let mut faux_compiler = FauxCompiler::build(&definition, None).unwrap();
+    let parse_result = faux_compiler.compile_script(&program);
+    
+    if let Err(err) = parse_result {
+        panic!("{err}");
+    }
+
+    let interpreter = Interpreter::new(parse_result.unwrap(), faux_compiler.get_built_in_functions());
+
+    let interpretation_result = interpreter.execute_main();
+    match interpretation_result {
+        Ok(string_rep) => {
+            assert_eq!(string_rep, "<TODO>");
         },
         Err(err) => {
             panic!("{err}");

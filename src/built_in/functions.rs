@@ -7,6 +7,7 @@ use crate::{
 
 pub mod echo;
 pub mod math;
+pub mod cmp;
 
 pub type InternalFunctions = HashMap<ast::NativeFunctionId, Box<dyn InternalFunction>>;
 
@@ -19,6 +20,8 @@ pub fn build_functions() -> InternalFunctions {
         id_gen.build_function::<math::FnMul>(),
         id_gen.build_function::<math::FnDiv>(),
         id_gen.build_function::<math::FnSqrt>(),
+        id_gen.build_function::<cmp::FnLessThan>(),
+        id_gen.build_function::<cmp::FnGreaterThan>(),
     ])
 }
 

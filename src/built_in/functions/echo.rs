@@ -4,7 +4,7 @@ use crate::{
     symbolization::ast::*,
 };
 
-struct FnEcho {
+pub struct FnEcho {
     function_id: NativeFunctionId,
     par_in: Parameter,
     par_error: Parameter,
