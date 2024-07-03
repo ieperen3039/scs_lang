@@ -226,7 +226,7 @@ impl Interpreter {
         }
     }
 
-    fn evaluate_function_call(
+    pub fn evaluate_function_call(
         &self,
         target: LocalFunctionTarget,
         arguments: &Vec<Option<ValueExpression>>,
@@ -384,7 +384,7 @@ impl Interpreter {
             .expect("FunctionCall must be valid");
 
         target
-            .call(function_stack.to_vec())
+            .call(function_stack.to_vec(), &self)
             .map_err(|err| err.while_parsing(&target.get_declaration()))
     }
 

@@ -11,12 +11,14 @@ pub enum Value {
     Return(Box<Value>), // execution of this function must halt
     Boolean(bool),
     Int(i32),
+    Float(f64),
     String(String),
+    Variant(u32, Box<Value>),
+    Tuple(Vec<Value>),
     FunctionLamda(GlobalFunctionTarget, StackFrame),
     InlineLamda(Rc<FunctionBody>, StackFrame),
     AssignmentLamda(Rc<OnceCell<Value>>),
     IdentityLamda,
-    Tuple(Vec<Value>),
 }
 
 impl std::fmt::Debug for FunctionBody {

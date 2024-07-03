@@ -154,7 +154,7 @@ fn lamda_call() {
         10
             sub((){
                 1 add(2) add(3)
-            }
+            })
             (res) {
                 20
                     sub(5)
@@ -174,7 +174,7 @@ fn lamda_call() {
     let interpretation_result = interpreter.execute_main();
     match interpretation_result {
         Ok(string_rep) => {
-            assert_eq!(string_rep, "<TODO>");
+            assert_eq!(string_rep, "Int(19)");
         },
         Err(err) => {
             panic!("{err}");

@@ -1,6 +1,6 @@
 use crate::{
     built_in::{function_builder::FunctionBuilder, functions::InternalFunction},
-    interpretation::{interperation_result::InterpResult, value::*},
+    interpretation::{interperation_result::InterpResult, interpreter::Interpreter, value::*},
     symbolization::ast::*,
 };
 
@@ -25,12 +25,13 @@ impl InternalFunction for FnEcho {
         FunctionDeclaration::new_native(
             self.function_id,
             "echo",
-            &[&self.par_in, &self.par_error],
+            Vec::new(),
+            vec![&self.par_in, &self.par_error],
             &TypeRef::STRING,
         )
     }
 
-    fn call(&self, mut arguments: Vec<Value>) -> InterpResult<Value> {
+    fn call(&self, mut arguments: Vec<Value>, interpreter: &Interpreter) -> InterpResult<Value> {
         let val_in = FunctionBuilder::get_string(&mut arguments, &self.par_in);
         let val_error = FunctionBuilder::get_boolean(&mut arguments, &self.par_error);
 

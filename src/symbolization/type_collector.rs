@@ -162,6 +162,7 @@ impl TypeCollector {
         Ok(UnresolvedName {
             name: name_node.as_identifier(),
             scope,
+            generics: Vec::new(),
         })
     }
 

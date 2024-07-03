@@ -101,6 +101,7 @@ impl FunctionCollector {
         Ok(FunctionDeclaration {
             id,
             name: name_node.as_identifier(),
+            generic_parameters: Vec::new(),
             parameters,
             return_type,
             start_char: node.first_char()

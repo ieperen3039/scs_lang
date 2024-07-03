@@ -1,8 +1,5 @@
 use crate::{
-    interpretation::{
-        stack_frame::StackFrame,
-        value::Value,
-    },
+    interpretation::{stack_frame::StackFrame, value::Value},
     symbolization::ast::*,
 };
 
@@ -133,6 +130,50 @@ impl FunctionBuilder {
                 "Expected type \"{:?}\", but found value \"{:?}\" for argument {:?}",
                 par.par_type,
                 arg,
+                par.name()
+            );
+        }
+    }
+
+    pub fn get_variant(arguments: &mut Vec<Value>, par: &Parameter) -> (u32, Value) {
+        let arg = std::mem::replace(&mut arguments[par.id], Value::Nothing);
+
+        if let Value::Variant(id, value) = arg {
+            (id, *value)
+        } else {
+            panic!(
+                "Expected type \"{:?}\", but found value \"{:?}\" for argument {:?}",
+                par.par_type,
+                arg,
+                par.name()
+            );
+        }
+    }
+
+    // this function does not consume the argument if it is not the requested type.
+    // it is less efficient than calling get_variant, unless the original variant 
+    // should be preseved when no match is made
+    pub fn get_variant_if_present(
+        arguments: &mut Vec<Value>,
+        par: &Parameter,
+        id: u32,
+    ) -> Option<Value> {
+        if let Value::Variant(v_id, _) = &arguments[par.id] {
+            if *v_id != id {
+                None
+            } else {
+                let arg = std::mem::replace(&mut arguments[par.id], Value::Nothing);
+                if let Value::Variant(_, value) = arg {
+                    Some(*value)
+                } else {
+                    unreachable!("We already checked")
+                }
+            }
+        } else {
+            panic!(
+                "Expected type \"{:?}\", but found value \"{:?}\" for argument {:?}",
+                par.par_type,
+                arguments[par.id],
                 par.name()
             );
         }

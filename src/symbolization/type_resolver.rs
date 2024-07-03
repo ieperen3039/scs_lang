@@ -198,6 +198,6 @@ impl<'rns> TypeResolver<'rns> {
                 scope: resolved_namespace.full_name.clone(),
             })?;
 
-        Ok(DefinedRef { id: resolved_type })
+        Ok(DefinedRef { id: resolved_type, generics: Vec::new() })
     }
 }

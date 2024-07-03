@@ -775,9 +775,12 @@ impl FunctionParser<'_, '_> {
             .map(|p| p.par_type)
             .collect();
 
+        let generic_arguments = Vec::new();
+
         Ok(FunctionCall {
             target: function_decl.id.into(),
             arguments,
+            generic_arguments,
             value_type: FunctionType {
                 parameters,
                 return_type: Box::new(function_decl.return_type),
@@ -809,6 +812,7 @@ impl FunctionParser<'_, '_> {
             Ok(FunctionCall {
                 target: LocalFunctionTarget::Local(fn_var.id),
                 value_type: fn_type.clone(),
+                generic_arguments: Vec::new(),
                 arguments,
             })
         } else {

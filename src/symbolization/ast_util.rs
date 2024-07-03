@@ -4,7 +4,10 @@ use crate::built_in::primitives::*;
 
 use super::{ast::*, variable_storage::VarStorage};
 
-impl TypeDefinition {}
+pub const RESULT_VARIANT_ID_POS : u32 = 0;
+pub const RESULT_VARIANT_ID_NEG : u32 = 1;
+pub const OPTION_VARIANT_ID_SOME : u32 = 0;
+pub const OPTION_VARIANT_ID_NONE : u32 = 1;
 
 impl TypeRef {
     pub const STRING: TypeRef = Self::from(TYPE_ID_STRING);
@@ -13,7 +16,7 @@ impl TypeRef {
     pub const BOOLEAN: TypeRef = Self::from(TYPE_ID_BOOLEAN);
 
     pub const fn from(id: TypeId) -> TypeRef {
-        TypeRef::Defined(DefinedRef { id })
+        TypeRef::Defined(DefinedRef { id, generics: Vec::new() })
     }
 }
 
@@ -76,11 +79,12 @@ impl FunctionDeclaration {
     pub fn new_native(
         id: NativeFunctionId,
         name: &str,
-        parameters: &[&Parameter],
+        generics: Vec<Identifier>,
+        parameters: Vec<&Parameter>,
         return_type: &TypeRef,
     ) -> FunctionDeclaration {
         let mut parameters_sorted: Vec<Parameter> =
-            parameters.into_iter().map(|&p| p.to_owned()).collect();
+            parameters.into_iter().map(Parameter::to_owned).collect();
         parameters_sorted.sort_unstable_by_key(|p| p.id);
 
         FunctionDeclaration {
@@ -89,6 +93,28 @@ impl FunctionDeclaration {
             parameters: parameters_sorted,
             return_type: return_type.clone(),
             start_char: 0,
+            generic_parameters: generics,
+        }
+    }
+
+    pub fn new_native_operator(
+        id: NativeFunctionId,
+        symbol: &str,
+        full_name: &str,
+        generics: Vec<Identifier>,
+        left_par_type: TypeRef,
+        left_par_name: Identifier,
+        right_par_type: FunctionType,
+        right_par_name: Identifier,
+        return_type: &TypeRef,
+    ) -> FunctionDeclaration {
+        FunctionDeclaration {
+            id: GlobalFunctionTarget::Native(id),
+            name: Identifier::from(full_name),
+            parameters: vec![],
+            return_type: return_type.clone(),
+            start_char: 0,
+            generic_parameters: generics,
         }
     }
 }

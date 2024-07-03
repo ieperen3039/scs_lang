@@ -1,13 +1,14 @@
 use std::collections::HashMap;
 
 use crate::{
-    interpretation::{value::Value, interperation_result::InterpResult},
-    symbolization::ast,
+    interpretation::{interperation_result::InterpResult, interpreter::Interpreter, value::Value},
+    symbolization::ast::{self, Identifier},
 };
 
+pub mod cmp;
 pub mod echo;
 pub mod math;
-pub mod cmp;
+pub mod result;
 
 pub type InternalFunctions = HashMap<ast::NativeFunctionId, Box<dyn InternalFunction>>;
 
@@ -55,7 +56,9 @@ pub trait InternalFunction {
 
     fn get_declaration(&self) -> ast::FunctionDeclaration;
 
-    fn call(&self, arguments: Vec<Value>) -> InterpResult<Value>;
+    fn call(&self, arguments: Vec<Value>, interpreter: &Interpreter) -> InterpResult<Value>;
+
+    fn as_operator(&self) -> Option<Identifier> { None }
 }
 
 pub fn get_functions(functions: &InternalFunctions) -> ast::Namespace {

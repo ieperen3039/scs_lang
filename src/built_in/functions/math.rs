@@ -1,6 +1,6 @@
 use crate::{
     built_in::{function_builder::FunctionBuilder, functions::InternalFunction},
-    interpretation::{interperation_result::InterpResult, value::*},
+    interpretation::{interperation_result::InterpResult, interpreter::Interpreter, value::*},
     symbolization::ast::*,
 };
 
@@ -48,12 +48,13 @@ impl InternalFunction for FnAdd {
         FunctionDeclaration::new_native(
             self.function_id,
             "add",
-            &[&self.par_left, &self.par_right],
+            Vec::new(),
+            vec![&self.par_left, &self.par_right],
             &TypeRef::INT,
         )
     }
 
-    fn call(&self, mut arguments: Vec<Value>) -> InterpResult<Value> {
+    fn call(&self, mut arguments: Vec<Value>, interpreter: &Interpreter) -> InterpResult<Value> {
         let left = FunctionBuilder::get_int(&mut arguments, &self.par_left);
         let right = FunctionBuilder::get_int(&mut arguments, &self.par_right);
         return Ok(Value::Int(left + right));
@@ -75,12 +76,13 @@ impl InternalFunction for FnSub {
         FunctionDeclaration::new_native(
             self.function_id,
             "sub",
-            &[&self.par_left, &self.par_right],
+            Vec::new(),
+            vec![&self.par_left, &self.par_right],
             &TypeRef::INT,
         )
     }
 
-    fn call(&self, mut arguments: Vec<Value>) -> InterpResult<Value> {
+    fn call(&self, mut arguments: Vec<Value>, interpreter: &Interpreter) -> InterpResult<Value> {
         let left = FunctionBuilder::get_int(&mut arguments, &self.par_left);
         let right = FunctionBuilder::get_int(&mut arguments, &self.par_right);
         return Ok(Value::Int(left - right));
@@ -102,12 +104,13 @@ impl InternalFunction for FnMul {
         FunctionDeclaration::new_native(
             self.function_id,
             "mul",
-            &[&self.par_left, &self.par_right],
+            Vec::new(),
+            vec![&self.par_left, &self.par_right],
             &TypeRef::INT,
         )
     }
 
-    fn call(&self, mut arguments: Vec<Value>) -> InterpResult<Value> {
+    fn call(&self, mut arguments: Vec<Value>, interpreter: &Interpreter) -> InterpResult<Value> {
         let left = FunctionBuilder::get_int(&mut arguments, &self.par_left);
         let right = FunctionBuilder::get_int(&mut arguments, &self.par_right);
         return Ok(Value::Int(left * right));
@@ -129,12 +132,13 @@ impl InternalFunction for FnDiv {
         FunctionDeclaration::new_native(
             self.function_id,
             "div",
-            &[&self.par_left, &self.par_right],
+            Vec::new(),
+            vec![&self.par_left, &self.par_right],
             &TypeRef::INT,
         )
     }
 
-    fn call(&self, mut arguments: Vec<Value>) -> InterpResult<Value> {
+    fn call(&self, mut arguments: Vec<Value>, interpreter: &Interpreter) -> InterpResult<Value> {
         let left = FunctionBuilder::get_int(&mut arguments, &self.par_left);
         let right = FunctionBuilder::get_int(&mut arguments, &self.par_right);
         return Ok(Value::Int(left / right));
@@ -152,10 +156,16 @@ impl InternalFunction for FnSqrt {
     }
 
     fn get_declaration(&self) -> FunctionDeclaration {
-        FunctionDeclaration::new_native(self.function_id, "sqrt", &[&self.par_value], &TypeRef::INT)
+        FunctionDeclaration::new_native(
+            self.function_id,
+            "sqrt",
+            Vec::new(),
+            vec![&self.par_value],
+            &TypeRef::INT,
+        )
     }
 
-    fn call(&self, mut arguments: Vec<Value>) -> InterpResult<Value> {
+    fn call(&self, mut arguments: Vec<Value>, interpreter: &Interpreter) -> InterpResult<Value> {
         let left = FunctionBuilder::get_int(&mut arguments, &self.par_value);
         return Ok(Value::Int(f32::sqrt(left as f32) as i32));
     }

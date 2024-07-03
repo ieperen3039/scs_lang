@@ -33,6 +33,7 @@ pub struct Namespace {
 pub enum TypeRef {
     UnresolvedName(UnresolvedName),
     Defined(DefinedRef),
+    GenericName(Identifier),
     Optional(Box<TypeRef>),
     Result(Box<TypeRef>, Box<TypeRef>),
     UnamedTuple(Vec<TypeRef>),
@@ -46,11 +47,13 @@ pub enum TypeRef {
 // could be a base type, but also an enum variant or a named tuple
 pub struct DefinedRef {
     pub id: TypeId,
+    pub generics: Vec<Identifier>,
 }
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct UnresolvedName {
     pub name: Identifier,
+    pub generics: Vec<Identifier>,
     pub scope: Vec<Identifier>,
 }
 
@@ -100,6 +103,8 @@ pub struct Parameter {
 pub struct FunctionDeclaration {
     pub id: GlobalFunctionTarget,
     pub name: Identifier,
+    // decl of generics
+    pub generic_parameters: Vec<Identifier>,
     pub parameters: Vec<Parameter>,
     pub return_type: TypeRef,
     pub start_char: usize,
@@ -110,7 +115,7 @@ pub struct VariableDeclaration {
     pub id: VariableId,
     pub var_type: TypeRef,
     pub name: Identifier,
-    pub is_return: bool
+    pub is_return: bool,
 }
 
 #[derive(Clone)]
@@ -172,6 +177,8 @@ pub struct FunctionCall {
     pub target: LocalFunctionTarget,
     // the type of this expression as a value
     pub value_type: FunctionType,
+    // arguments for the generic parameters
+    pub generic_arguments: Vec<TypeRef>,
     // indices in this vector correspond to the variable ids of the function body
     // (the argument vector and parameter vector should have the same len)
     pub arguments: Vec<Option<ValueExpression>>,
@@ -181,13 +188,13 @@ pub struct FunctionCall {
 pub enum LocalFunctionTarget {
     Defined(FunctionId),
     Local(VariableId),
-    Native(NativeFunctionId)
+    Native(NativeFunctionId),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GlobalFunctionTarget {
     Defined(FunctionId),
-    Native(NativeFunctionId)
+    Native(NativeFunctionId),
 }
 
 #[derive(Clone)]

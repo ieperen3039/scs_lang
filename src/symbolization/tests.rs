@@ -45,6 +45,7 @@ fn parse_convoluted_statements() {
             ],
             return_type: type_string_stream.clone(),
             start_char: 0,
+            generic_parameters: Vec::new(),
         }
     });
     namespace.add_function({
@@ -64,6 +65,7 @@ fn parse_convoluted_statements() {
             ],
             return_type: type_string_stream.clone(),
             start_char: 0,
+            generic_parameters: Vec::new(),
         }
     });
     namespace.add_function({
@@ -78,6 +80,7 @@ fn parse_convoluted_statements() {
             ],
             return_type: type_string_stream.clone(),
             start_char: 0,
+            generic_parameters: Vec::new(),
         }
     });
     namespace.add_function({
@@ -92,6 +95,7 @@ fn parse_convoluted_statements() {
             ],
             return_type: ast::TypeRef::STRING.clone(),
             start_char: 0,
+            generic_parameters: Vec::new(),
         }
     });
     namespace.add_function({
@@ -108,6 +112,7 @@ fn parse_convoluted_statements() {
                 type_string_stream.clone(),
             ]),
             start_char: 0,
+            generic_parameters: Vec::new(),
         }
     });
 
@@ -121,6 +126,7 @@ fn parse_convoluted_statements() {
                 parameters: vec![builder.req_par("pattern", &ast::TypeRef::STRING)],
                 return_type: ast::TypeRef::STRING.clone(),
                 start_char: 0,
+                generic_parameters: Vec::new(),
             }
         });
         namespace.add_sub_scope(git_ns);
@@ -180,6 +186,7 @@ fn parse_function_definition() {
             parameters: vec![builder.req_par("n", &ast::TypeRef::INT)],
             return_type: ast::TypeRef::INT.clone(),
             start_char: 0,
+            generic_parameters: Vec::new(),
         }
     };
     let fn_div = {
@@ -193,6 +200,7 @@ fn parse_function_definition() {
             ],
             return_type: ast::TypeRef::INT.clone(),
             start_char: 0,
+            generic_parameters: Vec::new(),
         }
     };
     let fn_lt = {
@@ -204,6 +212,7 @@ fn parse_function_definition() {
                 builder.req_par("a", &ast::TypeRef::INT),
                 builder.req_par("b", &ast::TypeRef::INT),
             ],
+            generic_parameters: Vec::new(),
             return_type: ast::TypeRef::BOOLEAN.clone(),
             start_char: 0,
         }
