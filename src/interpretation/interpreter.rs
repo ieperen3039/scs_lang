@@ -89,7 +89,7 @@ impl Interpreter {
         match expr {
             ValueExpression::Literal(Literal::Number(lit)) => Ok(Value::Int(*lit)),
             ValueExpression::Literal(Literal::String(lit)) => Ok(Value::String(lit.to_string())),
-            ValueExpression::Literal(Literal::Boolean(lit)) => Ok(Value::Boolean(*lit)),
+            ValueExpression::Literal(Literal::Boolean(lit)) => Ok(Value::new_boolean(*lit)),
             ValueExpression::Tuple(tuple) => {
                 let mut tuple_values = Vec::new();
                 for ele in tuple {

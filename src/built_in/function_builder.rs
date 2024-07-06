@@ -76,7 +76,7 @@ impl FunctionBuilder {
         let arg = std::mem::replace(&mut arguments[par.id], Value::Nothing);
 
         if let Value::String(value) = arg {
-            value
+            return value;
         } else {
             panic!(
                 "Expected type \"{:?}\", but found value \"{:?}\" for argument {:?}",
@@ -90,8 +90,15 @@ impl FunctionBuilder {
     pub fn get_boolean(arguments: &mut Vec<Value>, par: &Parameter) -> bool {
         let arg = std::mem::replace(&mut arguments[par.id], Value::Nothing);
 
-        if let Value::Boolean(value) = arg {
-            value
+        if let Value::Variant(variant_id, value) = arg {
+            if matches!(*value, Value::Nothing) {
+                return variant_id != 0;
+            } else {
+                panic!(
+                    "booleans must be a variant with an empty value, but found {:?}",
+                    *value
+                );
+            }
         } else {
             panic!(
                 "Expected type \"{:?}\", but found value \"{:?}\" for argument {:?}",
@@ -106,7 +113,7 @@ impl FunctionBuilder {
         let arg = std::mem::replace(&mut arguments[par.id], Value::Nothing);
 
         if let Value::Int(value) = arg {
-            value
+            return value;
         } else {
             panic!(
                 "Expected type \"{:?}\", but found value \"{:?}\" for argument {:?}",
@@ -124,7 +131,7 @@ impl FunctionBuilder {
         let arg = std::mem::replace(&mut arguments[par.id], Value::Nothing);
 
         if let Value::FunctionLamda(value, arguments) = arg {
-            (value, arguments)
+            return (value, arguments);
         } else {
             panic!(
                 "Expected type \"{:?}\", but found value \"{:?}\" for argument {:?}",
@@ -139,7 +146,7 @@ impl FunctionBuilder {
         let arg = std::mem::replace(&mut arguments[par.id], Value::Nothing);
 
         if let Value::Variant(id, value) = arg {
-            (id, *value)
+            return (id, *value);
         } else {
             panic!(
                 "Expected type \"{:?}\", but found value \"{:?}\" for argument {:?}",
@@ -151,7 +158,7 @@ impl FunctionBuilder {
     }
 
     // this function does not consume the argument if it is not the requested type.
-    // it is less efficient than calling get_variant, unless the original variant 
+    // it is less efficient than calling get_variant, unless the original variant
     // should be preseved when no match is made
     pub fn get_variant_if_present(
         arguments: &mut Vec<Value>,
@@ -183,7 +190,7 @@ impl FunctionBuilder {
         let arg = std::mem::replace(&mut arguments[par.id], Value::Nothing);
 
         if let Value::Tuple(value) = arg {
-            value
+            return value;
         } else {
             panic!(
                 "Expected type \"{:?}\", but found value \"{:?}\" for argument {:?}",
