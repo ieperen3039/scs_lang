@@ -187,6 +187,16 @@ fn conditional_assignment() {
     let definition = include_str!("../../doc/faux_script.ebnf");
 
     let program = r#"
+        add(1, 2)
+            less_than(5)
+            ?= foo
+            add(100)
+            = return;
+
+        foo ? {
+            sub(2)
+            = return
+        };
     "#;
 
     let mut faux_compiler = FauxCompiler::build(&definition, None).unwrap();

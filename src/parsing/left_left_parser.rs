@@ -77,6 +77,14 @@ impl<'c> Parser {
         &'c self,
         tokens: &'prog [Token<'prog>],
     ) -> Result<RuleNode<'prog, 'c>, Vec<Failure<'c>>> {
+        if tokens.is_empty() {
+            return Ok(RuleNode {
+                rule_name: &self.start_rule,
+                tokens: &[],
+                sub_rules: Vec::new(),
+            });
+        }
+
         let interpretations = self.apply_rule(&tokens, 0, &self.start_rule);
 
         let mut longest_success = ParseNode::EmptyNode;
@@ -338,9 +346,9 @@ impl<'c> Parser {
 fn char_idx_of(next_token: Option<&Token>, tokens: &[Token]) -> usize {
     match next_token {
         Some(t) => t.char_idx,
-        None => {
-            let last_token = tokens.last().unwrap();
-            last_token.char_idx + last_token.slice.len()
+        None => match tokens.last() {
+            Some(last_token) => last_token.char_idx + last_token.slice.len(),
+            None => 0,
         },
     }
 }

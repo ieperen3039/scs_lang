@@ -21,10 +21,17 @@ pub fn build_functions() -> InternalFunctions {
         id_gen.build_function::<math::FnMul>(),
         id_gen.build_function::<math::FnDiv>(),
         id_gen.build_function::<math::FnSqrt>(),
+        id_gen.build_function::<cmp::FnEqual>(),
         id_gen.build_function::<cmp::FnLessThan>(),
         id_gen.build_function::<cmp::FnGreaterThan>(),
+        id_gen.build_function::<result::FnIfPosResult>(),
+        id_gen.build_function::<result::FnIfNegResult>(),
+        id_gen.build_function::<result::FnIfSomeOption>(),
+        id_gen.build_function::<result::FnIfNoneOption>(),
     ])
 }
+
+
 
 pub struct NativeFunctionBuilder {
     next_id: ast::NativeFunctionId,
@@ -64,7 +71,13 @@ pub trait InternalFunction {
 pub fn get_functions(functions: &InternalFunctions) -> ast::Namespace {
     let mut namespace = ast::Namespace::new_root();
     for fn_def in functions.values() {
-        namespace.add_function(fn_def.get_declaration());
+        let fn_to_add = fn_def.get_declaration();
+
+        if let Some(operator) = fn_def.as_operator() {
+            namespace.add_operator(operator, &fn_to_add);
+        }
+        
+        namespace.add_function(fn_to_add);
     }
     namespace
 }

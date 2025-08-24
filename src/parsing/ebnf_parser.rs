@@ -188,7 +188,7 @@ where
 fn process_repeated<'a, T: std::fmt::Debug, F>(
     tokens: &'a str,
     process_fn: F,
-) -> EbnfParseResult<Vec<T>>
+) -> EbnfParseResult<'a, Vec<T>>
 where
     F: Fn(&'a str) -> EbnfParseResult<'a, T>,
 {

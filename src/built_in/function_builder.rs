@@ -21,7 +21,7 @@ impl FunctionBuilder {
     pub fn flag(&mut self, long_name: Option<&str>, short_name: Option<&str>) -> Parameter {
         Parameter {
             id: self.new_var_id(),
-            par_type: TypeRef::BOOLEAN.clone(),
+            par_type: TypeRef::boolean(),
             is_optional: true,
             long_name: long_name.map(Identifier::from),
             short_name: short_name.map(Identifier::from),

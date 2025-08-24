@@ -29,12 +29,11 @@ pub struct Namespace {
 
 // -- references to types --
 
-#[derive(Debug, Hash, Eq, PartialEq, Clone)]
+#[derive(Hash, Eq, PartialEq, Clone)]
 pub enum TypeRef {
     UnresolvedName(UnresolvedName),
     Defined(DefinedRef),
     GenericName(Identifier),
-    Optional(Box<TypeRef>),
     Result(Box<TypeRef>, Box<TypeRef>),
     UnamedTuple(Vec<TypeRef>),
     Stream(Box<TypeRef>),
@@ -47,10 +46,10 @@ pub enum TypeRef {
 // could be a base type, but also an enum variant or a named tuple
 pub struct DefinedRef {
     pub id: TypeId,
-    pub generics: Vec<Identifier>,
+    pub generics: Vec<TypeRef>,
 }
 
-#[derive(Debug, Hash, Eq, PartialEq, Clone)]
+#[derive(Hash, Eq, PartialEq, Clone)]
 pub struct UnresolvedName {
     pub name: Identifier,
     pub generics: Vec<Identifier>,

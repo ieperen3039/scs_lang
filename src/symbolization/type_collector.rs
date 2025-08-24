@@ -245,12 +245,12 @@ impl TypeCollector {
                 let unresolved_name = Self::read_scoped_base_type(node, type_node)?;
                 TypeRef::UnresolvedName(unresolved_name)
             },
-            "flag_type_ref" => TypeRef::BOOLEAN.clone(),
+            "flag_type_ref" => TypeRef::boolean(),
             "tuple_type_ref" => TypeRef::UnamedTuple(TypeCollector::read_tuple_inst(type_node)?),
             "fn_type" => TypeRef::Function(TypeCollector::read_fn_type(type_node)?),
             "optional_type_ref" => {
                 let sub_type = node.find_node("type_ref").unwrap();
-                TypeRef::Optional(Box::new(TypeCollector::read_type_ref(sub_type)?))
+                TypeRef::Result(Box::new(TypeCollector::read_type_ref(sub_type)?), Box::new(TypeRef::Void))
             },
             "result_type_ref" => {
                 let types = type_node.find_nodes("type_ref");

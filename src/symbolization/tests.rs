@@ -11,6 +11,27 @@ use super::{
 };
 
 #[test]
+fn empty_program() {
+    let definition = include_str!("../../doc/faux_script.ebnf");
+    let program = "";
+    
+    let grammar = ebnf_parser::parse_ebnf(definition)
+        .map(grammatificator::convert_to_grammar)
+        .unwrap();
+    let tokens = Lexer::read_faux(&program).unwrap();
+    let parser = left_left_parser::Parser::new(grammar, None);
+    let syntax_tree = parser.parse_program(&tokens);
+    let namespace = ast::Namespace::new_root();
+    let mut function_collector = FunctionCollector::new();
+    let program_result =
+        symbolizer::parse_faux_script(syntax_tree.unwrap(), &namespace, &mut function_collector);
+    
+    if let Err(err) = program_result {
+        panic!("{err}");
+    }
+}
+
+#[test]
 fn parse_convoluted_statements() {
     let definition = include_str!("../../doc/faux_script.ebnf");
     let program = r#"
@@ -213,7 +234,7 @@ fn parse_function_definition() {
                 builder.req_par("b", &ast::TypeRef::INT),
             ],
             generic_parameters: Vec::new(),
-            return_type: ast::TypeRef::BOOLEAN.clone(),
+            return_type: ast::TypeRef::boolean(),
             start_char: 0,
         }
     };
@@ -257,7 +278,7 @@ fn parse_function_definition() {
                 panic!("program.entry_function not found")
             };
 
-            assert_eq!(entry_fn.return_type, ast::TypeRef::BOOLEAN);
+            assert_eq!(entry_fn.return_type, ast::TypeRef::boolean());
         },
     }
 }

@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 use crate::parsing::rule_nodes::RuleNode;
 
@@ -132,8 +132,8 @@ impl FunctionParser<'_, '_> {
 
         if &function_body.return_type != &function_declaration.return_type {
             return Err(SemanticError::TypeMismatchError {
-                expected: function_body.return_type.clone(),
-                found: function_declaration.return_type.clone(),
+                expected: function_declaration.return_type.clone(),
+                found: function_body.return_type.clone(),
             }
             .while_parsing(node.sub_rules.last().unwrap_or(node)));
         }
@@ -203,13 +203,39 @@ impl FunctionParser<'_, '_> {
         })
     }
 
+    fn verify_parameters(
+        argument_types: &Vec<TypeRef>,
+        parameters: &Vec<TypeRef>,
+        node: &RuleNode,
+    ) -> SemanticResult<()> {
+        let mut arg_iter = argument_types.iter();
+        for par in parameters {
+            if let Some(found_type) = arg_iter.next() {
+                FunctionParser::verify_value_type(found_type, Some(par), node)?;
+            } else {
+                return Err(SemanticError::InvalidNumerOfParameters {
+                    num_target: argument_types.len(),
+                    num_this: parameters.len(),
+                });
+            }
+        }
+        Ok(())
+    }
+
     fn verify_value_type(
         found_type: &TypeRef,
         expected_type: Option<&TypeRef>,
         node: &RuleNode,
     ) -> SemanticResult<()> {
+        assert!(!matches!(found_type, TypeRef::GenericName(_)), "Generic types cannot be instantiated");
+
         if let Some(expected_type) = expected_type {
             if found_type == expected_type {
+                return Ok(());
+            }
+
+            if let TypeRef::GenericName(_) = expected_type {
+                // this is checked at a higher level
                 return Ok(());
             }
 
@@ -442,8 +468,7 @@ impl FunctionParser<'_, '_> {
 
                 let function_call = self.read_function_call(sub_node, this_scope, variables)?;
                 let parameters = &function_call.value_type.parameters;
-                validate_parameters(argument_types, parameters)
-                    .map_err(|e| e.while_parsing(sub_node))?;
+                Self::verify_parameters(argument_types, parameters, sub_node)?;
 
                 Ok(FunctionExpression::FunctionCall(function_call))
             },
@@ -540,8 +565,8 @@ impl FunctionParser<'_, '_> {
         let first_par_type = operator_fn_decl.parameters[0].to_type();
         if argument_type != first_par_type {
             return Err(SemanticError::TypeMismatchError {
-                expected: argument_types[0].clone(),
-                found: first_par_type.clone(),
+                expected: first_par_type.clone(),
+                found: argument_types[0].clone(),
             }
             .while_parsing(operator_symbol_node));
         }
@@ -806,8 +831,7 @@ impl FunctionParser<'_, '_> {
         }
 
         if let TypeRef::Function(fn_type) = &fn_var.var_type {
-            validate_parameters(argument_types, &fn_type.parameters)
-                .map_err(|e| e.while_parsing(node))?;
+            Self::verify_parameters(argument_types, &fn_type.parameters, node)?;
 
             Ok(FunctionCall {
                 target: LocalFunctionTarget::Local(fn_var.id),
@@ -842,6 +866,8 @@ impl FunctionParser<'_, '_> {
             });
         }
 
+        let mut generic_replacements: HashMap<Identifier, TypeRef> = HashMap::new();
+
         let mut remaining_parameters: Vec<Parameter> = function_decl.parameters.clone();
         // maps the current parameters to the corresponding indices in the original parameters vec
         let mut indices: Vec<usize> = (0..function_decl.parameters.len()).collect();
@@ -857,8 +883,24 @@ impl FunctionParser<'_, '_> {
                 this_scope,
                 variables,
             )?;
-            let _target_par = remaining_parameters.remove(par_idx);
+            let target_par = remaining_parameters.remove(par_idx);
             let target_idx = indices.remove(par_idx);
+
+            if let TypeRef::GenericName(name) = target_par.par_type {
+                let new_type = expr.get_type(variables);
+
+                if let Some(existing_type) = generic_replacements.get(&name) {
+                    if existing_type != &new_type {
+                        return Err(SemanticError::AmbiguousGenericType {
+                            generic_name: name,
+                            first_type: existing_type.clone(),
+                            second_type: new_type,
+                        });
+                    }
+                }
+
+                generic_replacements.insert(name, new_type);
+            }
 
             arguments[target_idx] = Some(expr);
         }
@@ -947,9 +989,9 @@ impl FunctionParser<'_, '_> {
                 };
 
                 let par_type = remaining_parameters[target_parameter_idx].to_type();
-                if par_type != &TypeRef::BOOLEAN {
+                if TypeRef::is_boolean(par_type) {
                     return Err(SemanticError::TypeMismatchError {
-                        expected: TypeRef::BOOLEAN.clone(),
+                        expected: TypeRef::boolean(),
                         found: par_type.clone(),
                     }
                     .while_parsing(sub_node));
@@ -968,29 +1010,6 @@ impl FunctionParser<'_, '_> {
             },
         }
     }
-}
-
-fn validate_parameters(
-    argument_types: &Vec<TypeRef>,
-    parameters: &Vec<TypeRef>,
-) -> Result<(), SemanticError> {
-    let mut arg_iter = argument_types.iter();
-    for par in parameters {
-        if let Some(expected_type) = arg_iter.next() {
-            if par != expected_type {
-                return Err(SemanticError::TypeMismatchError {
-                    expected: expected_type.clone(),
-                    found: par.clone(),
-                });
-            }
-        } else {
-            return Err(SemanticError::InvalidNumerOfParameters {
-                num_target: argument_types.len(),
-                num_this: parameters.len(),
-            });
-        }
-    }
-    Ok(())
 }
 
 fn extract_string(expression_node: &RuleNode) -> Rc<str> {

@@ -1,5 +1,4 @@
 use crate::{
-    built_in::primitives::TYPE_ID_BOOLEAN,
     parsing::rule_nodes::RuleNode,
     symbolization::{
         ast::Namespace, semantic_result::SemanticError, type_collector::TypeCollector,
@@ -104,7 +103,7 @@ impl FunctionCollector {
             generic_parameters: Vec::new(),
             parameters,
             return_type,
-            start_char: node.first_char()
+            start_char: node.first_char(),
         })
     }
 
@@ -132,26 +131,35 @@ impl FunctionCollector {
             let name_node = parameter_node.expect_node("identifier")?;
 
             let value = match raw_type {
-                TypeRef::Optional(inner_type) => Parameter {
-                    par_type: *inner_type,
-                    long_name: Some(name_node.as_identifier()),
-                    short_name: None,
-                    id: next_id,
-                    is_optional: true,
+                TypeRef::Result(void_type, void_type2)
+                    if matches!(*void_type, TypeRef::Void)
+                        && matches!(*void_type2, TypeRef::Void) =>
+                {
+                    // boolean
+                    Parameter {
+                        par_type: TypeRef::Result(void_type, void_type2),
+                        long_name: Some(name_node.as_identifier()),
+                        short_name: None,
+                        id: next_id,
+                        is_optional: true,
+                    }
                 },
-                TypeRef::Defined(bool_type) if bool_type.id == TYPE_ID_BOOLEAN => Parameter {
-                    par_type: TypeRef::Defined(bool_type),
-                    long_name: Some(name_node.as_identifier()),
-                    short_name: None,
-                    id: next_id,
-                    is_optional: true,
+                TypeRef::Result(inner_type, void_type) if matches!(*void_type, TypeRef::Void) => {
+                    // optional
+                    Parameter {
+                        par_type: *inner_type,
+                        long_name: Some(name_node.as_identifier()),
+                        short_name: None,
+                        id: next_id,
+                        is_optional: true,
+                    }
                 },
                 other_type => Parameter {
                     par_type: other_type,
                     long_name: Some(name_node.as_identifier()),
                     short_name: None,
                     id: next_id,
-                    is_optional: true,
+                    is_optional: false,
                 },
             };
 

@@ -48,7 +48,7 @@ impl InternalFunction for FnEqual {
             "equals",
             vec![self.generic_type.clone()],
             vec![&self.par_left, &self.par_right],
-            &TypeRef::BOOLEAN,
+            &TypeRef::boolean(),
         )
     }
 
@@ -77,11 +77,11 @@ impl InternalFunction for FnLessThan {
             "less_than",
             vec![self.generic_type.clone()],
             vec![&self.par_left, &self.par_right],
-            &TypeRef::BOOLEAN,
+            &TypeRef::boolean(),
         )
     }
 
-    fn call(&self, arguments: Vec<Value>, interpreter: &Interpreter) -> InterpResult<Value> {
+    fn call(&self, arguments: Vec<Value>, _: &Interpreter) -> InterpResult<Value> {
         return compare_less(&arguments[self.par_left.id], &arguments[self.par_right.id])
             .map(Value::new_boolean);
     }
@@ -106,11 +106,11 @@ impl InternalFunction for FnGreaterThan {
             "greater_than",
             vec![self.generic_type.clone()],
             vec![&self.par_left, &self.par_right],
-            &TypeRef::BOOLEAN,
+            &TypeRef::boolean(),
         )
     }
 
-    fn call(&self, arguments: Vec<Value>, interpreter: &Interpreter) -> InterpResult<Value> {
+    fn call(&self, arguments: Vec<Value>, _: &Interpreter) -> InterpResult<Value> {
         return compare_greater(&arguments[self.par_left.id], &arguments[self.par_right.id])
             .map(Value::new_boolean);
     }
@@ -118,8 +118,8 @@ impl InternalFunction for FnGreaterThan {
 
 fn compare_less(left: &Value, right: &Value) -> InterpResult<bool> {
     match (left, right) {
-        (Value::Int(left), Value::Int(right)) => Ok((left < right)),
-        (Value::Float(left), Value::Float(right)) => Ok((left < right)),
+        (Value::Int(left), Value::Int(right)) => Ok(left < right),
+        (Value::Float(left), Value::Float(right)) => Ok(left < right),
         (Value::Tuple(left), Value::Tuple(right)) => {
             assert_eq!(left.len(), right.len());
             for pair in left.into_iter().zip(right.into_iter()) {
@@ -131,14 +131,14 @@ fn compare_less(left: &Value, right: &Value) -> InterpResult<bool> {
             }
             unreachable!("Empty tuples should not exist")
         },
-        _ => Err(InterpretationError::InternalError(String::from(""))),
+        _ => Err(InterpretationError::InternalError(format!("Try to compare type {left:?} and type {right:?}"))),
     }
 }
 
 fn compare_greater(left: &Value, right: &Value) -> InterpResult<bool> {
     match (left, right) {
-        (Value::Int(left), Value::Int(right)) => Ok((left > right)),
-        (Value::Float(left), Value::Float(right)) => Ok((left > right)),
+        (Value::Int(left), Value::Int(right)) => Ok(left > right),
+        (Value::Float(left), Value::Float(right)) => Ok(left > right),
         (Value::Tuple(left), Value::Tuple(right)) => {
             assert_eq!(left.len(), right.len());
             for pair in left.into_iter().zip(right.into_iter()) {
@@ -150,7 +150,7 @@ fn compare_greater(left: &Value, right: &Value) -> InterpResult<bool> {
             }
             unreachable!("Empty tuples should not exist")
         },
-        _ => Err(InterpretationError::InternalError(String::from(""))),
+        _ => Err(InterpretationError::InternalError(format!("Try to compare type {left:?} and type {right:?}"))),
     }
 }
 
@@ -168,6 +168,6 @@ fn compare_equal(left: &Value, right: &Value) -> InterpResult<bool> {
             }
             Ok(true)
         },
-        _ => Err(InterpretationError::InternalError(String::from(""))),
+        _ => Err(InterpretationError::InternalError(format!("Try to compare type {left:?} and type {right:?}"))),
     }
 }

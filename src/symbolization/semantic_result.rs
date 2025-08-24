@@ -16,6 +16,11 @@ pub enum SemanticError {
         expected: ast::TypeRef,
         found: ast::TypeRef,
     },
+    AmbiguousGenericType {
+        generic_name: ast::Identifier,
+        first_type: ast::TypeRef,
+        second_type: ast::TypeRef,
+    },
     VariableExists {
         name: ast::Identifier,
     },
@@ -71,12 +76,21 @@ impl SemanticError {
 
     pub fn error_string(&self, source: &str) -> String {
         match self {
-            SemanticError::WhileParsing { rule_name, first_char, last_char, cause } => {
+            SemanticError::WhileParsing {
+                rule_name,
+                first_char,
+                last_char,
+                cause,
+            } => {
                 let first_char_idx = *first_char;
                 let last_char_idx = *last_char;
-                let start_line_number = source[..first_char_idx].bytes().filter(|&c| c == b'\n').count() + 1;
+                let start_line_number = source[..first_char_idx]
+                    .bytes()
+                    .filter(|&c| c == b'\n')
+                    .count()
+                    + 1;
                 // let end_line_number = source[first_char_idx..=last_char_idx].bytes().filter(|&c| c == b'\n').count() + start_line_number;
-                
+
                 let lower_newline = source[..first_char_idx]
                     .rfind(|c| c == '\n' || c == '\r')
                     .map(|v| v + 1)
@@ -105,36 +119,66 @@ impl SemanticError {
 impl Display for SemanticError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SemanticError::NodeNotFound { expected } => 
-                f.write_fmt(format_args!("Could not find node \"{expected}\"")),
-            SemanticError::UnexpectedNode { found } => 
-                f.write_fmt(format_args!("Found unexpected node \"{found}\"")),
-            SemanticError::BrokenControl(what) => 
-                f.write_str(what),
-            SemanticError::TypeMismatchError { expected, found } => 
-                f.write_fmt(format_args!("Expected type \"{:?}\", but found type \"{:?}\"", expected, found)),
-            SemanticError::VariableExists { name } => 
-                f.write_fmt(format_args!("A variable with the name \"{name}\" already exists in this scope")),
-            SemanticError::ArgumentRequired { par, function } => 
-                f.write_fmt(format_args!("Parameter \"{par}\" of function \"{function}\" is required")),
-            SemanticError::AmbiguousUnnamedArgument { arg, function } => 
-                f.write_fmt(format_args!("Argument \"{arg}\" of function \"{function}\" is ambigouous")),
-            SemanticError::ArgumentNotFound { arg, function } => 
-                f.write_fmt(format_args!("Function \"{function}\" has no argument \"{arg}\"")),
-            SemanticError::InvalidNumerOfParameters { num_target: num_found, num_this: expected, } => 
-                f.write_fmt(format_args!("Invalid number of parameters: found {num_found}, but expected {expected}")),
-            SemanticError::ExpectedValueGotFunction { found_type } => 
-                f.write_fmt(format_args!("Found function type {:?} while paring value_expression", found_type)),
-            SemanticError::ExpectedFunctionGotValue { found_type } => 
-                f.write_fmt(format_args!("Found value {:?} while paring function_expression", found_type)),
-            SemanticError::SymbolNotFound { kind, symbol } => 
-                f.write_fmt(format_args!("Could not find {kind} \"{symbol}\"")),
-            SemanticError::SymbolNotFoundInScope { kind, symbol, scope, } => 
-                f.write_fmt(format_args!("Could not find {kind} \"{symbol}\" in namespace {:?}", scope)),
-            SemanticError::InternalError(what) => 
-                f.write_fmt(format_args!("Internal compiler error: {what}")),
-            SemanticError::WhileParsing { rule_name, first_char, last_char, cause } =>
-                f.write_fmt(format_args!("{cause}\n\twhile parsing \"{rule_name}\" (char {first_char} to {last_char})")),
+            SemanticError::NodeNotFound { expected } => {
+                        f.write_fmt(format_args!("Could not find node \"{expected}\""))
+                    },
+            SemanticError::UnexpectedNode { found } => {
+                        f.write_fmt(format_args!("Found unexpected node \"{found}\""))
+                    },
+            SemanticError::BrokenControl(what) => f.write_str(what),
+            SemanticError::TypeMismatchError { expected, found } => f.write_fmt(format_args!(
+                        "Expected type \"{expected:?}\", but found type \"{found:?}\""
+                    )),
+            SemanticError::AmbiguousGenericType { generic_name, first_type, second_type } => f.write_fmt(format_args!(
+                "Multiple types for generic \"{generic_name}\": first found type \"{first_type:?}\", later found type \"{second_type:?}\""
+            )),
+            SemanticError::VariableExists { name } => f.write_fmt(format_args!(
+                        "A variable with the name \"{name}\" already exists in this scope"
+                    )),
+            SemanticError::ArgumentRequired { par, function } => f.write_fmt(format_args!(
+                        "Parameter \"{par}\" of function \"{function}\" is required"
+                    )),
+            SemanticError::AmbiguousUnnamedArgument { arg, function } => f.write_fmt(format_args!(
+                        "Argument \"{arg}\" of function \"{function}\" is ambigouous"
+                    )),
+            SemanticError::ArgumentNotFound { arg, function } => f.write_fmt(format_args!(
+                        "Function \"{function}\" has no argument \"{arg}\""
+                    )),
+            SemanticError::InvalidNumerOfParameters {
+                        num_target: num_found,
+                        num_this: expected,
+                    } => f.write_fmt(format_args!(
+                        "Invalid number of parameters: found {num_found}, but expected {expected}"
+                    )),
+            SemanticError::ExpectedValueGotFunction { found_type } => f.write_fmt(format_args!(
+                        "Found function type {:?} while paring value_expression",
+                        found_type
+                    )),
+            SemanticError::ExpectedFunctionGotValue { found_type } => f.write_fmt(format_args!(
+                        "Found value {:?} while paring function_expression",
+                        found_type
+                    )),
+            SemanticError::SymbolNotFound { kind, symbol } => {
+                        f.write_fmt(format_args!("Could not find {kind} \"{symbol}\""))
+                    },
+            SemanticError::SymbolNotFoundInScope {
+                        kind,
+                        symbol,
+                        scope,
+                    } => f.write_fmt(format_args!(
+                        "Could not find {kind} \"{symbol}\" in namespace {scope:?}",
+                    )),
+            SemanticError::InternalError(what) => {
+                        f.write_fmt(format_args!("Internal compiler error: {what}"))
+                    },
+            SemanticError::WhileParsing {
+                        rule_name,
+                        first_char,
+                        last_char,
+                        cause,
+                    } => f.write_fmt(format_args!(
+                        "{cause}\n\twhile parsing \"{rule_name}\" (char {first_char} to {last_char})"
+                    )),
         }
     }
 }

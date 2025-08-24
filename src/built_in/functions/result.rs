@@ -1,10 +1,13 @@
 use crate::{
     built_in::{function_builder::FunctionBuilder, functions::InternalFunction},
-    interpretation::{
-        interperation_result::InterpResult, interpreter::Interpreter,
-        value::*,
+    interpretation::{interperation_result::InterpResult, interpreter::Interpreter, value::*},
+    symbolization::{
+        ast::*,
+        ast_util::{
+            OPTION_VARIANT_ID_NONE, OPTION_VARIANT_ID_SOME, RESULT_VARIANT_ID_NEG,
+            RESULT_VARIANT_ID_POS,
+        },
     },
-    symbolization::{ast::*, ast_util::{OPTION_VARIANT_ID_NONE, OPTION_VARIANT_ID_SOME, RESULT_VARIANT_ID_NEG, RESULT_VARIANT_ID_POS}},
 };
 
 pub struct FnIfPosResult {
@@ -52,7 +55,10 @@ impl InternalFunction for FnIfPosResult {
             par_action: builder.req_par(
                 "action",
                 &TypeRef::Function(FunctionType {
-                    parameters: vec![result_type.clone(), TypeRef::GenericName(generic_pos_type.clone())],
+                    parameters: vec![
+                        result_type.clone(),
+                        TypeRef::GenericName(generic_pos_type.clone()),
+                    ],
                     return_type: Box::from(TypeRef::GenericName(generic_pos_type)),
                 }),
             ),
@@ -102,11 +108,14 @@ impl InternalFunction for FnIfNegResult {
             par_action: builder.req_par(
                 "action",
                 &TypeRef::Function(FunctionType {
-                    parameters: vec![result_type.clone(), TypeRef::GenericName(generic_neg_type.clone())],
+                    parameters: vec![
+                        result_type.clone(),
+                        TypeRef::GenericName(generic_neg_type.clone()),
+                    ],
                     return_type: Box::from(TypeRef::GenericName(generic_neg_type)),
                 }),
             ),
-            result_type
+            result_type,
         }
     }
 
@@ -121,7 +130,13 @@ impl InternalFunction for FnIfNegResult {
     }
 
     fn call(&self, arguments: Vec<Value>, interpreter: &Interpreter) -> InterpResult<Value> {
-        apply_monadic(arguments, &self.par_action, &self.par_target, RESULT_VARIANT_ID_NEG, interpreter)
+        apply_monadic(
+            arguments,
+            &self.par_action,
+            &self.par_target,
+            RESULT_VARIANT_ID_NEG,
+            interpreter,
+        )
     }
 
     fn as_operator(&self) -> Option<Identifier> {
@@ -134,9 +149,7 @@ impl InternalFunction for FnIfSomeOption {
         let mut builder = FunctionBuilder::new();
         let generic_some_type = Identifier::from("T");
 
-        let option_type = TypeRef::Optional(
-            Box::from(TypeRef::GenericName(generic_some_type.clone())),
-        );
+        let option_type = TypeRef::new_optional(TypeRef::GenericName(generic_some_type.clone()));
 
         FnIfSomeOption {
             function_id,
@@ -144,11 +157,14 @@ impl InternalFunction for FnIfSomeOption {
             par_action: builder.req_par(
                 "action",
                 &TypeRef::Function(FunctionType {
-                    parameters: vec![option_type.clone(), TypeRef::GenericName(generic_some_type.clone())],
+                    parameters: vec![
+                        option_type.clone(),
+                        TypeRef::GenericName(generic_some_type.clone()),
+                    ],
                     return_type: Box::from(TypeRef::GenericName(generic_some_type)),
                 }),
             ),
-            option_type
+            option_type,
         }
     }
 
@@ -182,9 +198,7 @@ impl InternalFunction for FnIfNoneOption {
         let mut builder = FunctionBuilder::new();
         let generic_some_type = Identifier::from("T");
 
-        let option_type = TypeRef::Optional(
-            Box::from(TypeRef::GenericName(generic_some_type.clone())),
-        );
+        let option_type = TypeRef::new_optional(TypeRef::GenericName(generic_some_type.clone()));
 
         FnIfNoneOption {
             function_id,
@@ -192,11 +206,14 @@ impl InternalFunction for FnIfNoneOption {
             par_action: builder.req_par(
                 "action",
                 &TypeRef::Function(FunctionType {
-                    parameters: vec![option_type.clone(), TypeRef::GenericName(generic_some_type.clone())],
+                    parameters: vec![
+                        option_type.clone(),
+                        TypeRef::GenericName(generic_some_type.clone()),
+                    ],
                     return_type: Box::from(TypeRef::GenericName(generic_some_type)),
                 }),
             ),
-            option_type
+            option_type,
         }
     }
 

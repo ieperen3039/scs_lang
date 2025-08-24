@@ -4,19 +4,83 @@ use crate::built_in::primitives::*;
 
 use super::{ast::*, variable_storage::VarStorage};
 
-pub const RESULT_VARIANT_ID_POS : u32 = 0;
-pub const RESULT_VARIANT_ID_NEG : u32 = 1;
-pub const OPTION_VARIANT_ID_SOME : u32 = 0;
-pub const OPTION_VARIANT_ID_NONE : u32 = 1;
+pub const RESULT_VARIANT_ID_POS: u32 = 0;
+pub const RESULT_VARIANT_ID_NEG: u32 = 1;
+pub const OPTION_VARIANT_ID_SOME: u32 = 0;
+pub const OPTION_VARIANT_ID_NONE: u32 = 1;
 
 impl TypeRef {
     pub const STRING: TypeRef = Self::from(TYPE_ID_STRING);
     pub const INT: TypeRef = Self::from(TYPE_ID_INT);
     pub const FLOAT: TypeRef = Self::from(TYPE_ID_FLOAT);
-    pub const BOOLEAN: TypeRef = Self::from(TYPE_ID_BOOLEAN);
 
     pub const fn from(id: TypeId) -> TypeRef {
-        TypeRef::Defined(DefinedRef { id, generics: Vec::new() })
+        TypeRef::Defined(DefinedRef {
+            id,
+            generics: Vec::new(),
+        })
+    }
+
+    pub fn is_boolean(some_type: &TypeRef) -> bool {
+        if let TypeRef::Defined(DefinedRef { id, generics }) = some_type {
+            *id == TYPE_ID_RESULT
+                && matches!(generics[0], TypeRef::Void)
+                && matches!(generics[1], TypeRef::Void)
+        } else {
+            false
+        }
+    }
+
+    pub fn boolean() -> TypeRef {
+        Self::new_result(TypeRef::Void, TypeRef::Void)
+    }
+
+    pub fn new_optional(some_type: TypeRef) -> TypeRef {
+        Self::new_result(some_type, TypeRef::Void)
+    }
+
+    pub fn new_result(pos: TypeRef, neg: TypeRef) -> TypeRef {
+        TypeRef::Defined(DefinedRef {
+            id: TYPE_ID_RESULT,
+            generics: vec![pos, neg],
+        })
+    }
+}
+
+impl std::fmt::Debug for TypeRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UnresolvedName(arg0) => f.debug_tuple("UnresolvedName").field(arg0).finish(),
+            Self::Defined(arg0) if (arg0.id == TYPE_ID_STRING) => write!(f, "string"),
+            Self::Defined(arg0) if (arg0.id == TYPE_ID_INT) => write!(f, "int"),
+            Self::Defined(arg0) if (arg0.id == TYPE_ID_FLOAT) => write!(f, "float"),
+            Self::Defined(arg0) => arg0.fmt(f),
+            Self::GenericName(arg0) => f.debug_tuple("Generic").field(arg0).finish(),
+            Self::Result(arg0, arg1)
+                if matches!(**arg0, TypeRef::Void) && matches!(**arg1, TypeRef::Void) =>
+            {
+                write!(f, "boolean")
+            },
+            Self::Result(arg0, arg1) if matches!(**arg1, TypeRef::Void) => {
+                f.debug_tuple("Optional").field(arg0).finish()
+            },
+            Self::Result(arg0, arg1) => f.debug_tuple("Result").field(arg0).field(arg1).finish(),
+            Self::UnamedTuple(arg0) => f.debug_tuple("UnamedTuple").field(arg0).finish(),
+            Self::Stream(arg0) => f.debug_tuple("Stream").field(arg0).finish(),
+            Self::Function(arg0) => f.debug_tuple("Function").field(arg0).finish(),
+            Self::Void => write!(f, "Void"),
+            Self::Break => write!(f, "Break"),
+        }
+    }
+}
+
+impl std::fmt::Debug for UnresolvedName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.generics.is_empty() {
+            write!(f, "{}", &self.name)
+        } else {
+            write!(f, "{}<{:?}>", &self.name, &self.generics)
+        }
     }
 }
 
@@ -127,7 +191,7 @@ impl ValueExpression {
             },
             ValueExpression::Literal(Literal::String(_)) => TypeRef::STRING.clone(),
             ValueExpression::Literal(Literal::Number(_)) => TypeRef::INT.clone(),
-            ValueExpression::Literal(Literal::Boolean(_)) => TypeRef::BOOLEAN.clone(),
+            ValueExpression::Literal(Literal::Boolean(_)) => TypeRef::boolean(),
             ValueExpression::Variable(var) => variables.get_type_of(*var).clone(),
             ValueExpression::FunctionAsValue(fn_expr) => fn_expr.get_type(),
             ValueExpression::FunctionCall(fc) => fc.value_type.return_type.deref().clone(),
@@ -164,6 +228,21 @@ impl Namespace {
 
     pub fn add_function(&mut self, fn_to_add: FunctionDeclaration) {
         self.functions.insert(fn_to_add.name.clone(), fn_to_add);
+    }
+
+    pub fn add_operator(&mut self, symbol: Identifier, source_fn: &FunctionDeclaration) {
+        assert!(source_fn.parameters.len() == 2);
+        self.functions.insert(
+            symbol.clone(),
+            FunctionDeclaration {
+                id: source_fn.id,
+                name: symbol,
+                generic_parameters: source_fn.generic_parameters.clone(),
+                parameters: source_fn.parameters.clone(),
+                return_type: source_fn.return_type.clone(),
+                start_char: source_fn.start_char,
+            },
+        );
     }
 
     pub fn add_type(&mut self, type_to_add: &TypeDefinition) {

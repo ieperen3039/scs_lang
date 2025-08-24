@@ -1,10 +1,10 @@
-use crate::{built_in::types, symbolization::ast::*};
+use crate::symbolization::ast::*;
 
 pub const TYPE_ID_INT: u32 = 0;
 pub const TYPE_ID_FLOAT: u32 = 1;
 pub const TYPE_ID_CHARACTER: u32 = 2;
 pub const TYPE_ID_STRING: u32 = 3;
-pub const TYPE_ID_BOOLEAN: u32 = 4;
+pub const TYPE_ID_RESULT: u32 = 4;
 pub const FIRST_CUSTOM_TYPE_ID: u32 = 5;
 
 pub fn build_primitives() -> Vec<TypeDefinition> {
@@ -13,11 +13,6 @@ pub fn build_primitives() -> Vec<TypeDefinition> {
         build_primitive("float", TYPE_ID_FLOAT),
         build_primitive("character", TYPE_ID_CHARACTER),
         build_primitive("String", TYPE_ID_STRING),
-        types::build_variant(
-            "boolean",
-            TYPE_ID_BOOLEAN,
-            vec![("Pos", &TypeRef::Void), ("Neg", &TypeRef::Void)],
-        ),
     ]
 }
 
