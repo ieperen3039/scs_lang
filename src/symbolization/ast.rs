@@ -35,7 +35,7 @@ pub enum TypeRef {
     Defined(DefinedRef),
     GenericName(Identifier),
     Result(Box<TypeRef>, Box<TypeRef>),
-    UnamedTuple(Vec<TypeRef>),
+    UnnamedTuple(Vec<TypeRef>),
     Stream(Box<TypeRef>),
     Function(FunctionType),
     Void,
@@ -165,8 +165,8 @@ pub enum FunctionExpression {
 pub struct Operator {
     // the operator is implemented as some function
     pub target: GlobalFunctionTarget,
-    pub arg: Box<ValueExpression>,
-    pub arg_type: TypeRef,
+    pub inner_expr: Box<FunctionExpression>,
+    pub inner_type: TypeRef,
     pub return_type: TypeRef,
 }
 

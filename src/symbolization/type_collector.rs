@@ -131,11 +131,12 @@ impl TypeCollector {
         let tuple_inst_node = derived_node.find_node("tuple_ref").ok_or_else(|| {
             SemanticError::NodeNotFound {
                 expected: "either a base_type_ref or a tuple_ref",
+                actual: derived_node.sub_rules.iter().map(|r| r.rule_name.into()).collect(),
             }
             .while_parsing(derived_node)
         })?;
 
-        TypeCollector::read_tuple_inst(tuple_inst_node).map(TypeRef::UnamedTuple)
+        TypeCollector::read_tuple_inst(tuple_inst_node).map(TypeRef::UnnamedTuple)
     }
 
     pub fn read_tuple_inst(tuple_inst_node: &RuleNode) -> SemanticResult<Vec<TypeRef>> {
@@ -246,7 +247,7 @@ impl TypeCollector {
                 TypeRef::UnresolvedName(unresolved_name)
             },
             "flag_type_ref" => TypeRef::boolean(),
-            "tuple_type_ref" => TypeRef::UnamedTuple(TypeCollector::read_tuple_inst(type_node)?),
+            "tuple_type_ref" => TypeRef::UnnamedTuple(TypeCollector::read_tuple_inst(type_node)?),
             "fn_type" => TypeRef::Function(TypeCollector::read_fn_type(type_node)?),
             "optional_type_ref" => {
                 let sub_type = node.find_node("type_ref").unwrap();

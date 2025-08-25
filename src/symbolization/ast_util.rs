@@ -45,6 +45,13 @@ impl TypeRef {
             generics: vec![pos, neg],
         })
     }
+
+    pub fn from_function_declaration(decl: &FunctionDeclaration) -> TypeRef {
+        TypeRef::Function(FunctionType {
+            parameters: decl.parameters.iter().map(|p| p.par_type.clone()).collect(),
+            return_type: Box::new(decl.return_type.clone()),
+        })
+    }
 }
 
 impl std::fmt::Debug for TypeRef {
@@ -65,7 +72,7 @@ impl std::fmt::Debug for TypeRef {
                 f.debug_tuple("Optional").field(arg0).finish()
             },
             Self::Result(arg0, arg1) => f.debug_tuple("Result").field(arg0).field(arg1).finish(),
-            Self::UnamedTuple(arg0) => f.debug_tuple("UnamedTuple").field(arg0).finish(),
+            Self::UnnamedTuple(arg0) => f.debug_tuple("UnamedTuple").field(arg0).finish(),
             Self::Stream(arg0) => f.debug_tuple("Stream").field(arg0).finish(),
             Self::Function(arg0) => f.debug_tuple("Function").field(arg0).finish(),
             Self::Void => write!(f, "Void"),
@@ -120,7 +127,7 @@ impl FunctionExpression {
                 return_type: Box::from(lamda.body.return_type.clone()),
             }),
             FunctionExpression::Operator(op) => TypeRef::Function(FunctionType {
-                parameters: vec![op.arg_type.clone()],
+                parameters: vec![op.inner_type.clone()],
                 return_type: Box::from(op.return_type.clone()),
             }),
             FunctionExpression::Cast(t) => t.clone(),
@@ -181,7 +188,7 @@ impl ValueExpression {
     pub fn get_type(&self, variables: &VarStorage) -> TypeRef {
         match &self {
             ValueExpression::Tuple(elements) => {
-                TypeRef::UnamedTuple(elements.iter().map(|ex| ex.get_type(variables)).collect())
+                TypeRef::UnnamedTuple(elements.iter().map(|ex| ex.get_type(variables)).collect())
             },
             ValueExpression::Literal(Literal::String(_)) => TypeRef::STRING.clone(),
             ValueExpression::Literal(Literal::Number(_)) => TypeRef::INT.clone(),

@@ -127,7 +127,7 @@ impl FunctionBuilder {
     pub fn get_fn(
         arguments: &mut Vec<Value>,
         par: &Parameter,
-    ) -> (GlobalFunctionTarget, StackFrame) {
+    ) -> (LocalFunctionTarget, StackFrame) {
         let arg = std::mem::replace(&mut arguments[par.id], Value::Nothing);
 
         if let Value::FunctionLamda(value, arguments) = arg {

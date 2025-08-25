@@ -261,9 +261,8 @@ fn apply_monadic(
     let (function, mut stack_frame) = val_action;
 
     let new_pos_value = interpreter.evaluate_function_call(
-        function.into(),
+        function,
         &Vec::new(),
-        true,
         val_target.unwrap(),
         &mut stack_frame,
     )?;

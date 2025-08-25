@@ -14,7 +14,7 @@ pub enum Value {
     String(String),
     Variant(u32, Box<Value>),
     Tuple(Vec<Value>),
-    FunctionLamda(GlobalFunctionTarget, StackFrame),
+    FunctionLamda(LocalFunctionTarget, StackFrame),
     InlineLamda(Rc<FunctionBody>, StackFrame),
     AssignmentLamda(Rc<OnceCell<Value>>),
     IdentityLamda,

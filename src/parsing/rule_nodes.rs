@@ -1,7 +1,10 @@
 use std::hash::Hash;
 
-use crate::symbolization::{ast::Identifier, semantic_result::{SemanticError, SemanticResult}};
 use super::token::Token;
+use crate::symbolization::{
+    ast::Identifier,
+    semantic_result::{SemanticError, SemanticResult},
+};
 
 // the entire resulting syntax tree consists of these nodes
 #[derive(Eq, Clone)]
@@ -37,10 +40,7 @@ impl<'prog, 'bnf> PartialEq for RuleNode<'prog, 'bnf> {
 impl<'prog, 'bnf> std::fmt::Debug for RuleNode<'prog, 'bnf> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.sub_rules.is_empty() {
-            f.write_fmt(format_args!(
-                "{{{}, {:?}}}",
-                self.rule_name, self.tokens
-            ))
+            f.write_fmt(format_args!("{{{}, {:?}}}", self.rule_name, self.tokens))
         } else {
             f.write_fmt(format_args!("{{{}, {:?}}}", self.rule_name, self.sub_rules))
         }
@@ -64,7 +64,10 @@ impl<'prog, 'bnf> RuleNode<'prog, 'bnf> {
     }
 
     pub fn last_char(&self) -> usize {
-        self.tokens.last().map(|t| t.char_idx + t.slice.len()).unwrap_or(0)
+        self.tokens
+            .last()
+            .map(|t| t.char_idx + t.slice.len())
+            .unwrap_or(0)
     }
 
     // returns true if this rule node is syntactically equivalent.
@@ -113,8 +116,13 @@ impl<'prog, 'bnf> RuleNode<'prog, 'bnf> {
     }
 
     pub fn expect_node<'r>(&'r self, expected: &'static str) -> SemanticResult<&'r RuleNode> {
-        self.find_node(expected)
-            .ok_or_else(|| SemanticError::NodeNotFound { expected }.while_parsing(self))
+        self.find_node(expected).ok_or_else(|| {
+            SemanticError::NodeNotFound {
+                expected,
+                actual: self.sub_rules.iter().map(|r| r.rule_name.into()).collect(),
+            }
+            .while_parsing(self)
+        })
     }
 
     pub fn find_node<'r>(&'r self, expected: &str) -> Option<&'r RuleNode> {

@@ -7,6 +7,7 @@ use crate::symbolization::ast;
 pub enum SemanticError {
     NodeNotFound {
         expected: &'static str,
+        actual: Vec<ast::Identifier>
     },
     UnexpectedNode {
         found: ast::Identifier,
@@ -104,7 +105,7 @@ impl SemanticError {
                 let lb = cmp::max(first_char_idx as i64 - 40, lower_newline as i64) as usize;
                 let ub = cmp::min(last_char_idx as i64 + 40, upper_newline as i64) as usize;
                 format!(
-                    "Error while parsing {rule_name} on line {start_line_number}:\n\n{0:>40}{1:<40}\n{2:>40}{2:^<width$} when parsing here\n{cause}",
+                    "Error while parsing rule '{rule_name}' on line {start_line_number}:\n\n{0:>40}{1:<40}\n{2:>40}{2:^<width$} when parsing here\n{cause}",
                     &source[lb..first_char_idx].replace("\n", " "),
                     &source[first_char_idx..ub].replace("\n", " "),
                     "",
@@ -119,8 +120,8 @@ impl SemanticError {
 impl Display for SemanticError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SemanticError::NodeNotFound { expected } => {
-                        f.write_fmt(format_args!("Could not find node \"{expected}\""))
+            SemanticError::NodeNotFound { expected, actual } => {
+                        f.write_fmt(format_args!("Could not find node \"{expected}\" among nodes {actual:?}"))
                     },
             SemanticError::UnexpectedNode { found } => {
                         f.write_fmt(format_args!("Found unexpected node \"{found}\""))

@@ -3,7 +3,7 @@ use crate::{
     parsing::{ebnf_parser, left_left_parser, lexer::Lexer},
     transformation::grammatificator,
 };
-
+use crate::parsing::parser::Failure;
 use super::{
     ast::{self, FunctionType},
     function_collector::FunctionCollector,
@@ -11,10 +11,10 @@ use super::{
 };
 
 #[test]
-fn empty_program() {
+fn hello_world() {
     let definition = include_str!("../../doc/faux_script.ebnf");
-    let program = "";
-    
+    let program = "\"Hello world!\"";
+
     let grammar = ebnf_parser::parse_ebnf(definition)
         .map(grammatificator::convert_to_grammar)
         .unwrap();
@@ -25,7 +25,7 @@ fn empty_program() {
     let mut function_collector = FunctionCollector::new();
     let program_result =
         symbolizer::parse_faux_script(syntax_tree.unwrap(), &namespace, &mut function_collector);
-    
+
     if let Err(err) = program_result {
         panic!("{err}");
     }
@@ -46,7 +46,7 @@ fn parse_convoluted_statements() {
 
         data
             zip(extra_columns)
-            cat("data.csv", !out);
+            cat("data.csv", !out)
     "#;
 
     let type_string_stream = ast::TypeRef::Stream(Box::new(ast::TypeRef::STRING.clone()));
@@ -128,7 +128,7 @@ fn parse_convoluted_statements() {
                 builder.req_par("left", &type_string_stream.clone()),
                 builder.req_par("right", &type_string_stream.clone()),
             ],
-            return_type: ast::TypeRef::UnamedTuple(vec![
+            return_type: ast::TypeRef::UnnamedTuple(vec![
                 type_string_stream.clone(),
                 type_string_stream.clone(),
             ]),
@@ -144,7 +144,7 @@ fn parse_convoluted_statements() {
             ast::FunctionDeclaration {
                 id: ast::GlobalFunctionTarget::Native(id_gen.new_id()),
                 name: ast::Identifier::from("log"),
-                parameters: vec![builder.req_par("pattern", &ast::TypeRef::STRING)],
+                parameters: vec![builder.req_par("pattern", &ast::TypeRef::STRING), builder.req_par("hash", &ast::TypeRef::STRING)],
                 return_type: ast::TypeRef::STRING.clone(),
                 start_char: 0,
                 generic_parameters: Vec::new(),
@@ -161,13 +161,7 @@ fn parse_convoluted_statements() {
     let syntax_tree = parser.parse_program(&tokens);
 
     if let Err(error) = syntax_tree {
-        panic!(
-            "{}",
-            error
-                .iter()
-                .map(|e| e.error_string(program))
-                .fold(String::new(), |a, s| a + "\n" + &s)
-        );
+        report_parse_error(program, error);
     }
 
     let program_result =
@@ -176,6 +170,14 @@ fn parse_convoluted_statements() {
     if let Err(error) = program_result {
         panic!("Error parsing program: \n{}", error.error_string(program));
     }
+}
+
+fn report_parse_error(program: &str, error: Vec<Failure>) -> ! {
+    let error_string = error
+        .iter()
+        .map(|e| e.error_string(program))
+        .fold(String::new(), |a, s| a + "\n" + &s);
+    panic!("{}", error_string);
 }
 
 #[test]
@@ -254,13 +256,7 @@ fn parse_function_definition() {
     let syntax_tree = parser.parse_program(&tokens);
 
     if let Err(error) = syntax_tree {
-        panic!(
-            "{}",
-            error
-                .iter()
-                .map(|e| e.error_string(program))
-                .fold(String::new(), |a, s| a + "\n" + &s)
-        );
+        report_parse_error(program, error);
     }
 
     let parse_result =

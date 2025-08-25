@@ -227,7 +227,10 @@ impl FunctionParser<'_, '_> {
         expected_type: Option<&TypeRef>,
         node: &RuleNode,
     ) -> SemanticResult<()> {
-        assert!(!matches!(found_type, TypeRef::GenericName(_)), "Generic types cannot be instantiated");
+        assert!(
+            !matches!(found_type, TypeRef::GenericName(_)),
+            "Generic types cannot be instantiated"
+        );
 
         if let Some(expected_type) = expected_type {
             if found_type == expected_type {
@@ -257,17 +260,16 @@ impl FunctionParser<'_, '_> {
         return Ok(());
     }
 
-    // reads expression, value_expression and function_expression
-    // value_expression        = function_call | variable_name | tuple_construction | _literal;
-    // function_expression     = function_call | implicit_par_lamda | explicit_par_lamda | mutator_cast | mutator_assign | operator_expression;
-    // expression              = function_call | variable_name | tuple_construction | _literal | implicit_par_lamda | explicit_par_lamda | mutator_cast | mutator_assign | operator_expression;
-    fn read_expression(
+    // argument_expression     = function_call | variable_name | tuple_construction | _literal | implicit_par_lamda | explicit_par_lamda | mutator_cast | mutator_assign;
+    fn read_argument_expression(
         &self,
         node: &RuleNode,
         this_scope: &Namespace,
         variables: &mut VarStorage,
         target_type: &TypeRef,
     ) -> SemanticResult<ValueExpression> {
+        // because argument_expression is a subset of the union of function_expression and
+        // value_expression, we just forward to one of those
         match target_type {
             TypeRef::Function(fn_type) => {
                 let fn_expr = self.read_function_expression(
@@ -296,7 +298,9 @@ impl FunctionParser<'_, '_> {
         variables: &mut VarStorage,
         target_type: Option<&TypeRef>,
     ) -> SemanticResult<ValueExpression> {
-        debug_assert!(node.rule_name == "value_expression" || node.rule_name == "expression");
+        debug_assert!(
+            node.rule_name == "value_expression" || node.rule_name == "argument_expression"
+        );
 
         let sub_node = node
             .sub_rules
@@ -437,7 +441,9 @@ impl FunctionParser<'_, '_> {
         this_scope: &Namespace,
         variables: &mut VarStorage,
     ) -> SemanticResult<FunctionExpression> {
-        debug_assert!(node.rule_name == "function_expression" || node.rule_name == "expression");
+        debug_assert!(
+            node.rule_name == "function_expression" || node.rule_name == "argument_expression"
+        );
 
         let sub_node = node
             .sub_rules
@@ -514,13 +520,7 @@ impl FunctionParser<'_, '_> {
                     }
                     .while_parsing(sub_node));
                 }
-                self.read_operator(
-                    sub_node,
-                    &argument_types[0],
-                    argument_types,
-                    this_scope,
-                    variables,
-                )
+                self.read_operator(sub_node, &argument_types[0], this_scope, variables)
             },
             unknown => {
                 return Err(SemanticError::UnexpectedNode {
@@ -537,7 +537,6 @@ impl FunctionParser<'_, '_> {
         &self,
         sub_node: &RuleNode,
         argument_type: &TypeRef,
-        argument_types: &Vec<TypeRef>,
         this_scope: &Namespace,
         variables: &mut VarStorage,
     ) -> Result<FunctionExpression, SemanticError> {
@@ -563,35 +562,46 @@ impl FunctionParser<'_, '_> {
         debug_assert_eq!(operator_fn_decl.parameters.len(), 2);
 
         let first_par_type = operator_fn_decl.parameters[0].to_type();
-        if argument_type != first_par_type {
+        if let TypeRef::GenericName(_) = first_par_type {
+            // always accepted, no special handling necessary
+        } else if argument_type != first_par_type {
             return Err(SemanticError::TypeMismatchError {
-                expected: first_par_type.clone(),
-                found: argument_types[0].clone(),
+                expected: argument_type.clone(),
+                found: first_par_type.clone(),
             }
             .while_parsing(operator_symbol_node));
         }
 
-        let inner_type = operator_fn_decl.parameters[1].to_type();
-
-        let expression_node = sub_node.expect_node("expression")?;
-        let found_inner =
-            self.read_expression(expression_node, this_scope, variables, inner_type)?;
-
-        let found_type = found_inner.get_type(&variables);
-
-        if &found_type != inner_type {
-            return Err(SemanticError::TypeMismatchError {
-                expected: inner_type.clone(),
-                found: found_type,
+        let inner_expression_node = sub_node.expect_node("function_expression")?;
+        let operator_inner_type = operator_fn_decl.parameters[1].to_type();
+        let inner_expression = if let TypeRef::Function(function_type) = operator_inner_type {
+            self.read_function_expression(
+                inner_expression_node,
+                &function_type.parameters,
+                this_scope,
+                variables,
+            )?
+        } else {
+            return Err(SemanticError::ExpectedFunctionGotValue {
+                found_type: operator_inner_type.clone(),
             }
-            .while_parsing(expression_node));
+            .while_parsing(operator_symbol_node));
+        };
+
+        let found_inner_type = inner_expression.get_type();
+        if &found_inner_type != operator_inner_type {
+            return Err(SemanticError::TypeMismatchError {
+                expected: operator_inner_type.clone(),
+                found: found_inner_type,
+            }
+            .while_parsing(inner_expression_node));
         }
 
         Ok(FunctionExpression::Operator(Operator {
             target: operator_fn_decl.id,
-            arg: Box::from(found_inner),
+            inner_expr: Box::from(inner_expression),
             return_type: operator_fn_decl.return_type.clone(),
-            arg_type: found_type,
+            inner_type: found_inner_type,
         }))
     }
 
@@ -945,10 +955,14 @@ impl FunctionParser<'_, '_> {
                         .while_parsing(sub_node)
                     })?;
 
-                let expression_node = sub_node.expect_node("expression")?;
+                let expression_node = sub_node.expect_node("argument_expression")?;
                 let expected_type = &remaining_parameters[target_parameter_idx].par_type;
-                let arg_value =
-                    self.read_expression(expression_node, this_scope, variables, expected_type)?;
+                let arg_value = self.read_argument_expression(
+                    expression_node,
+                    this_scope,
+                    variables,
+                    expected_type,
+                )?;
 
                 Ok((target_parameter_idx, arg_value))
             },
@@ -967,15 +981,19 @@ impl FunctionParser<'_, '_> {
                         .while_parsing(sub_node)
                     })?;
 
-                let expression_node = sub_node.expect_node("expression")?;
+                let expression_node = sub_node.expect_node("argument_expression")?;
                 let expected_type = &remaining_parameters[first_non_optional].par_type;
-                let arg_value =
-                    self.read_expression(expression_node, this_scope, variables, expected_type)?;
+                let arg_value = self.read_argument_expression(
+                    expression_node,
+                    this_scope,
+                    variables,
+                    expected_type,
+                )?;
 
                 Ok((first_non_optional, arg_value))
             },
             "flag_argument" => {
-                let flag_name = sub_node.as_identifier();
+                let flag_name = sub_node.expect_node("identifier")?.as_identifier();
                 let target_parameter_idx = remaining_parameters
                     .iter()
                     .position(|p| p.matches(&flag_name));
@@ -989,18 +1007,19 @@ impl FunctionParser<'_, '_> {
                 };
 
                 let par_type = remaining_parameters[target_parameter_idx].to_type();
+
                 if TypeRef::is_boolean(par_type) {
-                    return Err(SemanticError::TypeMismatchError {
+                    Ok((
+                        target_parameter_idx,
+                        ValueExpression::Literal(Literal::Boolean(true)),
+                    ))
+                } else {
+                    Err(SemanticError::TypeMismatchError {
                         expected: TypeRef::boolean(),
                         found: par_type.clone(),
                     }
-                    .while_parsing(sub_node));
+                    .while_parsing(sub_node))
                 }
-
-                Ok((
-                    target_parameter_idx,
-                    ValueExpression::Literal(Literal::Boolean(true)),
-                ))
             },
             unknown => {
                 return Err(SemanticError::UnexpectedNode {
