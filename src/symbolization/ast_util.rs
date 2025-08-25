@@ -164,21 +164,15 @@ impl FunctionDeclaration {
     pub fn new_native_operator(
         id: NativeFunctionId,
         symbol: &str,
-        full_name: &str,
-        generics: Vec<Identifier>,
-        left_par_type: TypeRef,
-        left_par_name: Identifier,
-        right_par_type: FunctionType,
-        right_par_name: Identifier,
-        return_type: &TypeRef,
+        backing_function: &FunctionDeclaration,
     ) -> FunctionDeclaration {
         FunctionDeclaration {
             id: GlobalFunctionTarget::Native(id),
-            name: Identifier::from(full_name),
-            parameters: vec![],
-            return_type: return_type.clone(),
+            name: Identifier::from(symbol),
+            parameters: backing_function.parameters.clone(),
+            return_type: backing_function.return_type.clone(),
             start_char: 0,
-            generic_parameters: generics,
+            generic_parameters: backing_function.generic_parameters.clone(),
         }
     }
 }
