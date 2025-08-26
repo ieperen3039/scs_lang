@@ -110,7 +110,7 @@ impl FunctionExpression {
         self.inner.get_type()
     }
     pub fn get_return_type(&self) -> TypeRef {
-        self.inner.get_type()
+        self.inner.get_return_type()
     }
 }
 
