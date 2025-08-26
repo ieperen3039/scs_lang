@@ -133,7 +133,13 @@ pub struct Statement {
 }
 
 #[derive(Clone)]
-pub enum ValueExpression {
+pub struct ValueExpression {
+    pub inner: ValueExpressionInner,
+    pub char_idx: usize,
+}
+
+#[derive(Clone)]
+pub enum ValueExpressionInner {
     Tuple(Vec<ValueExpression>),
     Literal(Literal),
     // a _reference_ to a variable is an expression
@@ -151,7 +157,13 @@ pub enum Literal {
 
 // mutations of expressions
 #[derive(Clone)]
-pub enum FunctionExpression {
+pub struct FunctionExpression {
+    pub inner: FunctionExpressionInner,
+    pub char_idx: usize,
+}
+
+#[derive(Clone)]
+pub enum FunctionExpressionInner {
     FunctionCall(FunctionCall),
     Operator(Operator),
     Lamda(Lamda),

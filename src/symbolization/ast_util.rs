@@ -106,10 +106,19 @@ impl FunctionType {
 }
 
 impl FunctionExpression {
+    pub fn get_type(&self) -> TypeRef {
+        self.inner.get_type()
+    }
+    pub fn get_return_type(&self) -> TypeRef {
+        self.inner.get_type()
+    }
+}
+
+impl FunctionExpressionInner {
     // the type of the expression as it appears in the code
     pub fn get_type(&self) -> TypeRef {
         match &self {
-            FunctionExpression::FunctionCall(fc) => {
+            FunctionExpressionInner::FunctionCall(fc) => {
                 if fc.value_type.parameters.is_empty() {
                     // function calls that evaluate to fn<()T> are evaluated to T
                     // explicit lamdas can be used to create fn<()T>
@@ -118,30 +127,30 @@ impl FunctionExpression {
                     TypeRef::Function(fc.value_type.clone())
                 }
             },
-            FunctionExpression::Assignment(var) => TypeRef::Function(FunctionType {
+            FunctionExpressionInner::Assignment(var) => TypeRef::Function(FunctionType {
                 parameters: vec![var.var_type.clone()],
                 return_type: Box::from(TypeRef::Break),
             }),
-            FunctionExpression::Lamda(lamda) => TypeRef::Function(FunctionType {
+            FunctionExpressionInner::Lamda(lamda) => TypeRef::Function(FunctionType {
                 parameters: lamda.parameters.clone(),
                 return_type: Box::from(lamda.body.return_type.clone()),
             }),
-            FunctionExpression::Operator(op) => TypeRef::Function(FunctionType {
+            FunctionExpressionInner::Operator(op) => TypeRef::Function(FunctionType {
                 parameters: vec![op.inner_type.clone()],
                 return_type: Box::from(op.return_type.clone()),
             }),
-            FunctionExpression::Cast(t) => t.clone(),
+            FunctionExpressionInner::Cast(t) => t.clone(),
         }
     }
 
     // the type that this expression returns after completing all its arguments and evaluating it
     pub fn get_return_type(&self) -> TypeRef {
         match &self {
-            FunctionExpression::FunctionCall(fc) => fc.value_type.return_type.deref().clone(),
-            FunctionExpression::Assignment(_) => TypeRef::Break,
-            FunctionExpression::Lamda(lamda) => lamda.body.return_type.clone(),
-            FunctionExpression::Operator(op) => op.return_type.clone(),
-            FunctionExpression::Cast(t) => t.clone(),
+            FunctionExpressionInner::FunctionCall(fc) => fc.value_type.return_type.deref().clone(),
+            FunctionExpressionInner::Assignment(_) => TypeRef::Break,
+            FunctionExpressionInner::Lamda(lamda) => lamda.body.return_type.clone(),
+            FunctionExpressionInner::Operator(op) => op.return_type.clone(),
+            FunctionExpressionInner::Cast(t) => t.clone(),
         }
     }
 }
@@ -186,16 +195,21 @@ impl FunctionDeclaration {
 
 impl ValueExpression {
     pub fn get_type(&self, variables: &VarStorage) -> TypeRef {
+        self.inner.get_type(variables)
+    }
+}
+impl ValueExpressionInner {
+    pub fn get_type(&self, variables: &VarStorage) -> TypeRef {
         match &self {
-            ValueExpression::Tuple(elements) => {
+            ValueExpressionInner::Tuple(elements) => {
                 TypeRef::UnnamedTuple(elements.iter().map(|ex| ex.get_type(variables)).collect())
             },
-            ValueExpression::Literal(Literal::String(_)) => TypeRef::STRING.clone(),
-            ValueExpression::Literal(Literal::Number(_)) => TypeRef::INT.clone(),
-            ValueExpression::Literal(Literal::Boolean(_)) => TypeRef::boolean(),
-            ValueExpression::Variable(var) => variables.get_type_of(*var).clone(),
-            ValueExpression::FunctionAsValue(fn_expr) => fn_expr.get_type(),
-            ValueExpression::FunctionCall(fc) => fc.value_type.return_type.deref().clone(),
+            ValueExpressionInner::Literal(Literal::String(_)) => TypeRef::STRING.clone(),
+            ValueExpressionInner::Literal(Literal::Number(_)) => TypeRef::INT.clone(),
+            ValueExpressionInner::Literal(Literal::Boolean(_)) => TypeRef::boolean(),
+            ValueExpressionInner::Variable(var) => variables.get_type_of(*var).clone(),
+            ValueExpressionInner::FunctionAsValue(fn_expr) => fn_expr.get_type(),
+            ValueExpressionInner::FunctionCall(fc) => fc.value_type.return_type.deref().clone(),
         }
     }
 }
@@ -232,7 +246,7 @@ impl Namespace {
     }
 
     pub fn add_operator(&mut self, symbol: Identifier, source_fn: &FunctionDeclaration) {
-        assert!(source_fn.parameters.len() == 2);
+        assert_eq!(source_fn.parameters.len(), 2);
         self.functions.insert(
             symbol.clone(),
             FunctionDeclaration {

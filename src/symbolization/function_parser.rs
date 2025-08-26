@@ -68,7 +68,7 @@ impl FunctionParser<'_, '_> {
                 // this is an implicit return
                 let last_expression_type = match statement.mutations.last() {
                     Some(last_mutation) => {
-                        if let FunctionExpression::Assignment(_) = last_mutation {
+                        if let FunctionExpressionInner::Assignment(_) = last_mutation.inner {
                             return Err(SemanticError::BrokenControl(
                                 "Function ended with an assignment, but no semicolon. \
                             Assignments do not return a result, but the missing semicolon implies that we wnat to return this result",
@@ -94,9 +94,10 @@ impl FunctionParser<'_, '_> {
                     None => variables.insert_return(last_expression_type),
                 };
 
-                statement
-                    .mutations
-                    .push(FunctionExpression::Assignment(return_var))
+                statement.mutations.push(FunctionExpression {
+                    inner: FunctionExpressionInner::Assignment(return_var),
+                    char_idx: statement.base_element.char_idx,
+                })
             }
 
             statements.push(statement);
@@ -284,7 +285,7 @@ impl FunctionParser<'_, '_> {
                     Some(&fn_type.return_type),
                     node,
                 )?;
-                Ok(ValueExpression::FunctionAsValue(fn_expr))
+                Ok(ValueExpression{ inner: ValueExpressionInner::FunctionAsValue(fn_expr), char_idx: node.first_char() })
             },
             _ => self.read_value_expression(node, this_scope, variables, Some(target_type)),
         }
@@ -307,7 +308,7 @@ impl FunctionParser<'_, '_> {
             .first()
             .expect("value_expression must have subnodes");
 
-        match sub_node.rule_name {
+        let expr = match sub_node.rule_name {
             "variable_name" => {
                 let var_name = sub_node.as_identifier();
                 let variable = variables.use_var_by_name(&var_name).ok_or_else(|| {
@@ -318,7 +319,7 @@ impl FunctionParser<'_, '_> {
                     .while_parsing(sub_node)
                 })?;
                 Self::verify_value_type(&variable.var_type, target_type, sub_node)?;
-                Ok(ValueExpression::Variable(variable.id))
+                ValueExpressionInner::Variable(variable.id)
             },
             "tuple_construction" => {
                 let mut tuple_elements = Vec::new();
@@ -327,12 +328,12 @@ impl FunctionParser<'_, '_> {
                         self.read_value_expression(tuple_elt_node, this_scope, variables, None)?;
                     tuple_elements.push(value);
                 }
-                Ok(ValueExpression::Tuple(tuple_elements))
+                ValueExpressionInner::Tuple(tuple_elements)
             },
             "string_literal" => {
                 Self::verify_value_type(&TypeRef::STRING, target_type, sub_node)?;
                 let string_value = extract_string(sub_node);
-                Ok(ValueExpression::Literal(Literal::String(string_value)))
+                ValueExpressionInner::Literal(Literal::String(string_value))
             },
             "integer_literal" => {
                 Self::verify_value_type(&TypeRef::INT, target_type, sub_node)?;
@@ -341,9 +342,9 @@ impl FunctionParser<'_, '_> {
 
                 match parse_result {
                     Ok(integer_value) => {
-                        Ok(ValueExpression::Literal(Literal::Number(integer_value)))
+                        ValueExpressionInner::Literal(Literal::Number(integer_value))
                     },
-                    Err(err) => Err(SemanticError::InternalError(format!(
+                    Err(err) => return Err(SemanticError::InternalError(format!(
                         "Could not parse integer literal \"{as_string}\": {err}"
                     ))
                     .while_parsing(sub_node)),
@@ -378,7 +379,7 @@ impl FunctionParser<'_, '_> {
                     }
                 }
 
-                Ok(ValueExpression::FunctionCall(function_call))
+                ValueExpressionInner::FunctionCall(function_call)
             },
             "function_as_value" => {
                 let expr_node = sub_node.expect_node("function_expression")?;
@@ -396,7 +397,7 @@ impl FunctionParser<'_, '_> {
                         Some(&expected_type.return_type),
                         sub_node,
                     )?;
-                    Ok(ValueExpression::FunctionAsValue(fn_expr))
+                    ValueExpressionInner::FunctionAsValue(fn_expr)
                 } else {
                     // we allow function_as_value to return a value, rather than a fn-type
                     let fn_expr = self.read_function_expression(
@@ -408,7 +409,7 @@ impl FunctionParser<'_, '_> {
 
                     // fn_expr.get_type() will return a non-function type if no parameters are left to evaluate
                     Self::verify_value_type(&fn_expr.get_type(), target_type, sub_node)?;
-                    Ok(ValueExpression::FunctionAsValue(fn_expr))
+                    ValueExpressionInner::FunctionAsValue(fn_expr)
                 }
             },
             // only a function call and a zero-parameter explicit lamda can result into a value
@@ -421,7 +422,7 @@ impl FunctionParser<'_, '_> {
                 )?;
                 // fn_expr.get_type() will return a non-function type if no parameters are left to evaluate
                 Self::verify_value_type(&fn_expr.get_type(), target_type, sub_node)?;
-                Ok(ValueExpression::FunctionAsValue(fn_expr))
+                ValueExpressionInner::FunctionAsValue(FunctionExpression{ inner: fn_expr, char_idx: sub_node.first_char() })
             },
             unknown => {
                 return Err(SemanticError::UnexpectedNode {
@@ -429,7 +430,9 @@ impl FunctionParser<'_, '_> {
                 }
                 .while_parsing(node))
             },
-        }
+        };
+
+        Ok(ValueExpression{ inner: expr, char_idx: sub_node.first_char() })
     }
 
     // function_expression = function_call | implicit_par_lamda | explicit_par_lamda | mutator_cast | mutator_assign | operator_expression;
@@ -450,7 +453,9 @@ impl FunctionParser<'_, '_> {
             .first()
             .expect("function_expression must have subnodes");
 
-        match sub_node.rule_name {
+        let char_idx = sub_node.first_char();
+
+        let expr = match sub_node.rule_name {
             "function_call" => {
                 // we first check whether this refers to a variable
                 if sub_node.find_nodes("namespace_name").is_empty() {
@@ -468,7 +473,7 @@ impl FunctionParser<'_, '_> {
                             argument_types,
                         )?;
 
-                        return Ok(FunctionExpression::FunctionCall(lamda));
+                        return Ok(FunctionExpression{ inner: FunctionExpressionInner::FunctionCall(lamda), char_idx });
                     }
                 }
 
@@ -476,7 +481,7 @@ impl FunctionParser<'_, '_> {
                 let parameters = &function_call.value_type.parameters;
                 Self::verify_parameters(argument_types, parameters, sub_node)?;
 
-                Ok(FunctionExpression::FunctionCall(function_call))
+                FunctionExpressionInner::FunctionCall(function_call)
             },
             "implicit_par_lamda" => {
                 if argument_types.len() != 1 {
@@ -491,10 +496,10 @@ impl FunctionParser<'_, '_> {
                     variables,
                     this_scope,
                     argument_types[0].clone(),
-                )
+                )?
             },
             "explicit_par_lamda" => {
-                self.read_explicit_parameter_lamda(sub_node, variables, this_scope, argument_types)
+                self.read_explicit_parameter_lamda(sub_node, variables, this_scope, argument_types)?
             },
             "mutator_assign" => {
                 if argument_types.len() != 1 {
@@ -505,12 +510,12 @@ impl FunctionParser<'_, '_> {
                     .while_parsing(sub_node));
                 }
 
-                self.read_assignment(sub_node, &argument_types[0], variables)
+                self.read_assignment(sub_node, &argument_types[0], variables)?
             },
             "mutator_cast" => {
                 let type_node = sub_node.expect_node("type_ref")?;
                 let type_ref = TypeCollector::read_type_ref(type_node)?;
-                Ok(FunctionExpression::Cast(type_ref))
+                FunctionExpressionInner::Cast(type_ref)
             },
             "operator_expression" => {
                 if argument_types.len() != 1 {
@@ -520,7 +525,7 @@ impl FunctionParser<'_, '_> {
                     }
                     .while_parsing(sub_node));
                 }
-                self.read_operator(sub_node, &argument_types[0], this_scope, variables)
+                self.read_operator(sub_node, &argument_types[0], this_scope, variables)?
             },
             unknown => {
                 return Err(SemanticError::UnexpectedNode {
@@ -528,7 +533,9 @@ impl FunctionParser<'_, '_> {
                 }
                 .while_parsing(node))
             },
-        }
+        };
+
+        Ok(FunctionExpression{ inner: expr, char_idx })
     }
 
     // operator_expression = operator, function_expression;
@@ -539,7 +546,7 @@ impl FunctionParser<'_, '_> {
         argument_type: &TypeRef,
         this_scope: &Namespace,
         variables: &mut VarStorage,
-    ) -> Result<FunctionExpression, SemanticError> {
+    ) -> Result<FunctionExpressionInner, SemanticError> {
         debug_assert_eq!(sub_node.rule_name, "operator_expression");
 
         let operator_symbol_node = sub_node.expect_node("operator")?;
@@ -597,7 +604,7 @@ impl FunctionParser<'_, '_> {
             .while_parsing(inner_expression_node));
         }
 
-        Ok(FunctionExpression::Operator(Operator {
+        Ok(FunctionExpressionInner::Operator(Operator {
             target: operator_fn_decl.id,
             inner_expr: Box::from(inner_expression),
             return_type: operator_fn_decl.return_type.clone(),
@@ -611,7 +618,7 @@ impl FunctionParser<'_, '_> {
         node: &RuleNode,
         value_type: &TypeRef,
         variables: &mut VarStorage,
-    ) -> Result<FunctionExpression, SemanticError> {
+    ) -> Result<FunctionExpressionInner, SemanticError> {
         let variable_name_node = node.expect_node("variable_name")?;
         let variable_name = variable_name_node.as_identifier();
 
@@ -633,7 +640,7 @@ impl FunctionParser<'_, '_> {
             variables.insert(variable_name, value_type.clone())?
         };
 
-        Ok(FunctionExpression::Assignment(var_decl))
+        Ok(FunctionExpressionInner::Assignment(var_decl))
     }
 
     // explicit_par_lamda     = [ untyped_parameter_list ], function_body;
@@ -643,7 +650,7 @@ impl FunctionParser<'_, '_> {
         outer_variables: &mut VarStorage,
         this_scope: &Namespace,
         argument_types: &Vec<TypeRef>,
-    ) -> SemanticResult<FunctionExpression> {
+    ) -> SemanticResult<FunctionExpressionInner> {
         debug_assert!(node.rule_name == "explicit_par_lamda");
 
         let parameter_node = node.find_node("untyped_parameter_list");
@@ -680,7 +687,7 @@ impl FunctionParser<'_, '_> {
             }
         }
 
-        Ok(FunctionExpression::Lamda(Lamda {
+        Ok(FunctionExpressionInner::Lamda(Lamda {
             parameters: argument_types.clone(),
             body: Rc::from(function_body),
             capture,
@@ -696,7 +703,7 @@ impl FunctionParser<'_, '_> {
         outer_variables: &mut VarStorage,
         this_scope: &Namespace,
         argument_type: TypeRef,
-    ) -> SemanticResult<FunctionExpression> {
+    ) -> SemanticResult<FunctionExpressionInner> {
         debug_assert!(node.rule_name == "implicit_par_lamda");
 
         let mut inner_variables = VarStorage::from(outer_variables);
@@ -722,7 +729,7 @@ impl FunctionParser<'_, '_> {
         }
 
         let initial_statement = Statement {
-            base_element: ValueExpression::Variable(implicit_par.id),
+            base_element: ValueExpression{ inner: ValueExpressionInner::Variable(implicit_par.id), char_idx: node.first_char() },
             mutations,
         };
 
@@ -765,7 +772,7 @@ impl FunctionParser<'_, '_> {
             }
         }
 
-        Ok(FunctionExpression::Lamda(Lamda {
+        Ok(FunctionExpressionInner::Lamda(Lamda {
             parameters: vec![argument_type],
             body: Rc::from(function_body),
             capture,
@@ -1011,7 +1018,7 @@ impl FunctionParser<'_, '_> {
                 if TypeRef::is_boolean(par_type) {
                     Ok((
                         target_parameter_idx,
-                        ValueExpression::Literal(Literal::Boolean(true)),
+                        ValueExpression{ inner: ValueExpressionInner::Literal(Literal::Boolean(true)), char_idx: sub_node.first_char() },
                     ))
                 } else {
                     Err(SemanticError::TypeMismatchError {
@@ -1022,7 +1029,7 @@ impl FunctionParser<'_, '_> {
                 }
             },
             unknown => {
-                return Err(SemanticError::UnexpectedNode {
+                Err(SemanticError::UnexpectedNode {
                     found: Identifier::from(unknown),
                 }
                 .while_parsing(node))

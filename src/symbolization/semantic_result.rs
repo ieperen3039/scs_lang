@@ -7,7 +7,7 @@ use crate::symbolization::ast;
 pub enum SemanticError {
     NodeNotFound {
         expected: &'static str,
-        actual: Vec<ast::Identifier>
+        actual: Vec<ast::Identifier>,
     },
     UnexpectedNode {
         found: ast::Identifier,
@@ -140,7 +140,7 @@ impl Display for SemanticError {
                         "Parameter \"{par}\" of function \"{function}\" is required"
                     )),
             SemanticError::AmbiguousUnnamedArgument { arg, function } => f.write_fmt(format_args!(
-                        "Argument \"{arg}\" of function \"{function}\" is ambigouous"
+                        "Argument \"{arg}\" of function \"{function}\" is ambiguous"
                     )),
             SemanticError::ArgumentNotFound { arg, function } => f.write_fmt(format_args!(
                         "Function \"{function}\" has no argument \"{arg}\""

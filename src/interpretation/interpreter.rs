@@ -86,11 +86,11 @@ impl Interpreter {
         expr: &ValueExpression,
         stack: &mut StackFrame,
     ) -> InterpResult<Value> {
-        match expr {
-            ValueExpression::Literal(Literal::Number(lit)) => Ok(Value::Int(*lit)),
-            ValueExpression::Literal(Literal::String(lit)) => Ok(Value::String(lit.to_string())),
-            ValueExpression::Literal(Literal::Boolean(lit)) => Ok(Value::new_boolean(*lit)),
-            ValueExpression::Tuple(tuple) => {
+        match &expr.inner {
+            ValueExpressionInner::Literal(Literal::Number(lit)) => Ok(Value::Int(*lit)),
+            ValueExpressionInner::Literal(Literal::String(lit)) => Ok(Value::String(lit.to_string())),
+            ValueExpressionInner::Literal(Literal::Boolean(lit)) => Ok(Value::new_boolean(*lit)),
+            ValueExpressionInner::Tuple(tuple) => {
                 let mut tuple_values = Vec::new();
                 for ele in tuple {
                     let expr_result = self.evaluate_value_expression(ele, stack);
@@ -104,7 +104,7 @@ impl Interpreter {
                 }
                 Ok(Value::Tuple(tuple_values))
             },
-            ValueExpression::Variable(var) => {
+            ValueExpressionInner::Variable(var) => {
                 let value = stack
                     .resolve_variable(*var)
                     .cloned()
@@ -113,10 +113,10 @@ impl Interpreter {
                     .unwrap_or(Value::Break);
                 Ok(value)
             },
-            ValueExpression::FunctionAsValue(fn_expr) => {
+            ValueExpressionInner::FunctionAsValue(fn_expr) => {
                 self.evaluate_function_expression(fn_expr, Value::Nothing, stack)
             },
-            ValueExpression::FunctionCall(fn_call) => self.evaluate_function_call(
+            ValueExpressionInner::FunctionCall(fn_call) => self.evaluate_function_call(
                 fn_call.target,
                 &fn_call.arguments,
                 Value::Nothing,
@@ -131,8 +131,8 @@ impl Interpreter {
         expr_value: Value,
         stack: &mut StackFrame,
     ) -> InterpResult<Value> {
-        match expr {
-            FunctionExpression::FunctionCall(call) => {
+        match &expr.inner {
+            FunctionExpressionInner::FunctionCall(call) => {
                 // function call as function expression: we know this cannot evaluate to a value
                 let function_stack = self.build_function_stack(
                     &call.arguments,
@@ -143,10 +143,10 @@ impl Interpreter {
 
                 Ok(Value::FunctionLamda(call.target, function_stack))
             },
-            FunctionExpression::Assignment(var) => {
+            FunctionExpressionInner::Assignment(var) => {
                 if matches!(expr_value, Value::Nothing) {
                     if var.is_return {
-                        panic!("assigning to return via lambda is not yet supported");
+                        panic!("char_idx {}: assigning to return via lambda is not yet supported", expr.char_idx);
                     }
 
                     let promise = stack.promise_variable(var.id);
@@ -165,7 +165,7 @@ impl Interpreter {
                     Ok(Value::Break)
                 }
             },
-            FunctionExpression::Operator(op) => {
+            FunctionExpressionInner::Operator(op) => {
                 let inner_function = self.evaluate_function_expression(&op.inner_expr, Value::Nothing, stack)?;
 
                 let mut function_stack = StackFrame::new();
@@ -190,7 +190,7 @@ impl Interpreter {
                     GlobalFunctionTarget::Native(id) => self.evaluate_native(id, function_stack),
                 }
             },
-            FunctionExpression::Lamda(lamda) => {
+            FunctionExpressionInner::Lamda(lamda) => {
                 let mut lamda_arguments = StackFrame::new();
                 let mut var_id = lamda.parameters.len();
                 for ele in &lamda.capture {
@@ -223,7 +223,7 @@ impl Interpreter {
 
                 self.evaluate_fn_body(&lamda.body, lamda_arguments)
             },
-            FunctionExpression::Cast(_) => {
+            FunctionExpressionInner::Cast(_) => {
                 if matches!(expr_value, Value::Nothing) {
                     return Ok(Value::IdentityLamda);
                 }
