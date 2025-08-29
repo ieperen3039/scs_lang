@@ -224,6 +224,7 @@ impl Namespace {
             namespaces: HashMap::new(),
             types: HashMap::new(),
             functions: HashMap::new(),
+            constants: HashMap::new(),
         }
     }
 
@@ -233,12 +234,21 @@ impl Namespace {
             namespaces: HashMap::new(),
             types: HashMap::new(),
             functions: HashMap::new(),
+            constants: HashMap::new(),
         }
     }
 
     pub fn add_sub_scope(&mut self, scope_to_add: Namespace) {
         self.namespaces
             .insert(scope_to_add.get_name(), scope_to_add);
+    }
+
+    pub fn add_constant(&mut self, name: Identifier, value: ValueExpression) {
+        self.constants.insert(name, value);
+    }
+
+    pub fn add_constant_literal(&mut self, name: Identifier, value: Literal) {
+        self.constants.insert(name, ValueExpression{ inner: ValueExpressionInner::Literal(value), char_idx: 0 });
     }
 
     pub fn add_function(&mut self, fn_to_add: FunctionDeclaration) {
@@ -276,6 +286,7 @@ impl Namespace {
         self.namespaces.extend(other.namespaces);
         self.types.extend(other.types);
         self.functions.extend(other.functions);
+        self.constants.extend(other.constants);
     }
 
     pub fn combined_with(&self, other: Namespace) -> Namespace {

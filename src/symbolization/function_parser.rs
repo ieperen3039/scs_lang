@@ -285,7 +285,10 @@ impl FunctionParser<'_, '_> {
                     Some(&fn_type.return_type),
                     node,
                 )?;
-                Ok(ValueExpression{ inner: ValueExpressionInner::FunctionAsValue(fn_expr), char_idx: node.first_char() })
+                Ok(ValueExpression {
+                    inner: ValueExpressionInner::FunctionAsValue(fn_expr),
+                    char_idx: node.first_char(),
+                })
             },
             _ => self.read_value_expression(node, this_scope, variables, Some(target_type)),
         }
@@ -311,15 +314,20 @@ impl FunctionParser<'_, '_> {
         let expr = match sub_node.rule_name {
             "variable_name" => {
                 let var_name = sub_node.as_identifier();
-                let variable = variables.use_var_by_name(&var_name).ok_or_else(|| {
-                    SemanticError::SymbolNotFound {
+                let variable = variables.use_var_by_name(&var_name);
+                if let Some(variable) = variable {
+                    Self::verify_value_type(&variable.var_type, target_type, sub_node)?;
+                    ValueExpressionInner::Variable(variable.id)
+                } else if let Some(constant) = this_scope.constants.get(&var_name) {
+                    Self::verify_value_type(&constant.get_type(variables), target_type, sub_node)?;
+                    constant.inner.clone()
+                } else {
+                    return Err(SemanticError::SymbolNotFound {
                         kind: "variable",
                         symbol: var_name,
                     }
-                    .while_parsing(sub_node)
-                })?;
-                Self::verify_value_type(&variable.var_type, target_type, sub_node)?;
-                ValueExpressionInner::Variable(variable.id)
+                    .while_parsing(sub_node));
+                }
             },
             "tuple_construction" => {
                 let mut tuple_elements = Vec::new();
@@ -344,10 +352,12 @@ impl FunctionParser<'_, '_> {
                     Ok(integer_value) => {
                         ValueExpressionInner::Literal(Literal::Number(integer_value))
                     },
-                    Err(err) => return Err(SemanticError::InternalError(format!(
-                        "Could not parse integer literal \"{as_string}\": {err}"
-                    ))
-                    .while_parsing(sub_node)),
+                    Err(err) => {
+                        return Err(SemanticError::InternalError(format!(
+                            "Could not parse integer literal \"{as_string}\": {err}"
+                        ))
+                        .while_parsing(sub_node))
+                    },
                 }
             },
             "dollar_string_literal" => {
@@ -422,7 +432,10 @@ impl FunctionParser<'_, '_> {
                 )?;
                 // fn_expr.get_type() will return a non-function type if no parameters are left to evaluate
                 Self::verify_value_type(&fn_expr.get_type(), target_type, sub_node)?;
-                ValueExpressionInner::FunctionAsValue(FunctionExpression{ inner: fn_expr, char_idx: sub_node.first_char() })
+                ValueExpressionInner::FunctionAsValue(FunctionExpression {
+                    inner: fn_expr,
+                    char_idx: sub_node.first_char(),
+                })
             },
             unknown => {
                 return Err(SemanticError::UnexpectedNode {
@@ -432,7 +445,10 @@ impl FunctionParser<'_, '_> {
             },
         };
 
-        Ok(ValueExpression{ inner: expr, char_idx: sub_node.first_char() })
+        Ok(ValueExpression {
+            inner: expr,
+            char_idx: sub_node.first_char(),
+        })
     }
 
     // function_expression = function_call | implicit_par_lamda | explicit_par_lamda | mutator_cast | mutator_assign | operator_expression;
@@ -473,7 +489,10 @@ impl FunctionParser<'_, '_> {
                             argument_types,
                         )?;
 
-                        return Ok(FunctionExpression{ inner: FunctionExpressionInner::FunctionCall(lamda), char_idx });
+                        return Ok(FunctionExpression {
+                            inner: FunctionExpressionInner::FunctionCall(lamda),
+                            char_idx,
+                        });
                     }
                 }
 
@@ -535,7 +554,10 @@ impl FunctionParser<'_, '_> {
             },
         };
 
-        Ok(FunctionExpression{ inner: expr, char_idx })
+        Ok(FunctionExpression {
+            inner: expr,
+            char_idx,
+        })
     }
 
     // operator_expression = operator, function_expression;
@@ -729,7 +751,10 @@ impl FunctionParser<'_, '_> {
         }
 
         let initial_statement = Statement {
-            base_element: ValueExpression{ inner: ValueExpressionInner::Variable(implicit_par.id), char_idx: node.first_char() },
+            base_element: ValueExpression {
+                inner: ValueExpressionInner::Variable(implicit_par.id),
+                char_idx: node.first_char(),
+            },
             mutations,
         };
 
@@ -752,7 +777,7 @@ impl FunctionParser<'_, '_> {
             let parameters = inner_variables.get_var_ids();
             let return_var = inner_variables.get_return_var().ok_or_else(|| {
                 SemanticError::SymbolNotFound {
-                    kind: "variable",
+                    kind: "implicit variable",
                     symbol: Identifier::from("return"),
                 }
                 .while_parsing(node)
@@ -781,7 +806,6 @@ impl FunctionParser<'_, '_> {
 
     // function_call = { namespace_name }, function_name, [ _argument_list ];
     // _argument_list = argument, { argument };
-    // TODO pass the expected arguments along, to do type checking while parsing parameters
     fn read_function_call(
         &self,
         node: &RuleNode,
@@ -1018,7 +1042,10 @@ impl FunctionParser<'_, '_> {
                 if TypeRef::is_boolean(par_type) {
                     Ok((
                         target_parameter_idx,
-                        ValueExpression{ inner: ValueExpressionInner::Literal(Literal::Boolean(true)), char_idx: sub_node.first_char() },
+                        ValueExpression {
+                            inner: ValueExpressionInner::Literal(Literal::Boolean(true)),
+                            char_idx: sub_node.first_char(),
+                        },
                     ))
                 } else {
                     Err(SemanticError::TypeMismatchError {
@@ -1028,12 +1055,10 @@ impl FunctionParser<'_, '_> {
                     .while_parsing(sub_node))
                 }
             },
-            unknown => {
-                Err(SemanticError::UnexpectedNode {
-                    found: Identifier::from(unknown),
-                }
-                .while_parsing(node))
-            },
+            unknown => Err(SemanticError::UnexpectedNode {
+                found: Identifier::from(unknown),
+            }
+            .while_parsing(node)),
         }
     }
 }

@@ -18,13 +18,23 @@ impl FunctionBuilder {
         id
     }
 
-    pub fn flag(&mut self, long_name: Option<&str>, short_name: Option<&str>) -> Parameter {
+    pub fn flag(&mut self, long_name: &str) -> Parameter {
         Parameter {
             id: self.new_var_id(),
             par_type: TypeRef::boolean(),
             is_optional: true,
-            long_name: long_name.map(Identifier::from),
-            short_name: short_name.map(Identifier::from),
+            long_name: Some(Identifier::from(long_name)),
+            short_name: None,
+        }
+    }
+
+    pub fn flag_s(&mut self, long_name: &str, short_name: &str) -> Parameter {
+        Parameter {
+            id: self.new_var_id(),
+            par_type: TypeRef::boolean(),
+            is_optional: true,
+            long_name: Some(Identifier::from(long_name)),
+            short_name: Some(Identifier::from(short_name)),
         }
     }
 

@@ -17,7 +17,7 @@ impl InternalFunction for FnEcho {
         FnEcho {
             function_id,
             par_in: builder.req_par("in", &TypeRef::STRING),
-            par_error: builder.flag(Some("error"), Some("e")),
+            par_error: builder.flag("error"),
         }
     }
 
