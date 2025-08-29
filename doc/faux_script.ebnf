@@ -41,7 +41,7 @@ function_call           = { namespace_name, "." }, function_name, "(", [ _argume
 _argument_list          = argument, { ",", argument };
 argument                = named_argument | unnamed_argument | flag_argument;
 unnamed_argument        = argument_expression;
-flag_argument           = "!", identifier;
+flag_argument           = "$", identifier;
 named_argument          = identifier, "=", argument_expression;
 
 (* mutators, selectors and usage indicators *)

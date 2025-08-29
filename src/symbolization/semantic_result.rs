@@ -5,6 +5,9 @@ use crate::symbolization::ast;
 
 #[derive(Debug)]
 pub enum SemanticError {
+    SyntaxError {
+        error_lines: Vec<String>
+    },
     NodeNotFound {
         expected: &'static str,
         actual: Vec<ast::Identifier>,
@@ -180,6 +183,13 @@ impl Display for SemanticError {
                     } => f.write_fmt(format_args!(
                         "{cause}\n\twhile parsing \"{rule_name}\" (char {first_char} to {last_char})"
                     )),
+            SemanticError::SyntaxError { error_lines } => {
+                for line in error_lines {
+                    f.write_str(&line)?;
+                    f.write_str("\n")?;
+                }
+                Ok(())
+            },
         }
     }
 }

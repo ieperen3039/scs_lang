@@ -66,33 +66,9 @@ impl FunctionParser<'_, '_> {
                 };
             } else {
                 // this is an implicit return
-                let last_expression_type = match statement.mutations.last() {
-                    Some(last_mutation) => {
-                        if let FunctionExpressionInner::Assignment(_) = last_mutation.inner {
-                            return Err(SemanticError::BrokenControl(
-                                "Function ended with an assignment, but no semicolon. \
-                            Assignments do not return a result, but the missing semicolon implies that we wnat to return this result",
-                            ).while_parsing(statement_node.sub_rules.last().unwrap_or(statement_node)));
-                        }
-                        last_mutation.get_return_type()
-                    },
-                    None => statement.base_element.get_type(variables),
-                };
-                // TODO check whether last_expression_type is TypeRef::NoReturn
-
-                let return_var = match variables.get_return_var() {
-                    Some(var) => {
-                        if var.var_type != last_expression_type {
-                            return Err(SemanticError::TypeMismatchError {
-                                expected: var.var_type.clone(),
-                                found: last_expression_type,
-                            }
-                            .while_parsing(statement_node));
-                        }
-                        var
-                    },
-                    None => variables.insert_return(last_expression_type),
-                };
+                let return_var = Self::get_implicit_return(variables, &statement).map_err(|e| {
+                    e.while_parsing(statement_node.sub_rules.last().unwrap_or(statement_node))
+                })?;
 
                 statement.mutations.push(FunctionExpression {
                     inner: FunctionExpressionInner::Assignment(return_var),
@@ -114,6 +90,40 @@ impl FunctionParser<'_, '_> {
             return_type,
             parameters,
         })
+    }
+
+    fn get_implicit_return(
+        variables: &mut VarStorage,
+        statement: &Statement,
+    ) -> SemanticResult<Rc<VariableDeclaration>> {
+        let last_expression_type = match statement.mutations.last() {
+            Some(last_mutation) => {
+                if let FunctionExpressionInner::Assignment(_) = last_mutation.inner {
+                    return Err(SemanticError::BrokenControl(concat!(
+                    "Function ended with an assignment, but no semicolon. ",
+                    "Assignments do not return a result, but the missing semicolon implies that we want to return this result"
+                    )));
+                }
+                last_mutation.get_return_type()
+            },
+            None => statement.base_element.get_type(variables),
+        };
+        // TODO check whether last_expression_type is TypeRef::NoReturn
+
+        let return_var = match variables.get_return_var() {
+            Some(var) => {
+                if var.var_type != last_expression_type {
+                    return Err(SemanticError::TypeMismatchError {
+                        expected: var.var_type.clone(),
+                        found: last_expression_type,
+                    });
+                }
+                var
+            },
+            None => variables.insert_return(last_expression_type),
+        };
+
+        Ok(return_var)
     }
 
     pub fn read_function_body(
@@ -758,14 +768,14 @@ impl FunctionParser<'_, '_> {
             mutations,
         };
 
-        let num_elements_left = node
+        let next_statement_index = node
             .sub_rules
             .iter()
             .position(|r| r.rule_name == "statement");
 
-        let function_body = if let Some(num_elements_left) = num_elements_left {
+        let function_body = if let Some(next_statement_index) = next_statement_index {
             let mut function_body = self.read_statements(
-                &node.sub_rules[num_elements_left..],
+                &node.sub_rules[next_statement_index..],
                 this_scope,
                 &mut inner_variables,
             )?;
@@ -775,13 +785,8 @@ impl FunctionParser<'_, '_> {
             function_body
         } else {
             let parameters = inner_variables.get_var_ids();
-            let return_var = inner_variables.get_return_var().ok_or_else(|| {
-                SemanticError::SymbolNotFound {
-                    kind: "implicit variable",
-                    symbol: Identifier::from("return"),
-                }
-                .while_parsing(node)
-            })?;
+            let return_var = Self::get_implicit_return(&mut inner_variables, &initial_statement)
+                .map_err(|e| e.while_parsing(node.find_nodes("function_expression").last().unwrap_or(&node)))?;
 
             FunctionBody {
                 parameters,
@@ -916,7 +921,7 @@ impl FunctionParser<'_, '_> {
         let mut arguments = Vec::new();
         arguments.resize(remaining_parameters.len(), None);
 
-        for arg_node in argument_nodes.into_iter().rev() {
+        for arg_node in argument_nodes.into_iter() {
             let (par_idx, expr) = self.read_argument(
                 &function_decl.name,
                 arg_node,
