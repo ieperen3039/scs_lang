@@ -387,17 +387,7 @@ impl FunctionParser<'_, '_> {
                         found_type: found_type.clone(),
                     });
                 }
-
-                if let Some(expected_type) = target_type {
-                    // require that the function call is
-                    if found_type.return_type.as_ref() != expected_type {
-                        return Err(SemanticError::TypeMismatchError {
-                            expected: expected_type.clone(),
-                            found: TypeRef::Function(found_type.clone()),
-                        }
-                        .while_parsing(sub_node));
-                    }
-                }
+                Self::verify_value_type(found_type.return_type.as_ref(), target_type, sub_node)?;
 
                 ValueExpressionInner::FunctionCall(function_call)
             },
@@ -786,7 +776,13 @@ impl FunctionParser<'_, '_> {
         } else {
             let parameters = inner_variables.get_var_ids();
             let return_var = Self::get_implicit_return(&mut inner_variables, &initial_statement)
-                .map_err(|e| e.while_parsing(node.find_nodes("function_expression").last().unwrap_or(&node)))?;
+                .map_err(|e| {
+                    e.while_parsing(
+                        node.find_nodes("function_expression")
+                            .last()
+                            .unwrap_or(&node),
+                    )
+                })?;
 
             FunctionBody {
                 parameters,
@@ -835,26 +831,70 @@ impl FunctionParser<'_, '_> {
         )?;
 
         let argument_nodes = node.find_nodes("argument");
-        let arguments_result =
-            self.read_arguments(argument_nodes, &function_decl, this_scope, variables)?;
 
-        let arguments = arguments_result.arguments;
-        let parameters = arguments_result
-            .remaining_parameters
+        let mut arguments = Vec::new();
+        let mut remaining_parameters = function_decl.parameters.clone();
+        let mut generic_replacements: HashMap<Identifier, TypeRef> = HashMap::new();
+
+        if !argument_nodes.is_empty() {
+            // maps the current parameters to the corresponding indices in the original parameters vec
+            let mut indices: Vec<usize> = (0..function_decl.parameters.len()).collect();
+
+            arguments.resize(remaining_parameters.len(), None);
+
+            for arg_node in argument_nodes.into_iter() {
+                let (par_idx, expr) = self.read_argument(
+                    &function_decl.name,
+                    arg_node,
+                    &remaining_parameters,
+                    this_scope,
+                    variables,
+                )?;
+                let target_par = remaining_parameters.remove(par_idx);
+                let target_idx = indices.remove(par_idx);
+
+                if let TypeRef::GenericName(name) = target_par.par_type {
+                    let new_type = expr.get_type(variables);
+
+                    if let Some(existing_type) = generic_replacements.get(&name) {
+                        if existing_type != &new_type {
+                            return Err(SemanticError::AmbiguousGenericType {
+                                generic_name: name,
+                                first_type: existing_type.clone(),
+                                second_type: new_type,
+                            });
+                        }
+                    }
+
+                    generic_replacements.insert(name, new_type);
+                }
+
+                arguments[target_idx] = Some(expr);
+            }
+        }
+
+        let parameters = remaining_parameters
             .into_iter()
             .filter(|p| !p.is_optional)
             .map(|p| p.par_type)
             .collect();
 
-        let generic_arguments = Vec::new();
+        // resolve generic return type if necessary
+        let return_type = match &function_decl.return_type {
+            TypeRef::GenericName(id) => generic_replacements.get(id).ok_or_else(|| {
+                SemanticError::UnresolvedGenericType {
+                    generic_name: id.clone(),
+                }
+            })?,
+            any => any,
+        };
 
         Ok(FunctionCall {
             target: function_decl.id.into(),
             arguments,
-            generic_arguments,
             value_type: FunctionType {
                 parameters,
-                return_type: Box::new(function_decl.return_type),
+                return_type: Box::new(return_type.clone()),
             },
         })
     }
@@ -882,7 +922,6 @@ impl FunctionParser<'_, '_> {
             Ok(FunctionCall {
                 target: LocalFunctionTarget::Local(fn_var.id),
                 value_type: fn_type.clone(),
-                generic_arguments: Vec::new(),
                 arguments,
             })
         } else {
@@ -895,65 +934,6 @@ impl FunctionParser<'_, '_> {
             }
             .while_parsing(node))
         }
-    }
-
-    // if successful, returns the arguments, where the indices map to function_decl.parameters
-    fn read_arguments(
-        &self,
-        argument_nodes: Vec<&RuleNode>,
-        function_decl: &FunctionDeclaration,
-        this_scope: &Namespace,
-        variables: &mut VarStorage,
-    ) -> SemanticResult<ArgumentsResult> {
-        if argument_nodes.is_empty() {
-            return Ok(ArgumentsResult {
-                arguments: Vec::new(),
-                remaining_parameters: function_decl.parameters.clone(),
-            });
-        }
-
-        let mut generic_replacements: HashMap<Identifier, TypeRef> = HashMap::new();
-
-        let mut remaining_parameters: Vec<Parameter> = function_decl.parameters.clone();
-        // maps the current parameters to the corresponding indices in the original parameters vec
-        let mut indices: Vec<usize> = (0..function_decl.parameters.len()).collect();
-
-        let mut arguments = Vec::new();
-        arguments.resize(remaining_parameters.len(), None);
-
-        for arg_node in argument_nodes.into_iter() {
-            let (par_idx, expr) = self.read_argument(
-                &function_decl.name,
-                arg_node,
-                &remaining_parameters,
-                this_scope,
-                variables,
-            )?;
-            let target_par = remaining_parameters.remove(par_idx);
-            let target_idx = indices.remove(par_idx);
-
-            if let TypeRef::GenericName(name) = target_par.par_type {
-                let new_type = expr.get_type(variables);
-
-                if let Some(existing_type) = generic_replacements.get(&name) {
-                    if existing_type != &new_type {
-                        return Err(SemanticError::AmbiguousGenericType {
-                            generic_name: name,
-                            first_type: existing_type.clone(),
-                            second_type: new_type,
-                        });
-                    }
-                }
-
-                generic_replacements.insert(name, new_type);
-            }
-
-            arguments[target_idx] = Some(expr);
-        }
-        Ok(ArgumentsResult {
-            arguments,
-            remaining_parameters,
-        })
     }
 
     // argument                = named_argument | unnamed_argument | flag_argument;

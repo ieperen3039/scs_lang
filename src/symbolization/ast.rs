@@ -189,8 +189,6 @@ pub struct FunctionCall {
     pub target: LocalFunctionTarget,
     // the type of this expression as a value
     pub value_type: FunctionType,
-    // arguments for the generic parameters
-    pub generic_arguments: Vec<TypeRef>,
     // indices in this vector correspond to the variable ids of the function body
     // (the argument vector and parameter vector should have the same len)
     pub arguments: Vec<Option<ValueExpression>>,
