@@ -52,6 +52,77 @@ impl TypeRef {
             return_type: Box::new(decl.return_type.clone()),
         })
     }
+
+    pub fn compare_with_generics(
+        one: &TypeRef,
+        other: &TypeRef,
+        generic_replacements: &mut HashMap<Identifier, TypeRef>,
+    ) -> bool {
+        match (one, other) {
+            (Self::GenericName(id1), Self::GenericName(id2)) => {
+                // check if either of them has been resolved
+                let resolution1 = generic_replacements.get(id1);
+                let resolution2 = generic_replacements.get(id2);
+                match (resolution1, resolution2) {
+                    (Some(r1), Some(r2)) => r1 == r2,
+                    (Some(r1), None) => {
+                        generic_replacements.insert(id2.clone(), r1.clone());
+                        true
+                    },
+                    (None, Some(r2)) => {
+                        generic_replacements.insert(id1.clone(), r2.clone());
+                        true
+                    },
+                    (None, None) => true,
+                }
+            },
+            (Self::GenericName(id), other) | (other, Self::GenericName(id)) => {
+                let resolution = generic_replacements.get(id);
+                if let Some(resolution) = resolution {
+                    resolution == other
+                } else {
+                    generic_replacements.insert(id.clone(), other.clone());
+                    true
+                }
+            },
+            (Self::Defined(a), Self::Defined(b)) => {
+                (a.id == b.id)
+                    && (a.generics.len() == b.generics.len())
+                    && a.generics
+                        .iter()
+                        .zip(&b.generics)
+                        .all(|(a2, b2)| Self::compare_with_generics(a2, b2, generic_replacements))
+            },
+            (Self::Result(a1, a2), Self::Result(b1, b2)) => {
+                Self::compare_with_generics(a1, b1, generic_replacements)
+                    && Self::compare_with_generics(a2, b2, generic_replacements)
+            },
+            (Self::UnnamedTuple(a), Self::UnnamedTuple(b)) => {
+                (a.len() == b.len())
+                    && a.iter()
+                        .zip(b)
+                        .all(|(a2, b2)| Self::compare_with_generics(a2, b2, generic_replacements))
+            },
+            (Self::Stream(a), Self::Stream(b)) => {
+                Self::compare_with_generics(a, b, generic_replacements)
+            },
+            (Self::Function(a), Self::Function(b)) => {
+                (a.parameters.len() == b.parameters.len())
+                    && a.parameters
+                        .iter()
+                        .zip(&b.parameters)
+                        .all(|(a2, b2)| Self::compare_with_generics(a2, b2, generic_replacements))
+                    && Self::compare_with_generics(
+                        &a.return_type,
+                        &b.return_type,
+                        generic_replacements,
+                    )
+            },
+            (Self::Void, Self::Void) => true,
+            (Self::Break, Self::Break) => true,
+            _ => false,
+        }
+    }
 }
 
 impl std::fmt::Debug for TypeRef {
@@ -248,7 +319,13 @@ impl Namespace {
     }
 
     pub fn add_constant_literal(&mut self, name: Identifier, value: Literal) {
-        self.constants.insert(name, ValueExpression{ inner: ValueExpressionInner::Literal(value), char_idx: 0 });
+        self.constants.insert(
+            name,
+            ValueExpression {
+                inner: ValueExpressionInner::Literal(value),
+                char_idx: 0,
+            },
+        );
     }
 
     pub fn add_function(&mut self, fn_to_add: FunctionDeclaration) {
