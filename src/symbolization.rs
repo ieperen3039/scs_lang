@@ -11,3 +11,4 @@ mod tests;
 pub mod function_collector;
 pub mod semantic_result;
 pub mod variable_storage;
+mod generics_storage;

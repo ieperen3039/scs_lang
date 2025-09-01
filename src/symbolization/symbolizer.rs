@@ -11,7 +11,7 @@ use crate::{
         variable_storage::VarStorage,
     },
 };
-
+use crate::symbolization::generics_storage::GenStorage;
 use super::semantic_result::SemanticResult;
 
 pub fn parse_faux_program(
@@ -117,6 +117,7 @@ pub fn parse_faux_script(
         &ast.sub_rules[..start_of_functions],
         &combined_namespace,
         &mut VarStorage::new(),
+        &mut GenStorage::new()
     )?;
 
     function_definitions.insert(entry_function_id, entry_function);
@@ -169,8 +170,8 @@ fn parse_function_definitions(
                 let function_body_node = node.expect_node("function_body")?;
                 let function_body = function_parser.read_function_body(
                     function_declaration,
-                    function_body_node,
                     function_parser.root_namespace,
+                    function_body_node,
                 )?;
 
                 function_definitions.insert(function_declaration.id.assert_defined(), function_body);

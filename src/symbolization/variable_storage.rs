@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use super::{
@@ -13,6 +14,7 @@ struct Var {
 pub struct VarStorage {
     data: Vec<Var>,
     next_var_id: VariableId,
+    generics: HashMap<Identifier, TypeRef>,
 }
 
 impl VarStorage {
@@ -20,9 +22,11 @@ impl VarStorage {
         VarStorage {
             data: Vec::new(),
             next_var_id: 0,
+            generics: HashMap::new(),
         }
     }
 
+    // creates a new nested scope for variables
     pub fn from(other: &VarStorage) -> VarStorage {
         VarStorage {
             data: other
@@ -34,6 +38,7 @@ impl VarStorage {
                 })
                 .collect(),
             next_var_id: other.next_var_id,
+            generics: other.generics.clone(),
         }
     }
 
