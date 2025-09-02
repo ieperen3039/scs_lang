@@ -28,7 +28,7 @@ impl GenStorage {
         let entry = self
             .arguments
             .get_mut(name)
-            .expect("given name must have been added first");
+            .expect("generics may only be resolved if they have been added with set_arguments first");
         *entry = Some(substitution);
     }
 
@@ -120,8 +120,8 @@ impl GenStorage {
                 true
             },
             (TypeRef::Result(a1, a2), TypeRef::Result(b1, b2)) => {
-                self.verify_equal(b1, a1)?;
-                self.verify_equal(b2, a2)?;
+                self.verify_equal(a1, b1)?;
+                self.verify_equal(a2, b2)?;
                 true
             },
             (TypeRef::UnnamedTuple(a), TypeRef::UnnamedTuple(b)) => {
@@ -132,11 +132,11 @@ impl GenStorage {
                     });
                 }
                 for (a2, b2) in a.iter().zip(b) {
-                    self.verify_equal(b2, a2)?;
+                    self.verify_equal(a2, b2)?;
                 }
                 true
             },
-            (TypeRef::Stream(a), TypeRef::Stream(b)) => return self.verify_equal(b, a),
+            (TypeRef::Stream(a), TypeRef::Stream(b)) => return self.verify_equal(a, b),
             (TypeRef::Function(a), TypeRef::Function(b)) => {
                 if a.parameters.len() != b.parameters.len() {
                     return Err(SemanticError::TypeMismatchError {
@@ -145,7 +145,7 @@ impl GenStorage {
                     });
                 }
                 for (a2, b2) in a.parameters.iter().zip(&b.parameters) {
-                    self.verify_equal(b2, a2)?;
+                    self.verify_equal(a2, b2)?;
                 }
                 return self.verify_equal(&b.return_type, &a.return_type);
             },

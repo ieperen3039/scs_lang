@@ -27,6 +27,7 @@ pub enum SemanticError {
     },    
     UnresolvedGenericType {
         generic_name: ast::Identifier,
+        function: ast::Identifier,
     },
     VariableExists {
         name: ast::Identifier,
@@ -139,8 +140,8 @@ impl Display for SemanticError {
             SemanticError::AmbiguousGenericType { generic_name, first_type, second_type } => f.write_fmt(format_args!(
                 "Multiple types for generic \"{generic_name}\": first found type \"{first_type:?}\", later found type \"{second_type:?}\""
             )),
-            SemanticError::UnresolvedGenericType { generic_name } => f.write_fmt(format_args!(
-                "The type for generic \"{generic_name}\" cannot be resolved\""
+            SemanticError::UnresolvedGenericType { generic_name, function } => f.write_fmt(format_args!(
+                "The type for generic \"{generic_name}\" of function \"{function}\" cannot be resolved\""
             )),
             SemanticError::VariableExists { name } => f.write_fmt(format_args!(
                         "A variable with the name \"{name}\" already exists in this scope"

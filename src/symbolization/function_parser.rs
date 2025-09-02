@@ -521,6 +521,7 @@ impl FunctionParser<'_, '_> {
                 let function_call =
                     self.read_function_call(sub_node, this_scope, variables, generics)?;
                 let parameters = &function_call.value_type.parameters;
+
                 Self::verify_parameters(argument_types, parameters, generics)
                     .map_err(|e| e.while_parsing(sub_node))?;
 
@@ -913,11 +914,21 @@ impl FunctionParser<'_, '_> {
             }
         }
 
-        let parameters = remaining_parameters
-            .into_iter()
-            .filter(|p| !p.is_optional)
-            .map(|p| p.par_type)
-            .collect();
+        let mut parameters = Vec::new();
+        for p in remaining_parameters {
+            if p.is_optional { continue; }
+
+            let resolved_type = function_local_generics.resolve(&p.par_type);
+
+            if let TypeRef::GenericName(par) = resolved_type {
+                return Err(SemanticError::UnresolvedGenericType {
+                    generic_name: par,
+                    function: function_name_node.as_identifier()
+                })
+            } else {
+                parameters.push(resolved_type);
+            }
+        }
 
 
         for unused in function_local_generics.get_all_unresolved() {
