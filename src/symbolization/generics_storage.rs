@@ -16,19 +16,15 @@ impl GenStorage {
     }
 
     pub fn from(other: &GenStorage) -> Self {
-        let mut combined = Vec::new();
-        combined.extend(other.rigid_parameters.iter().cloned());
-        // TODO is this correct?
-        combined.extend(other.arguments.keys().cloned());
-
         Self {
-            rigid_parameters: combined,
+            rigid_parameters: other.rigid_parameters.clone(),
+            // generic arguments never transfer scopes
             arguments: HashMap::new(),
         }
     }
 
     pub fn set_substitution(&mut self, name: &Identifier, substitution: TypeRef) {
-        // we avoid needing to clone name again; the key must already be here anyway
+        // we avoid needing to clone `name` again; the key must already be here anyway
         let entry = self
             .arguments
             .get_mut(name)
@@ -37,14 +33,16 @@ impl GenStorage {
     }
 
     pub fn set_arguments<I: Iterator<Item = Identifier>>(&mut self, names: I) {
+        self.arguments.clear();
         for name in names {
             self.arguments.insert(name, None);
         }
     }
 
     pub fn set_parameters<I: Iterator<Item = Identifier>>(&mut self, names: I) {
+        self.rigid_parameters.clear();
         for name in names {
-            self.arguments.insert(name, None);
+            self.rigid_parameters.push(name);
         }
     }
 
@@ -86,43 +84,33 @@ impl GenStorage {
         }
     }
 
-    pub fn verify_equal(&mut self, argument: &TypeRef, parameter: &TypeRef) -> SemanticResult<()> {
-        let is_comparable = match (argument, parameter) {
-            (TypeRef::GenericName(id1), TypeRef::GenericName(id2)) => {
-                // TODO what are we comparing? generic arguments, or generic parameters? a mix mayhaps?
-                // check if either of them has been resolved
-                let resolution1 = self.get_resolved_type(id1);
-                let resolution2 = self.get_resolved_type(id2);
-                match (resolution1, resolution2) {
-                    (Some(r1), Some(r2)) => r1 == r2,
-                    (Some(r1), None) => {
-                        self.set_substitution(id2, r1.clone());
-                        true
-                    },
-                    (None, Some(r2)) => {
-                        self.set_substitution(id1, r2.clone());
-                        true
-                    },
-                    (None, None) => true,
-                }
-            },
-            (TypeRef::GenericName(id), other) | (other, TypeRef::GenericName(id)) => {
+    pub fn verify_equal(&mut self, actual_type: &TypeRef, expected_type: &TypeRef) -> SemanticResult<()> {
+        // If the expected type is an unresolved generic, then we can use resolve that generic to the actual type.
+        // If the expected type is a resolved generic, then we must check that the actual type matches this resolved type.
+        // If the actual type is a generic, then it must be a generic parameter type of the surrounding function,
+        // and we treat it as a regular type, even resolving the expected generic to the generic actual type
+
+        let is_comparable = match (actual_type, expected_type) {
+            (actual_type, TypeRef::GenericName(id)) => {
                 let resolution = self.get_resolved_type(id);
                 if let Some(resolution) = resolution {
-                    if resolution != other {
+                    if resolution != actual_type {
                         return Err(SemanticError::AmbiguousGenericType {
                             generic_name: id.clone(),
                             first_type: resolution.clone(),
-                            second_type: other.clone(),
+                            second_type: actual_type.clone(),
                         });
-                    } else {
-                        true
                     }
                 } else {
-                    self.set_substitution(id, other.clone());
-                    true
+                    // resolve the generic expected type to the actual type, even if it is generic
+                    self.set_substitution(id, actual_type.clone());
                 }
-            },
+                true
+            }
+            (TypeRef::GenericName(_), _) => {
+                // expected_type is not a generic, actual type is a generic parameter type of the surrounding function
+                false
+            }
             (TypeRef::Defined(a), TypeRef::Defined(b)) => {
                 if (a.id == b.id) && (a.generics.len() == b.generics.len()) {
                     for (a2, b2) in a.generics.iter().zip(&b.generics) {
@@ -139,8 +127,8 @@ impl GenStorage {
             (TypeRef::UnnamedTuple(a), TypeRef::UnnamedTuple(b)) => {
                 if a.len() != b.len() {
                     return Err(SemanticError::TypeMismatchError {
-                        expected: parameter.clone(),
-                        found: argument.clone(),
+                        expected: expected_type.clone(),
+                        found: actual_type.clone(),
                     });
                 }
                 for (a2, b2) in a.iter().zip(b) {
@@ -152,8 +140,8 @@ impl GenStorage {
             (TypeRef::Function(a), TypeRef::Function(b)) => {
                 if a.parameters.len() != b.parameters.len() {
                     return Err(SemanticError::TypeMismatchError {
-                        expected: parameter.clone(),
-                        found: argument.clone(),
+                        expected: expected_type.clone(),
+                        found: actual_type.clone(),
                     });
                 }
                 for (a2, b2) in a.parameters.iter().zip(&b.parameters) {
@@ -170,8 +158,8 @@ impl GenStorage {
             Ok(())
         } else {
             Err(SemanticError::TypeMismatchError {
-                expected: parameter.clone(),
-                found: argument.clone(),
+                expected: expected_type.clone(),
+                found: actual_type.clone(),
             })
         }
     }

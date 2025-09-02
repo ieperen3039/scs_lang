@@ -244,23 +244,23 @@ impl FunctionParser<'_, '_> {
     }
 
     fn verify_value_type(
-        found_type: &TypeRef,
+        actual_type: &TypeRef,
         expected_type: Option<&TypeRef>,
         generics: &mut GenStorage,
     ) -> SemanticResult<()> {
         assert!(
-            !matches!(found_type, TypeRef::GenericName(_)),
+            !matches!(actual_type, TypeRef::GenericName(_)),
             "Generic types cannot be instantiated"
         );
 
         if let Some(expected_type) = expected_type {
-            if let TypeRef::Function(function_type) = found_type {
+            if let TypeRef::Function(function_type) = actual_type {
                 if function_type.parameters.is_empty() {
                     return generics.verify_equal(function_type.return_type.as_ref(), expected_type);
                 }
             }
 
-            return generics.verify_equal(found_type, expected_type)
+            return generics.verify_equal(actual_type, expected_type)
         }
 
         return Ok(());
@@ -903,10 +903,11 @@ impl FunctionParser<'_, '_> {
                 let target_idx = indices.remove(par_idx);
                 let argument_type = expr.get_type(variables);
 
+                // TODO verify that this is indeed unnecessary
                 function_local_generics.verify_equal(
                     &argument_type,
                     &target_par.par_type
-                )?;
+                ).unwrap();
 
                 arguments[target_idx] = Some(expr);
             }
@@ -917,6 +918,14 @@ impl FunctionParser<'_, '_> {
             .filter(|p| !p.is_optional)
             .map(|p| p.par_type)
             .collect();
+
+
+        for unused in function_local_generics.get_all_unresolved() {
+            println!(
+                "WARNING: generic parameter {} of function {} not used",
+                unused, function_name_node.as_identifier()
+            )
+        }
 
         // resolve generic return type if necessary
         let return_type = function_local_generics.resolve(&function_decl.return_type);
