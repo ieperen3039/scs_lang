@@ -145,20 +145,6 @@ impl<'c> Parser {
         return Err(furthest_failures);
     }
 
-    #[allow(dead_code)]
-    fn apply_rule_with_log<'prog: 'c>(
-        &'c self,
-        tokens: &'prog [Token<'prog>],
-        token_index: usize,
-        rule_name: &'c str,
-    ) -> ParseResult<'prog, 'c> {
-        self.log_enter(rule_name);
-        let result = self.apply_rule(tokens, token_index, rule_name);
-        self.log_exit(rule_name);
-
-        return result;
-    }
-
     fn apply_rule<'prog: 'c>(
         &'c self,
         tokens: &'prog [Token<'prog>],
@@ -323,22 +309,6 @@ impl<'c> Parser {
 
             let new_slice = token.slice.replace(char::is_whitespace, " ");
             let _ = writeln!(file, "\"{}\"", &new_slice);
-        }
-    }
-
-    fn log_enter(&'c self, rule_name: &str) {
-        if let Some(mut file) = self.xml_out.as_ref() {
-            if !is_transparent(rule_name) {
-                let _ = writeln!(file, "<{rule_name}>");
-            }
-        }
-    }
-
-    fn log_exit(&'c self, rule_name: &str) {
-        if let Some(mut file) = self.xml_out.as_ref() {
-            if !is_transparent(rule_name) {
-                let _ = writeln!(file, "</{rule_name}>");
-            }
         }
     }
 }

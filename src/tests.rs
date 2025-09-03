@@ -18,7 +18,7 @@ fn faux_script_compile() {
     let program = r#"
         add(1, 3)
             mul(4)
-            = alpha
+            = alpha;
 
         add(5, 6)
             mul(r=alpha)

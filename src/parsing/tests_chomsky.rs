@@ -290,5 +290,5 @@ fn try_parse_example_faux() {
 
     let program_ast = parse_result.unwrap();
 
-    assert!(program_ast.rule_name == "faux_program")
+    assert_eq!(program_ast.rule_name, "faux_program")
 }
