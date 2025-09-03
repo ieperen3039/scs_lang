@@ -46,7 +46,7 @@ use "filesystem"
         // io.format_1 accepts two parameters: a format, and the format argument
         // if we fill in one parameter, then this results in a function accepting the remaining element (fn<(err)string>)
         // hence, we can format the file_open_error into a string by just calling this:
-        io.format_1(fmt: "Could not open file {}") 
+        io.format_1(fmt = "Could not open file {}")
         // to return a value from a function, we assign it to the return keyword
         = return;
 
