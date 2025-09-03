@@ -11,11 +11,11 @@ pub const OPTION_VARIANT_ID_SOME: u32 = 0;
 pub const OPTION_VARIANT_ID_NONE: u32 = 1;
 
 impl TypeRef {
-    pub const STRING: TypeRef = Self::from(TYPE_ID_STRING);
-    pub const INT: TypeRef = Self::from(TYPE_ID_INT);
-    pub const FLOAT: TypeRef = Self::from(TYPE_ID_FLOAT);
+    pub const STRING: TypeRef = Self::from_id(TYPE_ID_STRING);
+    pub const INT: TypeRef = Self::from_id(TYPE_ID_INT);
+    pub const FLOAT: TypeRef = Self::from_id(TYPE_ID_FLOAT);
 
-    pub const fn from(id: TypeId) -> TypeRef {
+    pub const fn from_id(id: TypeId) -> Self {
         TypeRef::Defined(DefinedRef {
             id,
             generics: Vec::new(),
@@ -49,6 +49,15 @@ impl TypeRef {
         TypeRef::Function(FunctionType {
             parameters: decl.parameters.iter().map(|p| p.par_type.clone()).collect(),
             return_type: Box::new(decl.return_type.clone()),
+        })
+    }
+}
+
+impl From<&TypeDefinition> for TypeRef {
+    fn from(def: &TypeDefinition) -> Self {
+        TypeRef::Defined(DefinedRef {
+            id: def.id,
+            generics: Vec::new(),
         })
     }
 }
@@ -240,6 +249,10 @@ impl Namespace {
     pub fn add_sub_scope(&mut self, scope_to_add: Namespace) {
         self.namespaces
             .insert(scope_to_add.get_name(), scope_to_add);
+    }
+
+    pub fn get_type_scope(&mut self, from_type: &TypeDefinition) -> Namespace {
+        Namespace::new(&from_type.name, self)
     }
 
     pub fn add_constant(&mut self, name: Identifier, value: ValueExpression) {

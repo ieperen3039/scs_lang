@@ -18,6 +18,7 @@ use crate::{
     },
     symbolization::function_collector::FunctionCollector,
 };
+use crate::symbolization::ast::Literal::Boolean;
 
 pub struct FauxCompiler {
     parser: Rc<left_left_parser::Parser>,
@@ -111,6 +112,7 @@ impl FauxCompiler {
             // if this has includes, then the include will provide the built-in definitions
             namespace.extend(functions::get_functions(&self.built_in_functions));
             namespace.extend(types::get_types(&self.built_in_types));
+            namespace.extend(primitives::build_constants())
         } else {
             for include_file in files_to_compile {
                 if !self.file_cache.contains_key(include_file.as_path()) {

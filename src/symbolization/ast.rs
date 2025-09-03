@@ -23,7 +23,7 @@ pub struct Namespace {
     pub full_name: Vec<Identifier>,
     pub namespaces: HashMap<Identifier, Namespace>,
     pub types: HashMap<Identifier, TypeId>,
-    // only static functions are defined here
+    // only global functions are defined here
     pub functions: HashMap<Identifier, FunctionDeclaration>,
     pub constants: HashMap<Identifier, ValueExpression>
 }

@@ -1,4 +1,6 @@
+use crate::symbolization::ast;
 use crate::symbolization::ast::*;
+use crate::symbolization::ast::Literal::Boolean;
 
 pub const TYPE_ID_INT: u32 = 0;
 pub const TYPE_ID_FLOAT: u32 = 1;
@@ -23,4 +25,11 @@ fn build_primitive(name: &str, id: u32) -> TypeDefinition {
         type_class: TypeClass::Base { derived: None },
         full_scope: Vec::new(), // root scope
     }
+}
+
+pub fn build_constants() -> Namespace {
+    let mut namespace = Namespace::new_root();
+    namespace.add_constant_literal(ast::Identifier::from("true"), Boolean(true));
+    namespace.add_constant_literal(ast::Identifier::from("false"), Boolean(false));
+    namespace
 }
