@@ -23,10 +23,8 @@ impl TypeRef {
     }
 
     pub fn is_boolean(some_type: &TypeRef) -> bool {
-        if let TypeRef::Defined(DefinedRef { id, generics }) = some_type {
-            *id == TYPE_ID_RESULT
-                && matches!(generics[0], TypeRef::Void)
-                && matches!(generics[1], TypeRef::Void)
+        if let TypeRef::Result(pos, neg) = some_type {
+           pos.as_ref() == &TypeRef::Void && neg.as_ref() == &TypeRef::Void
         } else {
             false
         }
@@ -41,10 +39,10 @@ impl TypeRef {
     }
 
     pub fn new_result(pos: TypeRef, neg: TypeRef) -> TypeRef {
-        TypeRef::Defined(DefinedRef {
-            id: TYPE_ID_RESULT,
-            generics: vec![pos, neg],
-        })
+        TypeRef::Result(
+            Box::from(pos),
+            Box::from(neg)
+        )
     }
 
     pub fn from_function_declaration(decl: &FunctionDeclaration) -> TypeRef {

@@ -55,10 +55,7 @@ impl InternalFunction for FnIfPosResult {
             par_action: builder.req_par(
                 "action",
                 &TypeRef::Function(FunctionType {
-                    parameters: vec![
-                        result_type.clone(),
-                        TypeRef::GenericName(generic_pos_type.clone()),
-                    ],
+                    parameters: vec![TypeRef::GenericName(generic_pos_type.clone())],
                     return_type: Box::from(TypeRef::GenericName(generic_pos_type)),
                 }),
             ),
@@ -108,10 +105,7 @@ impl InternalFunction for FnIfNegResult {
             par_action: builder.req_par(
                 "action",
                 &TypeRef::Function(FunctionType {
-                    parameters: vec![
-                        result_type.clone(),
-                        TypeRef::GenericName(generic_neg_type.clone()),
-                    ],
+                    parameters: vec![TypeRef::GenericName(generic_neg_type.clone())],
                     return_type: Box::from(TypeRef::GenericName(generic_neg_type)),
                 }),
             ),
@@ -157,10 +151,7 @@ impl InternalFunction for FnIfSomeOption {
             par_action: builder.req_par(
                 "action",
                 &TypeRef::Function(FunctionType {
-                    parameters: vec![
-                        option_type.clone(),
-                        TypeRef::GenericName(generic_some_type.clone()),
-                    ],
+                    parameters: vec![TypeRef::GenericName(generic_some_type.clone())],
                     return_type: Box::from(TypeRef::GenericName(generic_some_type)),
                 }),
             ),
@@ -206,10 +197,7 @@ impl InternalFunction for FnIfNoneOption {
             par_action: builder.req_par(
                 "action",
                 &TypeRef::Function(FunctionType {
-                    parameters: vec![
-                        option_type.clone(),
-                        TypeRef::GenericName(generic_some_type.clone()),
-                    ],
+                    parameters: vec![TypeRef::GenericName(generic_some_type.clone())],
                     return_type: Box::from(TypeRef::GenericName(generic_some_type)),
                 }),
             ),
