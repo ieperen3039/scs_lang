@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
+use super::semantic_result::SemanticResult;
+use crate::symbolization::generics_storage::GenStorage;
 use crate::{
+    built_in,
     parsing::rule_nodes::RuleNode,
     symbolization::{
         ast::{self, FunctionId, Identifier, Namespace},
@@ -11,8 +14,6 @@ use crate::{
         variable_storage::VarStorage,
     },
 };
-use crate::symbolization::generics_storage::GenStorage;
-use super::semantic_result::SemanticResult;
 
 pub fn parse_faux_program(
     ast: RuleNode,
@@ -62,7 +63,8 @@ pub fn parse_faux_program(
 
     // update combined namespace with the newly parsed functions
     let combined_namespace = internal_namespace.combined_with(external_namespace.clone());
-    let function_parser = FunctionParser::new(&combined_namespace, function_collector);
+    let function_parser =
+        FunctionParser::new(&type_definitions, &combined_namespace, function_collector);
     let function_definitions = parse_function_definitions(&ast, &function_parser)?;
 
     let main_fn = type_resolver::resolve_function_name(
@@ -88,7 +90,11 @@ pub fn parse_faux_script(
     debug_assert_eq!(ast.rule_name, "faux_script");
     // faux_script = { function_definition }, statement, { statement_separator, statement }, end_symbol, { function_definition };
 
-    let type_definitions: HashMap<ast::TypeId, ast::TypeDefinition> = HashMap::new();
+    let type_definitions: HashMap<ast::TypeId, ast::TypeDefinition> =
+        built_in::primitives::build_primitives()
+            .into_iter()
+            .map(|t| (t.id, t))
+            .collect();
 
     let mut internal_namespace = Namespace::new_root();
 
@@ -103,7 +109,9 @@ pub fn parse_faux_script(
     // update combined namespace with the newly parsed functions
     let combined_namespace = internal_namespace.combined_with(external_namespace.clone());
     let entry_function_id = function_collector.new_id();
-    let function_parser = FunctionParser::new(&combined_namespace, function_collector);
+
+    let function_parser =
+        FunctionParser::new(&type_definitions, &combined_namespace, function_collector);
 
     let mut function_definitions = parse_function_definitions(&ast, &function_parser)?;
 
@@ -117,7 +125,7 @@ pub fn parse_faux_script(
         &ast.sub_rules[..start_of_functions],
         &combined_namespace,
         &mut VarStorage::new(),
-        &mut GenStorage::new()
+        &mut GenStorage::new(),
     )?;
 
     function_definitions.insert(entry_function_id, entry_function);
@@ -174,7 +182,8 @@ fn parse_function_definitions(
                     function_body_node,
                 )?;
 
-                function_definitions.insert(function_declaration.id.assert_defined(), function_body);
+                function_definitions
+                    .insert(function_declaration.id.assert_defined(), function_body);
             },
             _ => {},
         }

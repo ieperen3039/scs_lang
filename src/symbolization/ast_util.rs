@@ -1,9 +1,8 @@
 use std::{collections::HashMap, ops::Deref, rc::Rc};
 
-use crate::built_in::primitives::*;
-use crate::symbolization::generics_storage::GenStorage;
-use crate::symbolization::semantic_result::{SemanticError, SemanticResult};
 use super::{ast::*, variable_storage::VarStorage};
+use crate::built_in::primitives::*;
+use crate::symbolization::semantic_result::{SemanticError, SemanticResult};
 
 pub const RESULT_VARIANT_ID_POS: u32 = 0;
 pub const RESULT_VARIANT_ID_NEG: u32 = 1;
@@ -24,7 +23,7 @@ impl TypeRef {
 
     pub fn is_boolean(some_type: &TypeRef) -> bool {
         if let TypeRef::Result(pos, neg) = some_type {
-           pos.as_ref() == &TypeRef::Void && neg.as_ref() == &TypeRef::Void
+            pos.as_ref() == &TypeRef::Void && neg.as_ref() == &TypeRef::Void
         } else {
             false
         }
@@ -39,10 +38,7 @@ impl TypeRef {
     }
 
     pub fn new_result(pos: TypeRef, neg: TypeRef) -> TypeRef {
-        TypeRef::Result(
-            Box::from(pos),
-            Box::from(neg)
-        )
+        TypeRef::Result(Box::from(pos), Box::from(neg))
     }
 
     pub fn from_function_declaration(decl: &FunctionDeclaration) -> TypeRef {
@@ -246,17 +242,29 @@ impl Namespace {
         }
     }
 
+    pub fn get_namespace(
+        &self,
+        namespace: &[Identifier],
+    ) -> SemanticResult<&Namespace> {
+        match namespace.first() {
+            None => Ok(self),
+            Some(first) => {
+                if let Some(child_namespace) = self.namespaces.get(first) {
+                    Self::get_namespace(child_namespace, &namespace[1..])
+                } else {
+                    Err(SemanticError::SymbolNotFoundInScope {
+                        kind: "namespace",
+                        symbol: first.clone(),
+                        scope: self.full_name.clone(),
+                    })
+                }
+            },
+        }
+    }
+
     pub fn add_sub_scope(&mut self, scope_to_add: Namespace) {
         self.namespaces
             .insert(scope_to_add.get_name(), scope_to_add);
-    }
-
-    pub fn get_type_scope(&mut self, from_type: &TypeDefinition) -> Namespace {
-        Namespace::new(&from_type.name, self)
-    }
-
-    pub fn add_constant(&mut self, name: Identifier, value: ValueExpression) {
-        self.constants.insert(name, value);
     }
 
     pub fn add_constant_literal(&mut self, name: Identifier, value: Literal) {
@@ -271,6 +279,26 @@ impl Namespace {
 
     pub fn add_function(&mut self, fn_to_add: FunctionDeclaration) {
         self.functions.insert(fn_to_add.name.clone(), fn_to_add);
+    }
+
+    pub fn add_constructor(
+        &mut self,
+        id: GlobalFunctionTarget,
+        return_type: TypeRef,
+        parameters: Vec<Parameter>,
+    ) {
+        let name = Identifier::from("new");
+        self.functions.insert(
+            name.clone(),
+            FunctionDeclaration {
+                id,
+                name,
+                generic_parameters: vec![],
+                parameters,
+                return_type,
+                start_char: 0,
+            },
+        );
     }
 
     pub fn add_operator(&mut self, symbol: Identifier, source_fn: &FunctionDeclaration) {

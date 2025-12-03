@@ -56,7 +56,8 @@ fn hello_world() {
 fn create_test_namespace() -> Namespace {
     let mut id_gen = NativeFunctionBuilder::new();
     let type_string_stream = TypeRef::Stream(Box::new(TypeRef::STRING.clone()));
-    let mut namespace = Namespace::new_root();
+
+    let mut namespace = built_in::types::get_types(&build_primitives());
 
     namespace.add_constant_literal(ast::Identifier::from("true"), Boolean(true));
     namespace.add_constant_literal(ast::Identifier::from("false"), Boolean(false));
@@ -188,24 +189,6 @@ fn create_test_namespace() -> Namespace {
     namespace
 }
 
-fn parse(definition: &str, program: &str, namespace: Namespace) -> SemanticResult<ast::FileAst> {
-    let mut function_collector = FunctionCollector::new();
-    let grammar = ebnf_parser::parse_ebnf(definition)
-        .map(grammatificator::convert_to_grammar)
-        .unwrap();
-    let tokens = Lexer::read_faux(&program).unwrap();
-    let parser = left_left_parser::Parser::new(grammar, None);
-    let syntax_tree = parser.parse_program(&tokens);
-
-    if let Err(error) = syntax_tree {
-        return Err(SemanticError::SyntaxError {
-            error_lines: error.iter().map(|e| e.error_string(program)).collect()
-        });
-    }
-
-    symbolizer::parse_faux_script(syntax_tree.unwrap(), &namespace, &mut function_collector)
-}
-
 #[test]
 fn parse_simple_statement() {
     let definition = include_str!("../../doc/faux_script.ebnf");
@@ -216,7 +199,7 @@ fn parse_simple_statement() {
             sys.log()
     "#;
 
-    let program_result = parse(definition, program, create_test_namespace());
+    let program_result = crate::tests::parse_with_custom_namespace(definition, program, create_test_namespace());
 
     if let Err(error) = program_result {
         panic!("Error parsing program: \n{}", error.error_string(program));
@@ -232,7 +215,7 @@ fn parse_flag() {
             convert_case($to_lower)
     "#;
 
-    let program_result = parse(definition, program, create_test_namespace());
+    let program_result = crate::tests::parse_with_custom_namespace(definition, program, create_test_namespace());
 
     if let Err(error) = program_result {
         panic!("Error parsing program: \n{}", error.error_string(program));
@@ -247,7 +230,7 @@ fn parse_partial_fn_as_parameter() {
             transform_each(convert_case(to_upper=true))
     "#;
 
-    let program_result = parse(definition, program, create_test_namespace());
+    let program_result = crate::tests::parse_with_custom_namespace(definition, program, create_test_namespace());
 
     if let Err(error) = program_result {
         panic!("Error parsing program: \n{}", error.error_string(program));
@@ -266,7 +249,7 @@ fn parse_explicit_lambda_as_parameter() {
             })
     "#;
 
-    let program_result = parse(definition, program, create_test_namespace());
+    let program_result = crate::tests::parse_with_custom_namespace(definition, program, create_test_namespace());
 
     if let Err(error) = program_result {
         panic!("Error parsing program: \n{}", error.error_string(program));
@@ -284,7 +267,7 @@ fn parse_implicit_lambda_as_parameter() {
             })
     "#;
 
-    let program_result = parse(definition, program, create_test_namespace());
+    let program_result = crate::tests::parse_with_custom_namespace(definition, program, create_test_namespace());
 
     if let Err(error) = program_result {
         panic!("Error parsing program: \n{}", error.error_string(program));
@@ -301,7 +284,7 @@ fn parse_operator_usage() {
             > sys.log()
     "#;
 
-    let program_result = parse(definition, program, create_test_namespace());
+    let program_result = crate::tests::parse_with_custom_namespace(definition, program, create_test_namespace());
 
     if let Err(error) = program_result {
         panic!("Error parsing program: \n{}", error.error_string(program));
@@ -325,7 +308,7 @@ fn parse_operator_with_explicit_lambda() {
             }
     "#;
 
-    let program_result = parse(definition, program, create_test_namespace());
+    let program_result = crate::tests::parse_with_custom_namespace(definition, program, create_test_namespace());
 
     if let Err(error) = program_result {
         panic!("Error parsing program: \n{}", error.error_string(program));
@@ -347,7 +330,7 @@ fn parse_operator_with_implicit_lambda() {
             }
     "#;
 
-    let program_result = parse(definition, program, create_test_namespace());
+    let program_result = crate::tests::parse_with_custom_namespace(definition, program, create_test_namespace());
 
     if let Err(error) = program_result {
         panic!("Error parsing program: \n{}", error.error_string(program));
@@ -369,7 +352,7 @@ fn parse_generic_function_call() {
         //     = return;
     "#;
 
-    let program_result = parse(definition, program, create_test_namespace());
+    let program_result = crate::tests::parse_with_custom_namespace(definition, program, create_test_namespace());
 
     if let Err(error) = program_result {
         panic!("Error parsing program: \n{}", error.error_string(program));
@@ -383,7 +366,7 @@ fn parse_function_call_as_generic_call() {
         mix(read("data1"), read("data2"))
     "#;
 
-    let program_result = parse(definition, program, create_test_namespace());
+    let program_result = crate::tests::parse_with_custom_namespace(definition, program, create_test_namespace());
 
     if let Err(error) = program_result {
         panic!("Error parsing program: \n{}", error.error_string(program));
@@ -397,7 +380,7 @@ fn parse_generic_function_call_faulty() {
         mix("string", 3)
     "#;
 
-    let program_result = parse(definition, program, create_test_namespace());
+    let program_result = crate::tests::parse_with_custom_namespace(definition, program, create_test_namespace());
 
     if let Err(error) = program_result {
         fn recursive_checker(error: SemanticError) {
@@ -435,7 +418,7 @@ fn parse_variable_assignment() {
         as_upper zip(as_lower)
     "#;
 
-    let program_result = parse(definition, program, create_test_namespace());
+    let program_result = crate::tests::parse_with_custom_namespace(definition, program, create_test_namespace());
 
     if let Err(error) = program_result {
         panic!("Error parsing program: \n{}", error.error_string(program));
@@ -509,7 +492,7 @@ fn parse_function_definition() {
         namespace.add_function(fn_def.clone());
     }
 
-    let parse_result = parse(definition, program, namespace);
+    let parse_result = crate::tests::parse_with_custom_namespace(definition, program, namespace);
 
     match parse_result {
         Err(error) => {

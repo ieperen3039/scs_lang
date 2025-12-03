@@ -1,4 +1,4 @@
-use crate::symbolization::ast;
+use crate::built_in::primitives;
 use crate::symbolization::ast::*;
 
 pub struct TypeBuilder {
@@ -7,7 +7,7 @@ pub struct TypeBuilder {
 
 impl TypeBuilder {
     pub fn new() -> TypeBuilder {
-        TypeBuilder { var_id: 0 }
+        TypeBuilder { var_id: primitives::FIRST_CUSTOM_TYPE_ID }
     }
 
     pub fn new_type_id(&mut self) -> TypeId {
@@ -32,7 +32,7 @@ impl TypeBuilder {
         self.build(full_name, TypeClass::Base { derived: None })
     }
 
-    pub fn build_derived(&mut self, mut full_name: Vec<&str>, base: &TypeRef) -> TypeDefinition {
+    pub fn build_derived(&mut self, full_name: Vec<&str>, base: &TypeRef) -> TypeDefinition {
         self.build(full_name, TypeClass::Base {
             derived: Some(Box::from(base.clone())),
         })

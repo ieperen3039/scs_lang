@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use super::{
@@ -11,22 +12,20 @@ use super::{
 use crate::parsing::rule_nodes::RuleNode;
 use crate::symbolization::generics_storage::GenStorage;
 
-pub struct FunctionParser<'ns, 'fc> {
+pub struct FunctionParser<'ns, 'fc, 'td> {
+    pub type_definitions: &'td HashMap<TypeId, TypeDefinition>,
     pub root_namespace: &'ns Namespace,
     pub function_collector: &'fc mut FunctionCollector,
 }
 
-struct ArgumentsResult {
-    pub arguments: Vec<Option<ValueExpression>>,
-    pub remaining_parameters: Vec<Parameter>,
-}
-
-impl FunctionParser<'_, '_> {
-    pub fn new<'ns, 'fc>(
+impl FunctionParser<'_, '_, '_> {
+    pub fn new<'ns, 'fc, 'td>(
+        type_definitions: &'td HashMap<TypeId, TypeDefinition>,
         root_namespace: &'ns Namespace,
         function_collector: &'fc mut FunctionCollector,
-    ) -> FunctionParser<'ns, 'fc> {
+    ) -> FunctionParser<'ns, 'fc, 'td> {
         FunctionParser {
+            type_definitions,
             root_namespace,
             function_collector,
         }
@@ -36,7 +35,7 @@ impl FunctionParser<'_, '_> {
     pub fn read_statements(
         &self,
         nodes: &[RuleNode],
-        this_scope: &Namespace,
+        namespace: &Namespace,
         variables: &mut VarStorage,
         generics: &mut GenStorage,
     ) -> SemanticResult<FunctionBody> {
@@ -56,7 +55,7 @@ impl FunctionParser<'_, '_> {
             };
 
             let mut statement =
-                self.read_statement(statement_node, this_scope, variables, generics)?;
+                self.read_statement(statement_node, namespace, variables, generics)?;
 
             if pair.len() == 2 {
                 let separator_node = &pair[1];
@@ -131,7 +130,7 @@ impl FunctionParser<'_, '_> {
     pub fn read_function_body(
         &self,
         function_declaration: &FunctionDeclaration,
-        this_scope: &Namespace,
+        namespace: &Namespace,
         node: &RuleNode,
     ) -> SemanticResult<FunctionBody> {
         debug_assert_eq!(node.rule_name, "function_body");
@@ -145,7 +144,7 @@ impl FunctionParser<'_, '_> {
         generics.set_parameters(function_declaration.generic_parameters.iter().cloned());
 
         let function_body =
-            self.read_statements(&node.sub_rules, this_scope, &mut variables, &mut generics)?;
+            self.read_statements(&node.sub_rules, namespace, &mut variables, &mut generics)?;
 
         // even with generics this works; if the function must return its own generic type,
         // then the function body must also return this unresolved generic type
@@ -171,7 +170,7 @@ impl FunctionParser<'_, '_> {
     fn read_statement(
         &self,
         node: &RuleNode,
-        this_scope: &Namespace,
+        namespace: &Namespace,
         variables: &mut VarStorage,
         generics: &mut GenStorage,
     ) -> SemanticResult<Statement> {
@@ -180,7 +179,7 @@ impl FunctionParser<'_, '_> {
         let expression_node = node.expect_node("value_expression")?;
 
         let expression =
-            self.read_value_expression(expression_node, this_scope, variables, generics, None)?;
+            self.read_value_expression(expression_node, namespace, variables, generics, None)?;
 
         let mut expression_type = expression.get_type(variables);
         let mut mutations = Vec::new();
@@ -194,10 +193,17 @@ impl FunctionParser<'_, '_> {
                     .while_parsing(previous_expr_node));
             }
 
+            let function_local_namespace = if let TypeRef::Defined(DefinedRef { id, .. }) = &expression_type {
+                let type_def = self.type_definitions.get(id).expect("Resolved type not found in type_definitions");
+                self.root_namespace.get_namespace(&type_def.full_scope).unwrap_or(self.root_namespace)
+            } else {
+                self.root_namespace
+            };
+
             let mutator = self.read_function_expression(
                 mutator_node,
                 &vec![expression_type],
-                this_scope,
+                function_local_namespace,
                 variables,
                 generics,
             )?;
@@ -270,7 +276,7 @@ impl FunctionParser<'_, '_> {
     fn read_argument_expression(
         &self,
         node: &RuleNode,
-        this_scope: &Namespace,
+        namespace: &Namespace,
         variables: &mut VarStorage,
         generics: &mut GenStorage,
         target_type: &TypeRef,
@@ -282,7 +288,7 @@ impl FunctionParser<'_, '_> {
                 let fn_expr = self.read_function_expression(
                     node,
                     &fn_type.parameters,
-                    this_scope,
+                    namespace,
                     variables,
                     generics,
                 )?;
@@ -299,7 +305,7 @@ impl FunctionParser<'_, '_> {
                 })
             }
             _ => {
-                self.read_value_expression(node, this_scope, variables, generics, Some(target_type))
+                self.read_value_expression(node, namespace, variables, generics, Some(target_type))
             }
         }
     }
@@ -308,7 +314,7 @@ impl FunctionParser<'_, '_> {
     fn read_value_expression(
         &self,
         node: &RuleNode,
-        this_scope: &Namespace,
+        namespace: &Namespace,
         variables: &mut VarStorage,
         generics: &mut GenStorage,
         target_type: Option<&TypeRef>,
@@ -330,7 +336,7 @@ impl FunctionParser<'_, '_> {
                     Self::verify_value_type(&variable.var_type, target_type, generics)
                         .map_err(|e| e.while_parsing(sub_node))?;
                     ValueExpressionInner::Variable(variable.id)
-                } else if let Some(constant) = this_scope.constants.get(&var_name) {
+                } else if let Some(constant) = namespace.constants.get(&var_name) {
                     Self::verify_value_type(&constant.get_type(variables), target_type, generics)
                         .map_err(|e| e.while_parsing(sub_node))?;
                     constant.inner.clone()
@@ -347,7 +353,7 @@ impl FunctionParser<'_, '_> {
                 for tuple_elt_node in &sub_node.sub_rules {
                     let value = self.read_value_expression(
                         tuple_elt_node,
-                        this_scope,
+                        namespace,
                         variables,
                         generics,
                         None,
@@ -392,7 +398,7 @@ impl FunctionParser<'_, '_> {
             }
             "function_call" => {
                 let function_call =
-                    self.read_function_call(sub_node, this_scope, variables, generics)?;
+                    self.read_function_call(sub_node, namespace, variables, generics)?;
 
                 let found_type = &function_call.value_type;
                 if !found_type.parameters.is_empty() {
@@ -412,7 +418,7 @@ impl FunctionParser<'_, '_> {
                     let fn_expr = self.read_function_expression(
                         expr_node,
                         &expected_type.parameters,
-                        this_scope,
+                        namespace,
                         variables,
                         generics,
                     )?;
@@ -429,7 +435,7 @@ impl FunctionParser<'_, '_> {
                     let fn_expr = self.read_function_expression(
                         expr_node,
                         &Vec::new(),
-                        this_scope,
+                        namespace,
                         variables,
                         generics,
                     )?;
@@ -446,7 +452,7 @@ impl FunctionParser<'_, '_> {
                     sub_node,
                     variables,
                     generics,
-                    this_scope,
+                    namespace,
                     &Vec::new(),
                 )?;
                 // fn_expr.get_type() will return a non-function type if no parameters are left to evaluate
@@ -477,7 +483,7 @@ impl FunctionParser<'_, '_> {
         node: &RuleNode,
         // what kind of arguments do we expect this function expression to accept?
         argument_types: &Vec<TypeRef>,
-        this_scope: &Namespace,
+        namespace: &Namespace,
         variables: &mut VarStorage,
         generics: &mut GenStorage,
     ) -> SemanticResult<FunctionExpression> {
@@ -505,7 +511,7 @@ impl FunctionParser<'_, '_> {
                         let lamda = self.read_lamda_call(
                             sub_node,
                             found_variable,
-                            this_scope,
+                            namespace,
                             variables,
                             generics,
                             argument_types,
@@ -519,7 +525,7 @@ impl FunctionParser<'_, '_> {
                 }
 
                 let function_call =
-                    self.read_function_call(sub_node, this_scope, variables, generics)?;
+                    self.read_function_call(sub_node, namespace, variables, generics)?;
                 let parameters = &function_call.value_type.parameters;
 
                 Self::verify_parameters(argument_types, parameters, generics)
@@ -539,7 +545,7 @@ impl FunctionParser<'_, '_> {
                     sub_node,
                     variables,
                     generics,
-                    this_scope,
+                    namespace,
                     argument_types[0].clone(),
                 )?
             }
@@ -547,7 +553,7 @@ impl FunctionParser<'_, '_> {
                 sub_node,
                 variables,
                 generics,
-                this_scope,
+                namespace,
                 argument_types,
             )?,
             "mutator_assign" => {
@@ -577,7 +583,7 @@ impl FunctionParser<'_, '_> {
                 self.read_operator(
                     sub_node,
                     &argument_types[0],
-                    this_scope,
+                    namespace,
                     variables,
                     generics,
                 )?
@@ -602,7 +608,7 @@ impl FunctionParser<'_, '_> {
         &self,
         sub_node: &RuleNode,
         argument_type: &TypeRef,
-        this_scope: &Namespace,
+        namespace: &Namespace,
         variables: &mut VarStorage,
         generics: &mut GenStorage,
     ) -> Result<FunctionExpressionInner, SemanticError> {
@@ -644,7 +650,7 @@ impl FunctionParser<'_, '_> {
             self.read_function_expression(
                 inner_expression_node,
                 &function_type.parameters,
-                this_scope,
+                namespace,
                 variables,
                 generics,
             )?
@@ -709,7 +715,7 @@ impl FunctionParser<'_, '_> {
         node: &RuleNode,
         outer_variables: &mut VarStorage,
         generics: &mut GenStorage,
-        this_scope: &Namespace,
+        namespace: &Namespace,
         argument_types: &Vec<TypeRef>,
     ) -> SemanticResult<FunctionExpressionInner> {
         debug_assert!(node.rule_name == "explicit_par_lamda");
@@ -740,7 +746,7 @@ impl FunctionParser<'_, '_> {
 
         let function_body = self.read_statements(
             &function_node.sub_rules,
-            this_scope,
+            namespace,
             &mut inner_variables,
             generics,
         )?;
@@ -767,7 +773,7 @@ impl FunctionParser<'_, '_> {
         node: &RuleNode,
         outer_variables: &mut VarStorage,
         generics: &mut GenStorage,
-        this_scope: &Namespace,
+        namespace: &Namespace,
         argument_type: TypeRef,
     ) -> SemanticResult<FunctionExpressionInner> {
         debug_assert!(node.rule_name == "implicit_par_lamda");
@@ -786,7 +792,7 @@ impl FunctionParser<'_, '_> {
             let mutator = self.read_function_expression(
                 mutator_node,
                 &vec![expression_type],
-                this_scope,
+                namespace,
                 &mut inner_variables,
                 generics,
             )?;
@@ -811,7 +817,7 @@ impl FunctionParser<'_, '_> {
         let function_body = if let Some(next_statement_index) = next_statement_index {
             let mut function_body = self.read_statements(
                 &node.sub_rules[next_statement_index..],
-                this_scope,
+                namespace,
                 &mut inner_variables,
                 generics,
             )?;
@@ -856,7 +862,7 @@ impl FunctionParser<'_, '_> {
     fn read_function_call(
         &self,
         node: &RuleNode,
-        this_scope: &Namespace,
+        namespace: &Namespace,
         variables: &mut VarStorage,
         outer_generics: &mut GenStorage,
     ) -> SemanticResult<FunctionCall> {
@@ -874,7 +880,7 @@ impl FunctionParser<'_, '_> {
             function_name,
             &scope,
             &self.root_namespace,
-            this_scope,
+            namespace,
         )?;
 
         let argument_nodes = node.find_nodes("argument");
@@ -896,7 +902,7 @@ impl FunctionParser<'_, '_> {
                     &function_decl.name,
                     arg_node,
                     &remaining_parameters,
-                    this_scope,
+                    namespace,
                     variables,
                     &mut function_local_generics,
                 )?;
@@ -955,7 +961,7 @@ impl FunctionParser<'_, '_> {
         &self,
         node: &RuleNode,
         fn_var: Rc<VariableDeclaration>,
-        this_scope: &Namespace,
+        namespace: &Namespace,
         variables: &mut VarStorage,
         generics: &mut GenStorage,
         argument_types: &Vec<TypeRef>,
@@ -966,7 +972,7 @@ impl FunctionParser<'_, '_> {
             let arg_impl_node = arg_node.expect_node("unnamed_argument")?;
             let arg_value = self.read_value_expression(
                 arg_impl_node,
-                this_scope,
+                namespace,
                 variables,
                 generics,
                 Some(exp_type),
@@ -1005,7 +1011,7 @@ impl FunctionParser<'_, '_> {
         function_name: &Identifier,
         node: &RuleNode,
         remaining_parameters: &Vec<Parameter>,
-        this_scope: &Namespace,
+        namespace: &Namespace,
         variables: &mut VarStorage,
         generics: &mut GenStorage,
     ) -> SemanticResult<(usize, ValueExpression)> {
@@ -1035,7 +1041,7 @@ impl FunctionParser<'_, '_> {
                 let expected_type = &remaining_parameters[target_parameter_idx].par_type;
                 let arg_value = self.read_argument_expression(
                     expression_node,
-                    this_scope,
+                    namespace,
                     variables,
                     generics,
                     expected_type,
@@ -1062,7 +1068,7 @@ impl FunctionParser<'_, '_> {
                 let expected_type = &remaining_parameters[first_non_optional].par_type;
                 let arg_value = self.read_argument_expression(
                     expression_node,
-                    this_scope,
+                    namespace,
                     variables,
                     generics,
                     expected_type,
