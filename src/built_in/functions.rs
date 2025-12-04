@@ -61,7 +61,7 @@ pub trait InternalFunction {
     where
         Self: Sized;
 
-    fn get_declaration(&self) -> ast::FunctionDeclaration;
+    fn get_declaration(&self) -> &ast::FunctionDeclaration;
 
     fn call(&self, arguments: Vec<Value>, interpreter: &Interpreter) -> InterpResult<Value>;
 
@@ -74,10 +74,10 @@ pub fn get_functions(functions: &InternalFunctions) -> ast::Namespace {
         let fn_to_add = fn_def.get_declaration();
 
         if let Some(operator) = fn_def.as_operator() {
-            namespace.add_operator(operator, &fn_to_add);
+            namespace.add_operator(operator, fn_to_add);
         }
         
-        namespace.add_function(fn_to_add);
+        namespace.add_function(fn_to_add.clone());
     }
     namespace
 }
