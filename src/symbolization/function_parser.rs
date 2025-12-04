@@ -610,7 +610,7 @@ impl FunctionParser<'_, '_, '_> {
         argument_type: &TypeRef,
         namespace: &Namespace,
         variables: &mut VarStorage,
-        generics: &mut GenStorage,
+        generics: &GenStorage,
     ) -> Result<FunctionExpressionInner, SemanticError> {
         debug_assert_eq!(sub_node.rule_name, "operator_expression");
 
@@ -634,15 +634,10 @@ impl FunctionParser<'_, '_, '_> {
         debug_assert_eq!(operator_fn_decl.parameters.len(), 2);
 
         let first_par_type = operator_fn_decl.parameters[0].to_type();
-        if let TypeRef::GenericName(_) = first_par_type {
-            // always accepted, no special handling necessary
-        } else if argument_type != first_par_type {
-            return Err(SemanticError::TypeMismatchError {
-                expected: argument_type.clone(),
-                found: first_par_type.clone(),
-            }
-                .while_parsing(operator_symbol_node));
-        }
+        let mut operator_generics = GenStorage::from(generics);
+        operator_generics.set_arguments(operator_fn_decl.generic_parameters.iter().cloned());
+        operator_generics.verify_equal(argument_type, first_par_type)
+            .map_err(|e| e.while_parsing(operator_symbol_node))?;
 
         let inner_expression_node = sub_node.expect_node("function_expression")?;
         let operator_inner_type = operator_fn_decl.parameters[1].to_type();
@@ -652,7 +647,7 @@ impl FunctionParser<'_, '_, '_> {
                 &function_type.parameters,
                 namespace,
                 variables,
-                generics,
+                &mut operator_generics,
             )?
         } else {
             return Err(SemanticError::ExpectedFunctionGotValue {
@@ -662,13 +657,8 @@ impl FunctionParser<'_, '_, '_> {
         };
 
         let found_inner_type = inner_expression.get_type();
-        if &found_inner_type != operator_inner_type {
-            return Err(SemanticError::TypeMismatchError {
-                expected: operator_inner_type.clone(),
-                found: found_inner_type,
-            }
-                .while_parsing(inner_expression_node));
-        }
+        operator_generics.verify_equal(&found_inner_type, operator_inner_type)
+            .map_err(|e| e.while_parsing(inner_expression_node))?;
 
         Ok(FunctionExpressionInner::Operator(Operator {
             target: operator_fn_decl.id,

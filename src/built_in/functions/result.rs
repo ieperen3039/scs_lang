@@ -12,6 +12,8 @@ use crate::{
 
 pub struct FnIfPosResult {
     function_id: NativeFunctionId,
+    pos_generic_type: Identifier,
+    neg_generic_type: Identifier,
     par_target: Parameter,
     par_action: Parameter,
     result_type: TypeRef,
@@ -19,6 +21,8 @@ pub struct FnIfPosResult {
 
 pub struct FnIfNegResult {
     function_id: NativeFunctionId,
+    pos_generic_type: Identifier,
+    neg_generic_type: Identifier,
     par_target: Parameter,
     par_action: Parameter,
     result_type: TypeRef,
@@ -26,6 +30,7 @@ pub struct FnIfNegResult {
 
 pub struct FnIfSomeOption {
     function_id: NativeFunctionId,
+    some_generic_type: Identifier,
     par_target: Parameter,
     par_action: Parameter,
     option_type: TypeRef,
@@ -33,6 +38,7 @@ pub struct FnIfSomeOption {
 
 pub struct FnIfNoneOption {
     function_id: NativeFunctionId,
+    some_generic_type: Identifier,
     par_target: Parameter,
     par_action: Parameter,
     option_type: TypeRef,
@@ -41,22 +47,24 @@ pub struct FnIfNoneOption {
 impl InternalFunction for FnIfPosResult {
     fn new(function_id: NativeFunctionId) -> Self {
         let mut builder = FunctionBuilder::new();
-        let generic_pos_type = Identifier::from("P");
-        let generic_neg_type = Identifier::from("N");
+        let pos_generic_type = Identifier::from("P");
+        let neg_generic_type = Identifier::from("N");
 
         let result_type = TypeRef::Result(
-            Box::from(TypeRef::GenericName(generic_pos_type.clone())),
-            Box::from(TypeRef::GenericName(generic_neg_type.clone())),
+            Box::from(TypeRef::GenericName(pos_generic_type.clone())),
+            Box::from(TypeRef::GenericName(neg_generic_type.clone())),
         );
 
         FnIfPosResult {
             function_id,
+            pos_generic_type: pos_generic_type.clone(),
+            neg_generic_type: neg_generic_type.clone(),
             par_target: builder.req_par("target", &result_type),
             par_action: builder.req_par(
                 "action",
                 &TypeRef::Function(FunctionType {
-                    parameters: vec![TypeRef::GenericName(generic_pos_type.clone())],
-                    return_type: Box::from(TypeRef::GenericName(generic_pos_type)),
+                    parameters: vec![TypeRef::GenericName(pos_generic_type.clone())],
+                    return_type: Box::from(TypeRef::GenericName(pos_generic_type)),
                 }),
             ),
             result_type,
@@ -67,7 +75,7 @@ impl InternalFunction for FnIfPosResult {
         FunctionDeclaration::new_native(
             self.function_id,
             "map_pos",
-            Vec::new(),
+            vec![self.pos_generic_type.clone(), self.neg_generic_type.clone()],
             vec![&self.par_target, &self.par_action],
             &self.result_type,
         )
@@ -91,22 +99,24 @@ impl InternalFunction for FnIfPosResult {
 impl InternalFunction for FnIfNegResult {
     fn new(function_id: NativeFunctionId) -> Self {
         let mut builder = FunctionBuilder::new();
-        let generic_pos_type = Identifier::from("P");
-        let generic_neg_type = Identifier::from("N");
+        let pos_generic_type = Identifier::from("P");
+        let neg_generic_type = Identifier::from("N");
 
         let result_type = TypeRef::Result(
-            Box::from(TypeRef::GenericName(generic_pos_type.clone())),
-            Box::from(TypeRef::GenericName(generic_neg_type.clone())),
+            Box::from(TypeRef::GenericName(pos_generic_type.clone())),
+            Box::from(TypeRef::GenericName(neg_generic_type.clone())),
         );
 
         FnIfNegResult {
             function_id,
+            pos_generic_type: pos_generic_type.clone(),
+            neg_generic_type: neg_generic_type.clone(),
             par_target: builder.req_par("target", &result_type),
             par_action: builder.req_par(
                 "action",
                 &TypeRef::Function(FunctionType {
-                    parameters: vec![TypeRef::GenericName(generic_neg_type.clone())],
-                    return_type: Box::from(TypeRef::GenericName(generic_neg_type)),
+                    parameters: vec![TypeRef::GenericName(neg_generic_type.clone())],
+                    return_type: Box::from(TypeRef::GenericName(neg_generic_type)),
                 }),
             ),
             result_type,
@@ -117,7 +127,7 @@ impl InternalFunction for FnIfNegResult {
         FunctionDeclaration::new_native(
             self.function_id,
             "map_neg",
-            Vec::new(),
+            vec![self.pos_generic_type.clone(), self.neg_generic_type.clone()],
             vec![&self.par_target, &self.par_action],
             &self.result_type,
         )
@@ -141,18 +151,19 @@ impl InternalFunction for FnIfNegResult {
 impl InternalFunction for FnIfSomeOption {
     fn new(function_id: NativeFunctionId) -> Self {
         let mut builder = FunctionBuilder::new();
-        let generic_some_type = Identifier::from("T");
+        let some_generic_type = Identifier::from("T");
 
-        let option_type = TypeRef::new_optional(TypeRef::GenericName(generic_some_type.clone()));
+        let option_type = TypeRef::new_optional(TypeRef::GenericName(some_generic_type.clone()));
 
         FnIfSomeOption {
             function_id,
+            some_generic_type: some_generic_type.clone(),
             par_target: builder.req_par("target", &option_type),
             par_action: builder.req_par(
                 "action",
                 &TypeRef::Function(FunctionType {
-                    parameters: vec![TypeRef::GenericName(generic_some_type.clone())],
-                    return_type: Box::from(TypeRef::GenericName(generic_some_type)),
+                    parameters: vec![TypeRef::GenericName(some_generic_type.clone())],
+                    return_type: Box::from(TypeRef::GenericName(some_generic_type)),
                 }),
             ),
             option_type,
@@ -163,7 +174,7 @@ impl InternalFunction for FnIfSomeOption {
         FunctionDeclaration::new_native(
             self.function_id,
             "map",
-            Vec::new(),
+            vec![self.some_generic_type.clone()],
             vec![&self.par_target, &self.par_action],
             &self.option_type,
         )
@@ -187,18 +198,19 @@ impl InternalFunction for FnIfSomeOption {
 impl InternalFunction for FnIfNoneOption {
     fn new(function_id: NativeFunctionId) -> Self {
         let mut builder = FunctionBuilder::new();
-        let generic_some_type = Identifier::from("T");
+        let some_generic_type = Identifier::from("T");
 
-        let option_type = TypeRef::new_optional(TypeRef::GenericName(generic_some_type.clone()));
+        let option_type = TypeRef::new_optional(TypeRef::GenericName(some_generic_type.clone()));
 
         FnIfNoneOption {
             function_id,
+            some_generic_type: some_generic_type.clone(),
             par_target: builder.req_par("target", &option_type),
             par_action: builder.req_par(
                 "action",
                 &TypeRef::Function(FunctionType {
-                    parameters: vec![TypeRef::GenericName(generic_some_type.clone())],
-                    return_type: Box::from(TypeRef::GenericName(generic_some_type)),
+                    parameters: vec![TypeRef::GenericName(some_generic_type.clone())],
+                    return_type: Box::from(TypeRef::GenericName(some_generic_type)),
                 }),
             ),
             option_type,
@@ -209,7 +221,7 @@ impl InternalFunction for FnIfNoneOption {
         FunctionDeclaration::new_native(
             self.function_id,
             "if_none",
-            Vec::new(),
+            vec![self.some_generic_type.clone()],
             vec![&self.par_target, &self.par_action],
             &self.option_type,
         )

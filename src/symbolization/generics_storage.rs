@@ -25,10 +25,9 @@ impl GenStorage {
 
     pub fn set_substitution(&mut self, name: &Identifier, substitution: TypeRef) {
         // we avoid needing to clone `name` again; the key must already be here anyway
-        let entry = self
-            .arguments
-            .get_mut(name)
-            .expect("generics may only be resolved if they have been added with set_arguments first");
+        let entry = self.arguments.get_mut(name).expect(
+            "generics may only be resolved if they have been added with set_arguments first",
+        );
         *entry = Some(substitution);
     }
 
@@ -67,7 +66,10 @@ impl GenStorage {
 
     pub fn resolve(&self, type_to_resolve: &TypeRef) -> TypeRef {
         match type_to_resolve {
-            TypeRef::GenericName(id) => self.get_resolved_type(id).unwrap_or(type_to_resolve).clone(),
+            TypeRef::GenericName(id) => self
+                .get_resolved_type(id)
+                .unwrap_or(type_to_resolve)
+                .clone(),
             TypeRef::Result(a, b) => {
                 TypeRef::Result(Box::from(self.resolve(a)), Box::from(self.resolve(b)))
             },
@@ -84,13 +86,48 @@ impl GenStorage {
         }
     }
 
-    pub fn verify_equal(&mut self, actual_type: &TypeRef, expected_type: &TypeRef) -> SemanticResult<()> {
+    pub fn verify_equal(
+        &mut self,
+        actual_type: &TypeRef,
+        expected_type: &TypeRef,
+    ) -> SemanticResult<()> {
         // If the expected type is an unresolved generic, then we can use resolve that generic to the actual type.
         // If the expected type is a resolved generic, then we must check that the actual type matches this resolved type.
         // If the actual type is a generic, then it must be a generic parameter type of the surrounding function,
         // and we treat it as a regular type, even resolving the expected generic to the generic actual type
+        if TypeRef::is_boolean(actual_type) && TypeRef::is_boolean(expected_type) {
+            return Ok(());
+        }
 
         let is_comparable = match (actual_type, expected_type) {
+            (TypeRef::GenericName(actual_id), TypeRef::GenericName(expected_id)) => {
+                let resolved_actual = self.get_resolved_type(actual_id);
+                let resolved_expected = self.get_resolved_type(expected_id);
+                match (resolved_actual, resolved_expected) {
+                    (Some(resolved_actual), Some(resolved_expected)) => {
+                        if resolved_actual != resolved_expected {
+                            // this is a tricky error: both expected and actual are generic types,
+                            // but both have been resolved to different types.
+                            return Err(SemanticError::AmbiguousGenericType {
+                                generic_name: expected_id.clone(),
+                                first_type: resolved_expected.clone(),
+                                second_type: resolved_actual.clone(),
+                            });
+                        } else {
+                            true
+                        }
+                    },
+                    (Some(resolved_actual), None) => {
+                        self.set_substitution(expected_id, resolved_actual.clone());
+                        true
+                    }
+                    (None, Some(resolved_expected)) => {
+                        self.set_substitution(actual_id, resolved_expected.clone());
+                        true
+                    }
+                    (None, None) => panic!("Tried matching generic {actual_id} with {expected_id} but neither has been resolved yet"),
+                }
+            },
             (actual_type, TypeRef::GenericName(id)) => {
                 let resolution = self.get_resolved_type(id);
                 if let Some(resolution) = resolution {
@@ -102,15 +139,17 @@ impl GenStorage {
                         });
                     }
                 } else {
-                    // resolve the generic expected type to the actual type, even if it is generic
+                    // resolve the generic expected type to the actual type
                     self.set_substitution(id, actual_type.clone());
                 }
+
                 true
-            }
-            (TypeRef::GenericName(_), _) => {
-                // expected_type is not a generic, actual type is a generic parameter type of the surrounding function
-                false
-            }
+            },
+            (TypeRef::GenericName(id), expected) => {
+                // expected_type is not a generic, actual type is a generic parameter type of the surrounding function.
+                // if the generic is not already resolved, then we don't accept it
+                self.get_resolved_type(id) == Some(expected)
+            },
             (TypeRef::Defined(a), TypeRef::Defined(b)) => {
                 if (a.id == b.id) && (a.generics.len() == b.generics.len()) {
                     for (a2, b2) in a.generics.iter().zip(&b.generics) {
@@ -126,28 +165,24 @@ impl GenStorage {
             },
             (TypeRef::UnnamedTuple(a), TypeRef::UnnamedTuple(b)) => {
                 if a.len() != b.len() {
-                    return Err(SemanticError::TypeMismatchError {
-                        expected: expected_type.clone(),
-                        found: actual_type.clone(),
-                    });
+                    false
+                } else {
+                    for (a2, b2) in a.iter().zip(b) {
+                        self.verify_equal(a2, b2)?;
+                    }
+                    true
                 }
-                for (a2, b2) in a.iter().zip(b) {
-                    self.verify_equal(a2, b2)?;
-                }
-                true
             },
             (TypeRef::Stream(a), TypeRef::Stream(b)) => return self.verify_equal(a, b),
             (TypeRef::Function(a), TypeRef::Function(b)) => {
                 if a.parameters.len() != b.parameters.len() {
-                    return Err(SemanticError::TypeMismatchError {
-                        expected: expected_type.clone(),
-                        found: actual_type.clone(),
-                    });
+                    false
+                } else {
+                    for (a2, b2) in a.parameters.iter().zip(&b.parameters) {
+                        self.verify_equal(a2, b2)?;
+                    }
+                    return self.verify_equal(&b.return_type, &a.return_type);
                 }
-                for (a2, b2) in a.parameters.iter().zip(&b.parameters) {
-                    self.verify_equal(a2, b2)?;
-                }
-                return self.verify_equal(&b.return_type, &a.return_type);
             },
             (TypeRef::Void, TypeRef::Void) => true,
             (TypeRef::Break, TypeRef::Break) => true,
