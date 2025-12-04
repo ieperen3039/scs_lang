@@ -63,6 +63,11 @@ pub enum SemanticError {
         symbol: ast::Identifier,
         scope: Vec<ast::Identifier>,
     },
+    WhileComparingType {
+        expected: ast::TypeRef,
+        found: ast::TypeRef,
+        cause: Box<SemanticError>,
+    },
     WhileParsing {
         rule_name: ast::Identifier,
         first_char: usize,
@@ -190,6 +195,13 @@ impl Display for SemanticError {
                     } => f.write_fmt(format_args!(
                         "{cause}\n\twhile parsing \"{rule_name}\" (char {first_char} to {last_char})"
                     )),
+            SemanticError::WhileComparingType {
+                expected,
+                found,
+                cause,
+            } => f.write_fmt(format_args!(
+                "{cause}\n\t(comparing \"{expected:?}\" with \"{found:?}\")"
+            )),
             SemanticError::SyntaxError { error_lines } => {
                 for line in error_lines {
                     f.write_str(&line)?;

@@ -85,8 +85,20 @@ impl GenStorage {
             _ => type_to_resolve.clone(),
         }
     }
-
     pub fn verify_equal(
+        &mut self,
+        actual_type: &TypeRef,
+        expected_type: &TypeRef,
+    ) -> SemanticResult<()> {
+        self.verify_equal_inner(actual_type, expected_type)
+            .map_err(|e| SemanticError::WhileComparingType {
+                expected: expected_type.clone(),
+                found: actual_type.clone(),
+                cause: Box::new(e),
+            })
+    }
+
+    pub fn verify_equal_inner(
         &mut self,
         actual_type: &TypeRef,
         expected_type: &TypeRef,
@@ -95,10 +107,6 @@ impl GenStorage {
         // If the expected type is a resolved generic, then we must check that the actual type matches this resolved type.
         // If the actual type is a generic, then it must be a generic parameter type of the surrounding function,
         // and we treat it as a regular type, even resolving the expected generic to the generic actual type
-        if TypeRef::is_boolean(actual_type) && TypeRef::is_boolean(expected_type) {
-            return Ok(());
-        }
-
         let is_comparable = match (actual_type, expected_type) {
             (TypeRef::GenericName(actual_id), TypeRef::GenericName(expected_id)) => {
                 let resolved_actual = self.get_resolved_type(actual_id);
@@ -142,25 +150,36 @@ impl GenStorage {
                     // resolve the generic expected type to the actual type
                     self.set_substitution(id, actual_type.clone());
                 }
-
                 true
             },
             (TypeRef::GenericName(id), expected) => {
                 // expected_type is not a generic, actual type is a generic parameter type of the surrounding function.
                 // if the generic is not already resolved, then we don't accept it
-                self.get_resolved_type(id) == Some(expected)
+                let resolution = self.get_resolved_type(id);
+
+                if resolution == None {
+                    false
+                } else if resolution != Some(expected) {
+                    return Err(SemanticError::AmbiguousGenericType {
+                        generic_name: id.clone(),
+                        first_type: resolution.unwrap_or(actual_type).clone(),
+                        second_type: expected.clone(),
+                    });
+                } else {
+                    true
+                }
             },
             (TypeRef::Defined(a), TypeRef::Defined(b)) => {
                 if (a.id == b.id) && (a.generics.len() == b.generics.len()) {
                     for (a2, b2) in a.generics.iter().zip(&b.generics) {
-                        self.verify_equal(a2, b2)?
+                        self.verify_equal_inner(a2, b2)?
                     }
                 }
                 true
             },
             (TypeRef::Result(a1, a2), TypeRef::Result(b1, b2)) => {
-                self.verify_equal(a1, b1)?;
-                self.verify_equal(a2, b2)?;
+                self.verify_equal_inner(a1, b1)?;
+                self.verify_equal_inner(a2, b2)?;
                 true
             },
             (TypeRef::UnnamedTuple(a), TypeRef::UnnamedTuple(b)) => {
@@ -168,20 +187,20 @@ impl GenStorage {
                     false
                 } else {
                     for (a2, b2) in a.iter().zip(b) {
-                        self.verify_equal(a2, b2)?;
+                        self.verify_equal_inner(a2, b2)?;
                     }
                     true
                 }
             },
-            (TypeRef::Stream(a), TypeRef::Stream(b)) => return self.verify_equal(a, b),
+            (TypeRef::Stream(a), TypeRef::Stream(b)) => return self.verify_equal_inner(a, b),
             (TypeRef::Function(a), TypeRef::Function(b)) => {
                 if a.parameters.len() != b.parameters.len() {
                     false
                 } else {
                     for (a2, b2) in a.parameters.iter().zip(&b.parameters) {
-                        self.verify_equal(a2, b2)?;
+                        self.verify_equal_inner(a2, b2)?;
                     }
-                    return self.verify_equal(&b.return_type, &a.return_type);
+                    return self.verify_equal_inner(&b.return_type, &a.return_type);
                 }
             },
             (TypeRef::Void, TypeRef::Void) => true,
