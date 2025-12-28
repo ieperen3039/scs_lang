@@ -11,28 +11,24 @@ use crate::{
 };
 
 pub struct FnIfPosResult {
-    function_id: NativeFunctionId,
     decl: FunctionDeclaration,
     par_target: Parameter,
     par_action: Parameter,
 }
 
 pub struct FnIfNegResult {
-    function_id: NativeFunctionId,
     decl: FunctionDeclaration,
     par_target: Parameter,
     par_action: Parameter,
 }
 
 pub struct FnIfSomeOption {
-    function_id: NativeFunctionId,
     decl: FunctionDeclaration,
     par_target: Parameter,
     par_action: Parameter,
 }
 
 pub struct FnIfNoneOption {
-    function_id: NativeFunctionId,
     decl: FunctionDeclaration,
     par_target: Parameter,
     par_action: Parameter,
@@ -55,16 +51,15 @@ impl InternalFunction for FnIfPosResult {
             "action",
             &TypeRef::Function(FunctionType {
                 parameters: vec![TypeRef::GenericName(pos_generic_type.clone())],
-                return_type: Box::from(TypeRef::GenericName(return_generic_type)),
+                return_type: Box::from(TypeRef::GenericName(return_generic_type.clone())),
             }),
         );
 
         FnIfPosResult {
-            function_id,
             decl: FunctionDeclaration::new_native(
                 function_id,
                 "map_pos",
-                vec![pos_generic_type, neg_generic_type],
+                vec![pos_generic_type, neg_generic_type, return_generic_type],
                 vec![&par_target, &par_action],
                 &result_type,
             ),
@@ -107,15 +102,14 @@ impl InternalFunction for FnIfNegResult {
             "action",
             &TypeRef::Function(FunctionType {
                 parameters: vec![TypeRef::GenericName(neg_generic_type.clone())],
-                return_type: Box::from(TypeRef::GenericName(return_generic_type)),
+                return_type: Box::from(TypeRef::GenericName(return_generic_type.clone())),
             }),
         );
         FnIfNegResult {
-            function_id,
             decl: FunctionDeclaration::new_native(
                 function_id,
                 "map_neg",
-                vec![pos_generic_type, neg_generic_type],
+                vec![pos_generic_type, neg_generic_type, return_generic_type],
                 vec![&par_target, &par_action],
                 &result_type,
             ),
@@ -156,15 +150,14 @@ impl InternalFunction for FnIfSomeOption {
             "action",
             &TypeRef::Function(FunctionType {
                 parameters: vec![TypeRef::GenericName(some_generic_type.clone())],
-                return_type: Box::from(TypeRef::GenericName(return_generic_type)),
+                return_type: Box::from(TypeRef::GenericName(return_generic_type.clone())),
             }),
         );
         FnIfSomeOption {
-            function_id,
             decl: FunctionDeclaration::new_native(
                 function_id,
                 "map",
-                vec![some_generic_type],
+                vec![some_generic_type, return_generic_type],
                 vec![&par_target, &par_action],
                 &option_type,
             ),
@@ -202,20 +195,19 @@ impl InternalFunction for FnIfNoneOption {
             "action",
             &TypeRef::Function(FunctionType {
                 parameters: vec![TypeRef::GenericName(some_generic_type.clone())],
-                return_type: Box::from(TypeRef::GenericName(return_generic_type)),
+                return_type: Box::from(TypeRef::GenericName(return_generic_type.clone())),
             }),
         );
         FnIfNoneOption {
-            function_id,
             decl: FunctionDeclaration::new_native(
                 function_id,
                 "if_none",
-                vec![some_generic_type],
+                vec![some_generic_type, return_generic_type],
                 vec![&par_target, &par_action],
                 &option_type,
             ),
-            par_target: par_target,
-            par_action: par_action,
+            par_target,
+            par_action,
         }
     }
 

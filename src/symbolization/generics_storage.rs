@@ -64,25 +64,25 @@ impl GenStorage {
             .collect()
     }
 
-    pub fn resolve(&self, type_to_resolve: &TypeRef) -> TypeRef {
+    pub fn resolve(&self, type_to_resolve: TypeRef) -> TypeRef {
         match type_to_resolve {
             TypeRef::GenericName(id) => self
-                .get_resolved_type(id)
-                .unwrap_or(type_to_resolve)
-                .clone(),
+                .get_resolved_type(&id)
+                .cloned()
+                .unwrap_or(TypeRef::GenericName(id)),
             TypeRef::Result(a, b) => {
-                TypeRef::Result(Box::from(self.resolve(a)), Box::from(self.resolve(b)))
+                TypeRef::Result(Box::from(self.resolve(*a)), Box::from(self.resolve(*b)))
             },
             TypeRef::UnnamedTuple(tuple_elements) => {
-                TypeRef::UnnamedTuple(tuple_elements.iter().map(|t| self.resolve(t)).collect())
+                TypeRef::UnnamedTuple(tuple_elements.into_iter().map(|t| self.resolve(t)).collect())
             },
-            TypeRef::Stream(box_t) => TypeRef::Stream(Box::from(self.resolve(box_t))),
+            TypeRef::Stream(box_t) => TypeRef::Stream(Box::from(self.resolve(*box_t))),
             TypeRef::Function(f) => TypeRef::Function(FunctionType {
-                parameters: f.parameters.iter().map(|p| self.resolve(p)).collect(),
-                return_type: Box::new(self.resolve(&f.return_type)),
+                parameters: f.parameters.into_iter().map(|p| self.resolve(p)).collect(),
+                return_type: Box::new(self.resolve(*f.return_type)),
             }),
             TypeRef::UnresolvedName(_) => panic!("unresolved types should not exist at this stage"),
-            _ => type_to_resolve.clone(),
+            _ => type_to_resolve,
         }
     }
     pub fn verify_equal(
@@ -136,39 +136,22 @@ impl GenStorage {
                     (None, None) => panic!("Tried matching generic {actual_id} with {expected_id} but neither has been resolved yet"),
                 }
             },
-            (actual_type, TypeRef::GenericName(id)) => {
-                let resolution = self.get_resolved_type(id);
+            (concrete_type, TypeRef::GenericName(generic_id)) | (TypeRef::GenericName(generic_id), concrete_type)=> {
+                let resolution = self.get_resolved_type(generic_id);
                 if let Some(resolution) = resolution {
-                    if resolution != actual_type {
+                    if resolution != concrete_type {
                         return Err(SemanticError::AmbiguousGenericType {
-                            generic_name: id.clone(),
+                            generic_name: generic_id.clone(),
                             first_type: resolution.clone(),
-                            second_type: actual_type.clone(),
+                            second_type: concrete_type.clone(),
                         });
                     }
                 } else {
                     // resolve the generic expected type to the actual type
-                    self.set_substitution(id, actual_type.clone());
+                    self.set_substitution(generic_id, concrete_type.clone());
                 }
                 true
-            },
-            (TypeRef::GenericName(id), expected) => {
-                // expected_type is not a generic, actual type is a generic parameter type of the surrounding function.
-                // if the generic is not already resolved, then we don't accept it
-                let resolution = self.get_resolved_type(id);
-
-                if resolution == None {
-                    false
-                } else if resolution != Some(expected) {
-                    return Err(SemanticError::AmbiguousGenericType {
-                        generic_name: id.clone(),
-                        first_type: resolution.unwrap_or(actual_type).clone(),
-                        second_type: expected.clone(),
-                    });
-                } else {
-                    true
-                }
-            },
+            }
             (TypeRef::Defined(a), TypeRef::Defined(b)) => {
                 if (a.id == b.id) && (a.generics.len() == b.generics.len()) {
                     for (a2, b2) in a.generics.iter().zip(&b.generics) {

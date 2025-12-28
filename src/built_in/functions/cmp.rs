@@ -9,22 +9,19 @@ use crate::{
 };
 
 pub struct FnEqual {
-    function_id: NativeFunctionId,
-    generic_type: Identifier,
+    decl: FunctionDeclaration,
     par_left: Parameter,
     par_right: Parameter,
 }
 
 pub struct FnLessThan {
-    function_id: NativeFunctionId,
-    generic_type: Identifier,
+    decl: FunctionDeclaration,
     par_left: Parameter,
     par_right: Parameter,
 }
 
 pub struct FnGreaterThan {
-    function_id: NativeFunctionId,
-    generic_type: Identifier,
+    decl: FunctionDeclaration,
     par_left: Parameter,
     par_right: Parameter,
 }
@@ -34,22 +31,24 @@ impl InternalFunction for FnEqual {
         let mut builder = FunctionBuilder::new();
         let generic_type: Identifier = Identifier::from("T");
 
+        let par_left = builder.req_par_s("left", "l", &TypeRef::GenericName(generic_type.clone()));
+        let par_right =
+            builder.req_par_s("right", "r", &TypeRef::GenericName(generic_type.clone()));
         FnEqual {
-            function_id,
-            generic_type: generic_type.clone(),
-            par_left: builder.req_par_s("left", "l", &TypeRef::GenericName(generic_type.clone())),
-            par_right: builder.req_par_s("right", "r", &TypeRef::GenericName(generic_type.clone())),
+            decl: FunctionDeclaration::new_native(
+                function_id,
+                "equals",
+                vec![generic_type.clone()],
+                vec![&par_left, &par_right],
+                &TypeRef::boolean(),
+            ),
+            par_left,
+            par_right,
         }
     }
 
-    fn get_declaration(&self) -> FunctionDeclaration {
-        FunctionDeclaration::new_native(
-            self.function_id,
-            "equals",
-            vec![self.generic_type.clone()],
-            vec![&self.par_left, &self.par_right],
-            &TypeRef::boolean(),
-        )
+    fn get_declaration(&self) -> &FunctionDeclaration {
+        &self.decl
     }
 
     fn call(&self, arguments: Vec<Value>, _: &Interpreter) -> InterpResult<Value> {
@@ -63,22 +62,24 @@ impl InternalFunction for FnLessThan {
         let mut builder = FunctionBuilder::new();
         let generic_type: Identifier = Identifier::from("T");
 
+        let par_left = builder.req_par_s("left", "l", &TypeRef::GenericName(generic_type.clone()));
+        let par_right =
+            builder.req_par_s("right", "r", &TypeRef::GenericName(generic_type.clone()));
         FnLessThan {
-            function_id,
-            generic_type: generic_type.clone(),
-            par_left: builder.req_par_s("left", "l", &TypeRef::GenericName(generic_type.clone())),
-            par_right: builder.req_par_s("right", "r", &TypeRef::GenericName(generic_type.clone())),
+            decl: FunctionDeclaration::new_native(
+                function_id,
+                "less_than",
+                vec![generic_type.clone()],
+                vec![&par_left, &par_right],
+                &TypeRef::boolean(),
+            ),
+            par_left,
+            par_right,
         }
     }
 
-    fn get_declaration(&self) -> FunctionDeclaration {
-        FunctionDeclaration::new_native(
-            self.function_id,
-            "less_than",
-            vec![self.generic_type.clone()],
-            vec![&self.par_left, &self.par_right],
-            &TypeRef::boolean(),
-        )
+    fn get_declaration(&self) -> &FunctionDeclaration {
+        &self.decl
     }
 
     fn call(&self, arguments: Vec<Value>, _: &Interpreter) -> InterpResult<Value> {
@@ -92,22 +93,24 @@ impl InternalFunction for FnGreaterThan {
         let mut builder = FunctionBuilder::new();
         let generic_type: Identifier = Identifier::from("T");
 
+        let par_left = builder.req_par_s("left", "l", &TypeRef::GenericName(generic_type.clone()));
+        let par_right =
+            builder.req_par_s("right", "r", &TypeRef::GenericName(generic_type.clone()));
         FnGreaterThan {
-            function_id,
-            generic_type: generic_type.clone(),
-            par_left: builder.req_par_s("left", "l", &TypeRef::GenericName(generic_type.clone())),
-            par_right: builder.req_par_s("right", "r", &TypeRef::GenericName(generic_type.clone())),
+            decl: FunctionDeclaration::new_native(
+                function_id,
+                "greater_than",
+                vec![generic_type.clone()],
+                vec![&par_left, &par_right],
+                &TypeRef::boolean(),
+            ),
+            par_left,
+            par_right,
         }
     }
 
-    fn get_declaration(&self) -> FunctionDeclaration {
-        FunctionDeclaration::new_native(
-            self.function_id,
-            "greater_than",
-            vec![self.generic_type.clone()],
-            vec![&self.par_left, &self.par_right],
-            &TypeRef::boolean(),
-        )
+    fn get_declaration(&self) -> &FunctionDeclaration {
+        &self.decl
     }
 
     fn call(&self, arguments: Vec<Value>, _: &Interpreter) -> InterpResult<Value> {
@@ -129,9 +132,12 @@ fn compare_less(left: &Value, right: &Value) -> InterpResult<bool> {
 
                 return compare_less(pair.0, pair.1);
             }
-            unreachable!("Empty tuples should not exist")
+            // equal
+            Ok(false)
         },
-        _ => Err(InterpretationError::InternalError(format!("Try to compare type {left:?} and type {right:?}"))),
+        _ => Err(InterpretationError::InternalError(format!(
+            "Try to compare type {left:?} and type {right:?}"
+        ))),
     }
 }
 
@@ -148,9 +154,12 @@ fn compare_greater(left: &Value, right: &Value) -> InterpResult<bool> {
 
                 return compare_greater(pair.0, pair.1);
             }
-            unreachable!("Empty tuples should not exist")
+            // equal
+            Ok(false)
         },
-        _ => Err(InterpretationError::InternalError(format!("Try to compare type {left:?} and type {right:?}"))),
+        _ => Err(InterpretationError::InternalError(format!(
+            "Try to compare type {left:?} and type {right:?}"
+        ))),
     }
 }
 
@@ -168,6 +177,8 @@ fn compare_equal(left: &Value, right: &Value) -> InterpResult<bool> {
             }
             Ok(true)
         },
-        _ => Err(InterpretationError::InternalError(format!("Try to compare type {left:?} and type {right:?}"))),
+        _ => Err(InterpretationError::InternalError(format!(
+            "Try to compare type {left:?} and type {right:?}"
+        ))),
     }
 }

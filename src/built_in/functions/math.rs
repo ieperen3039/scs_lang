@@ -5,31 +5,31 @@ use crate::{
 };
 
 pub struct FnAdd {
-    function_id: NativeFunctionId,
+    decl: FunctionDeclaration,
     par_left: Parameter,
     par_right: Parameter,
 }
 
 pub struct FnSub {
-    function_id: NativeFunctionId,
+    decl: FunctionDeclaration,
     par_left: Parameter,
     par_right: Parameter,
 }
 
 pub struct FnMul {
-    function_id: NativeFunctionId,
+    decl: FunctionDeclaration,
     par_left: Parameter,
     par_right: Parameter,
 }
 
 pub struct FnDiv {
-    function_id: NativeFunctionId,
+    decl: FunctionDeclaration,
     par_left: Parameter,
     par_right: Parameter,
 }
 
 pub struct FnSqrt {
-    function_id: NativeFunctionId,
+    decl: FunctionDeclaration,
     par_value: Parameter,
 }
 
@@ -37,21 +37,23 @@ impl InternalFunction for FnAdd {
     fn new(function_id: NativeFunctionId) -> Self {
         let mut builder = FunctionBuilder::new();
 
+        let par_left = builder.req_par_s("left", "l", &TypeRef::INT);
+        let par_right = builder.req_par_s("right", "r", &TypeRef::INT);
         FnAdd {
-            function_id,
-            par_left: builder.req_par_s("left", "l", &TypeRef::INT),
-            par_right: builder.req_par_s("right", "r", &TypeRef::INT),
+            decl: FunctionDeclaration::new_native(
+                function_id,
+                "add",
+                Vec::new(),
+                vec![&par_left, &par_right],
+                &TypeRef::INT,
+            ),
+            par_left,
+            par_right,
         }
     }
 
-    fn get_declaration(&self) -> FunctionDeclaration {
-        FunctionDeclaration::new_native(
-            self.function_id,
-            "add",
-            Vec::new(),
-            vec![&self.par_left, &self.par_right],
-            &TypeRef::INT,
-        )
+    fn get_declaration(&self) -> &FunctionDeclaration {
+        &self.decl
     }
 
     fn call(&self, mut arguments: Vec<Value>, _: &Interpreter) -> InterpResult<Value> {
@@ -65,21 +67,23 @@ impl InternalFunction for FnSub {
     fn new(function_id: NativeFunctionId) -> Self {
         let mut builder = FunctionBuilder::new();
 
+        let par_left = builder.req_par_s("left", "l", &TypeRef::INT);
+        let par_right = builder.req_par_s("right", "r", &TypeRef::INT);
         FnSub {
-            function_id,
-            par_left: builder.req_par_s("left", "l", &TypeRef::INT),
-            par_right: builder.req_par_s("right", "r", &TypeRef::INT),
+            decl: FunctionDeclaration::new_native(
+                function_id,
+                "sub",
+                Vec::new(),
+                vec![&par_left, &par_right],
+                &TypeRef::INT,
+            ),
+            par_left,
+            par_right,
         }
     }
 
-    fn get_declaration(&self) -> FunctionDeclaration {
-        FunctionDeclaration::new_native(
-            self.function_id,
-            "sub",
-            Vec::new(),
-            vec![&self.par_left, &self.par_right],
-            &TypeRef::INT,
-        )
+    fn get_declaration(&self) -> &FunctionDeclaration {
+        &self.decl
     }
 
     fn call(&self, mut arguments: Vec<Value>, _: &Interpreter) -> InterpResult<Value> {
@@ -93,21 +97,22 @@ impl InternalFunction for FnMul {
     fn new(function_id: NativeFunctionId) -> Self {
         let mut builder = FunctionBuilder::new();
 
+        let par_left = builder.req_par_s("left", "l", &TypeRef::INT);
+        let par_right = builder.req_par_s("right", "r", &TypeRef::INT);
         FnMul {
-            function_id,
-            par_left: builder.req_par_s("left", "l", &TypeRef::INT),
-            par_right: builder.req_par_s("right", "r", &TypeRef::INT),
+            decl: FunctionDeclaration::new_native(
+                function_id,
+                "mul",
+                Vec::new(),
+                vec![&par_left, &par_right],
+                &TypeRef::INT,
+            ),
+            par_left,
+            par_right,
         }
     }
-
-    fn get_declaration(&self) -> FunctionDeclaration {
-        FunctionDeclaration::new_native(
-            self.function_id,
-            "mul",
-            Vec::new(),
-            vec![&self.par_left, &self.par_right],
-            &TypeRef::INT,
-        )
+    fn get_declaration(&self) -> &FunctionDeclaration {
+        &self.decl
     }
 
     fn call(&self, mut arguments: Vec<Value>, _: &Interpreter) -> InterpResult<Value> {
@@ -121,21 +126,23 @@ impl InternalFunction for FnDiv {
     fn new(function_id: NativeFunctionId) -> Self {
         let mut builder = FunctionBuilder::new();
 
+        let par_left = builder.req_par_s("left", "l", &TypeRef::INT);
+        let par_right = builder.req_par_s("right", "r", &TypeRef::INT);
         FnDiv {
-            function_id,
-            par_left: builder.req_par_s("left", "l", &TypeRef::INT),
-            par_right: builder.req_par_s("right", "r", &TypeRef::INT),
+            decl: FunctionDeclaration::new_native(
+                function_id,
+                "div",
+                Vec::new(),
+                vec![&par_left, &par_right],
+                &TypeRef::INT,
+            ),
+            par_left,
+            par_right,
         }
     }
 
-    fn get_declaration(&self) -> FunctionDeclaration {
-        FunctionDeclaration::new_native(
-            self.function_id,
-            "div",
-            Vec::new(),
-            vec![&self.par_left, &self.par_right],
-            &TypeRef::INT,
-        )
+    fn get_declaration(&self) -> &FunctionDeclaration {
+        &self.decl
     }
 
     fn call(&self, mut arguments: Vec<Value>, _: &Interpreter) -> InterpResult<Value> {
@@ -149,20 +156,20 @@ impl InternalFunction for FnSqrt {
     fn new(function_id: NativeFunctionId) -> Self {
         let mut builder = FunctionBuilder::new();
 
+        let par_value = builder.req_par_s("value", "v", &TypeRef::INT);
         FnSqrt {
-            function_id,
-            par_value: builder.req_par_s("value", "v", &TypeRef::INT),
+            decl: FunctionDeclaration::new_native(
+                function_id,
+                "sqrt",
+                Vec::new(),
+                vec![&par_value],
+                &TypeRef::INT,
+            ),
+            par_value,
         }
     }
-
-    fn get_declaration(&self) -> FunctionDeclaration {
-        FunctionDeclaration::new_native(
-            self.function_id,
-            "sqrt",
-            Vec::new(),
-            vec![&self.par_value],
-            &TypeRef::INT,
-        )
+    fn get_declaration(&self) -> &FunctionDeclaration {
+        &self.decl
     }
 
     fn call(&self, mut arguments: Vec<Value>, _: &Interpreter) -> InterpResult<Value> {

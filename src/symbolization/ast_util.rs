@@ -47,6 +47,60 @@ impl TypeRef {
             return_type: Box::new(decl.return_type.clone()),
         })
     }
+
+    pub fn collapse(self) -> TypeRef {
+        match self {
+            TypeRef::Result(a, b) => {
+                let a_collapsed = a.collapse();
+                let b_collapsed = b.collapse();
+                if a_collapsed == TypeRef::Break {
+                    b_collapsed
+                } else if b_collapsed == TypeRef::Break {
+                    a_collapsed
+                } else {
+                    TypeRef::Result(Box::from(a_collapsed), Box::from(b_collapsed))
+                }
+            },
+            TypeRef::Stream(t) => {
+                let t_collapsed = t.collapse();
+                if t_collapsed == TypeRef::Break {
+                    TypeRef::Break
+                } else {
+                    TypeRef::Stream(Box::from(t_collapsed))
+                }
+            },
+            TypeRef::UnnamedTuple(v) => {
+                let vec: Vec<TypeRef> = v
+                    .into_iter()
+                    .map(|t| t.collapse())
+                    .filter(|t| t == &TypeRef::Break)
+                    .collect();
+
+                if vec.is_empty() {
+                    TypeRef::Break
+                } else {
+                    TypeRef::UnnamedTuple(vec)
+                }
+            },
+            TypeRef::Function(fn_type) => {
+                if fn_type.parameters.is_empty() {
+                    // function calls that evaluate to fn<()T> are evaluated to T
+                    // explicit lamdas can be used to create fn<()T>
+                    fn_type.return_type.collapse()
+                } else {
+                    TypeRef::Function(FunctionType {
+                        parameters: fn_type
+                            .parameters
+                            .into_iter()
+                            .map(|t| t.collapse())
+                            .collect(),
+                        return_type: Box::new(fn_type.return_type.collapse()),
+                    })
+                }
+            }
+            _ => self,
+        }
+    }
 }
 
 impl From<&TypeDefinition> for TypeRef {
@@ -76,7 +130,7 @@ impl std::fmt::Debug for TypeRef {
                 f.debug_tuple("Optional").field(arg0).finish()
             },
             Self::Result(arg0, arg1) => f.debug_tuple("Result").field(arg0).field(arg1).finish(),
-            Self::UnnamedTuple(arg0) => f.debug_tuple("UnamedTuple").field(arg0).finish(),
+            Self::UnnamedTuple(arg0) => f.debug_tuple("UnnamedTuple").field(arg0).finish(),
             Self::Stream(arg0) => f.debug_tuple("Stream").field(arg0).finish(),
             Self::Function(arg0) => f.debug_tuple("Function").field(arg0).finish(),
             Self::Void => write!(f, "Void"),
@@ -110,9 +164,12 @@ impl FunctionType {
 }
 
 impl FunctionExpression {
+    // returns the unresolved, collapsed type of this expression
     pub fn get_type(&self) -> TypeRef {
         self.inner.get_type()
     }
+
+    // returns the unresolved, collapsed type of this expression
     pub fn get_return_type(&self) -> TypeRef {
         self.inner.get_return_type()
     }
@@ -123,38 +180,39 @@ impl FunctionExpressionInner {
     pub fn get_type(&self) -> TypeRef {
         match &self {
             FunctionExpressionInner::FunctionCall(fc) => {
-                if fc.value_type.parameters.is_empty() {
-                    // function calls that evaluate to fn<()T> are evaluated to T
-                    // explicit lamdas can be used to create fn<()T>
-                    fc.value_type.return_type.deref().clone()
-                } else {
-                    TypeRef::Function(fc.value_type.clone())
-                }
+                TypeRef::Function(fc.value_type.clone()).collapse()
             },
             FunctionExpressionInner::Assignment(var) => TypeRef::Function(FunctionType {
-                parameters: vec![var.var_type.clone()],
+                parameters: vec![var.var_type.clone().collapse()],
                 return_type: Box::from(TypeRef::Break),
             }),
             FunctionExpressionInner::Lamda(lamda) => TypeRef::Function(FunctionType {
-                parameters: lamda.parameters.clone(),
-                return_type: Box::from(lamda.body.return_type.clone()),
+                parameters: lamda
+                    .parameters
+                    .iter()
+                    .cloned()
+                    .map(|t| t.collapse())
+                    .collect(),
+                return_type: Box::from(lamda.body.return_type.clone().collapse()),
             }),
             FunctionExpressionInner::Operator(op) => TypeRef::Function(FunctionType {
-                parameters: vec![op.inner_type.clone()],
-                return_type: Box::from(op.return_type.clone()),
+                parameters: vec![op.inner_type.clone().collapse()],
+                return_type: Box::from(op.return_type.clone().collapse()),
             }),
-            FunctionExpressionInner::Cast(t) => t.clone(),
+            FunctionExpressionInner::Cast(t) => t.clone().collapse(),
         }
     }
 
     // the type that this expression returns after completing all its arguments and evaluating it
     pub fn get_return_type(&self) -> TypeRef {
         match &self {
-            FunctionExpressionInner::FunctionCall(fc) => fc.value_type.return_type.deref().clone(),
+            FunctionExpressionInner::FunctionCall(fc) => {
+                fc.value_type.return_type.deref().clone().collapse()
+            },
             FunctionExpressionInner::Assignment(_) => TypeRef::Break,
-            FunctionExpressionInner::Lamda(lamda) => lamda.body.return_type.clone(),
-            FunctionExpressionInner::Operator(op) => op.return_type.clone(),
-            FunctionExpressionInner::Cast(t) => t.clone(),
+            FunctionExpressionInner::Lamda(lamda) => lamda.body.return_type.clone().collapse(),
+            FunctionExpressionInner::Operator(op) => op.return_type.clone().collapse(),
+            FunctionExpressionInner::Cast(t) => t.clone().collapse(),
         }
     }
 }
@@ -198,8 +256,9 @@ impl FunctionDeclaration {
 }
 
 impl ValueExpression {
+    // returns the unresolved, collapsed type of this expression
     pub fn get_type(&self, variables: &VarStorage) -> TypeRef {
-        self.inner.get_type(variables)
+        self.inner.get_type(variables).collapse()
     }
 }
 impl ValueExpressionInner {
@@ -242,10 +301,7 @@ impl Namespace {
         }
     }
 
-    pub fn get_namespace(
-        &self,
-        namespace: &[Identifier],
-    ) -> SemanticResult<&Namespace> {
+    pub fn get_namespace(&self, namespace: &[Identifier]) -> SemanticResult<&Namespace> {
         match namespace.first() {
             None => Ok(self),
             Some(first) => {

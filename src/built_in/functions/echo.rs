@@ -5,7 +5,7 @@ use crate::{
 };
 
 pub struct FnEcho {
-    function_id: NativeFunctionId,
+    decl: FunctionDeclaration,
     par_in: Parameter,
     par_error: Parameter,
 }
@@ -14,22 +14,22 @@ impl InternalFunction for FnEcho {
     fn new(function_id: NativeFunctionId) -> Self {
         let mut builder = FunctionBuilder::new();
 
+        let par_in = builder.req_par("in", &TypeRef::STRING);
+        let par_error = builder.flag("error");
         FnEcho {
-            function_id,
-            par_in: builder.req_par("in", &TypeRef::STRING),
-            par_error: builder.flag("error"),
+            decl: FunctionDeclaration::new_native(
+                function_id,
+                "echo",
+                Vec::new(),
+                vec![&par_in, &par_error],
+                &TypeRef::STRING,
+            ),
+            par_in,
+            par_error,
         }
     }
 
-    fn get_declaration(&self) -> FunctionDeclaration {
-        FunctionDeclaration::new_native(
-            self.function_id,
-            "echo",
-            Vec::new(),
-            vec![&self.par_in, &self.par_error],
-            &TypeRef::STRING,
-        )
-    }
+    fn get_declaration(&self) -> &FunctionDeclaration { &self.decl }
 
     fn call(&self, mut arguments: Vec<Value>, _: &Interpreter) -> InterpResult<Value> {
         let val_in = FunctionBuilder::get_string(&mut arguments, &self.par_in);

@@ -181,7 +181,7 @@ impl FunctionParser<'_, '_, '_> {
         let expression =
             self.read_value_expression(expression_node, namespace, variables, generics, None)?;
 
-        let mut expression_type = expression.get_type(variables);
+        let mut expression_type = generics.resolve(expression.get_type(variables));
         let mut mutations = Vec::new();
         let mut previous_expr_node = expression_node;
 
@@ -914,7 +914,7 @@ impl FunctionParser<'_, '_, '_> {
         for p in remaining_parameters {
             if p.is_optional { continue; }
 
-            let resolved_type = function_local_generics.resolve(&p.par_type);
+            let resolved_type = function_local_generics.resolve(p.par_type);
 
             if let TypeRef::GenericName(par) = resolved_type {
                 return Err(SemanticError::UnresolvedGenericType {
@@ -935,7 +935,7 @@ impl FunctionParser<'_, '_, '_> {
         }
 
         // resolve generic return type if necessary
-        let return_type = function_local_generics.resolve(&function_decl.return_type);
+        let return_type = function_local_generics.resolve(function_decl.return_type);
 
         Ok(FunctionCall {
             target: function_decl.id.into(),
